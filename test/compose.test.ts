@@ -1,0 +1,181 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { compose } from '../src/compose.ts';
+import type { ChatEvent, Panel } from '../src/types.ts';
+
+const cast = {
+  alice: { characterId: 'nib' },
+  bob: { characterId: 'nib' },
+  cara: { characterId: 'nib' },
+};
+
+const backdrops = ['room', 'field', 'pastoral'];
+
+function run(events: ChatEvent[], overrides = {}): Panel[] {
+  return compose({ events, cast, backdrops, seed: 1234, ...overrides });
+}
+
+const SAMPLE: ChatEvent[] = [
+  { type: 'join', author: 'alice', at: 0 },
+  { type: 'join', author: 'bob', at: 1 },
+  { type: 'message', author: 'alice', text: 'Hi Bob!', at: 2 },
+  { type: 'message', author: 'bob', text: "Hey Alice, LOL you're back", at: 3, addressees: ['alice'] },
+  { type: 'action', author: 'alice', text: 'waves cheerfully', at: 4 },
+  { type: 'message', author: 'alice', text: 'I MISSED YOU!!!', at: 5, addressees: ['bob'] },
+  { type: 'message', author: 'bob', text: 'IMHO you should visit more often', at: 6, addressees: ['alice'] },
+];
+
+describe('compose', () => {
+  it('produces panels from a small chat log', () => {
+    const panels = run(SAMPLE);
+    assert.ok(panels.length > 0);
+    panels.forEach((p, i) => assert.equal(p.panelIndex, i, 'panel indices are sequential'));
+  });
+
+  it('opens with an establishing shot for each join', () => {
+    const panels = run(SAMPLE);
+    assert.equal(panels[0]!.zoom, 'establishing');
+    assert.equal(panels[1]!.zoom, 'establishing');
+  });
+
+  it('is deterministic for a fixed seed', () => {
+    assert.deepEqual(run(SAMPLE), run(SAMPLE));
+  });
+
+  it('produces different layouts for different seeds', () => {
+    const a = run(SAMPLE, { seed: 1 });
+    const b = run(SAMPLE, { seed: 99999 });
+    assert.notDeepEqual(a, b, 'layout randomness should actually vary');
+  });
+
+  it('uppercases balloon text but leaves narration alone', () => {
+    const panels = run(SAMPLE);
+    const balloons = panels.flatMap((p) => p.balloons);
+
+    const speech = balloons.filter((b) => b.kind === 'speech');
+    assert.ok(speech.length > 0);
+    for (const b of speech) {
+      assert.equal(b.text, b.text.toUpperCase(), 'speech balloons are all caps');
+    }
+
+    const narration = balloons.find((b) => b.kind === 'narration');
+    assert.ok(narration, 'the /me action should become a narration box');
+    assert.equal(narration.text, 'waves cheerfully');
+    assert.equal(narration.tail, null);
+  });
+
+  it('never puts two speech balloons from one character in a panel', () => {
+    const panels = run(SAMPLE);
+    for (const panel of panels) {
+      const speakers = panel.balloons.filter((b) => b.kind !== 'narration').map((b) => b.speaker);
+      assert.equal(new Set(speakers).size, speakers.length, `panel ${panel.panelIndex} repeats a speaker`);
+    }
+  });
+
+  it('keeps every balloon speaker present in their panel', () => {
+    for (const panel of run(SAMPLE)) {
+      const present = new Set(panel.characters.map((c) => c.author));
+      for (const balloon of panel.balloons) {
+        assert.ok(present.has(balloon.speaker), `${balloon.speaker} speaks but is not drawn`);
+      }
+    }
+  });
+
+  it('honours the character cap', () => {
+    const events: ChatEvent[] = [
+      { type: 'message', author: 'alice', text: 'one', at: 0 },
+      { type: 'message', author: 'bob', text: 'two', at: 1 },
+      { type: 'message', author: 'cara', text: 'three', at: 2 },
+    ];
+    const panels = compose({ events, cast, backdrops, seed: 5, rules: { maxCharactersPerPanel: 2 } });
+    for (const panel of panels) {
+      assert.ok(panel.characters.length <= 2, 'cap exceeded');
+    }
+  });
+
+  it('keeps balloons inside the panel and above the character row', () => {
+    const panels = run(SAMPLE);
+    const regionBottom = 300 * 0.55;
+    for (const panel of panels) {
+      for (const b of panel.balloons) {
+        assert.ok(b.x >= -1e-6, 'balloon runs off the left edge');
+        assert.ok(b.x + b.width <= 400 + 1e-6, 'balloon runs off the right edge');
+        assert.ok(b.y + b.height <= regionBottom + 1e-6, 'balloon dips below the balloon region');
+      }
+    }
+  });
+
+  it('never overlaps two balloons within a panel', () => {
+    for (const panel of run(SAMPLE)) {
+      const bs = panel.balloons;
+      for (let i = 0; i < bs.length; i++) {
+        for (let j = i + 1; j < bs.length; j++) {
+          const a = bs[i]!;
+          const b = bs[j]!;
+          const overlapX = a.x < b.x + b.width - 1e-6 && b.x < a.x + a.width - 1e-6;
+          const overlapY = a.y < b.y + b.height - 1e-6 && b.y < a.y + a.height - 1e-6;
+          assert.ok(!(overlapX && overlapY), `panel ${panel.panelIndex}: balloons overlap`);
+        }
+      }
+    }
+  });
+
+  it('assigns a contiguous reading order within each panel', () => {
+    for (const panel of run(SAMPLE)) {
+      const orders = panel.balloons.map((b) => b.readingOrder).sort((a, b) => a - b);
+      orders.forEach((o, i) => assert.equal(o, i, 'reading order must be 0..n-1'));
+    }
+  });
+
+  it('splits an utterance too long for one panel and marks it continued', () => {
+    const long = Array.from({ length: 200 }, (_, i) => `word${i}`).join(' ');
+    const panels = compose({
+      events: [{ type: 'message', author: 'alice', text: long, at: 0 }],
+      cast,
+      backdrops,
+      seed: 3,
+    });
+    const balloons = panels.flatMap((p) => p.balloons);
+    assert.ok(balloons.length > 1, 'a very long utterance must span several balloons');
+    assert.ok(balloons.every((b) => b.continued), 'split fragments are marked continued');
+    assert.ok(balloons[0]!.text.endsWith('...'), 'fragments are joined by ellipses');
+  });
+
+  it('infers addressees from names in the text', () => {
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'join', author: 'bob', at: 1 },
+        { type: 'message', author: 'alice', text: 'bob what do you think', at: 2 },
+      ],
+      cast,
+      backdrops,
+      seed: 11,
+    });
+    const panel = panels.find((p) => p.balloons.length > 0)!;
+    assert.ok(
+      panel.characters.some((c) => c.author === 'bob'),
+      'an addressee named in the text is pulled into the panel',
+    );
+  });
+
+  it('cycles backdrops across establishing shots', () => {
+    const panels = run(SAMPLE);
+    const establishing = panels.filter((p) => p.zoom === 'establishing');
+    assert.ok(establishing.length >= 2);
+    assert.notEqual(establishing[0]!.backdrop, establishing[1]!.backdrop);
+  });
+
+  it('handles an empty event list', () => {
+    assert.deepEqual(run([]), []);
+  });
+
+  it('ignores leave events without emitting a panel', () => {
+    const panels = run([
+      { type: 'join', author: 'alice', at: 0 },
+      { type: 'leave', author: 'alice', at: 1 },
+    ]);
+    assert.equal(panels.length, 1, 'only the join produces a panel');
+  });
+});

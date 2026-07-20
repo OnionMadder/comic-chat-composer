@@ -1,0 +1,277 @@
+{
+  "id": "nib",
+  "name": "Nib",
+  "icon": "icon.svg",
+  "heads": {
+    "neu": {
+      "src": "head-neu.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    },
+    "hap": {
+      "src": "head-hap.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    },
+    "laf": {
+      "src": "head-laf.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    },
+    "coy": {
+      "src": "head-coy.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    },
+    "sad": {
+      "src": "head-sad.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    },
+    "ang": {
+      "src": "head-ang.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    },
+    "sho": {
+      "src": "head-sho.svg",
+      "attach": {
+        "x": 20,
+        "y": 36
+      },
+      "tailAnchor": {
+        "x": 20,
+        "y": 20
+      },
+      "halo": {
+        "x": 2,
+        "y": 2,
+        "width": 36,
+        "height": 36
+      }
+    }
+  },
+  "bodies": {
+    "neutral": [
+      {
+        "src": "body-neutral-1.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      },
+      {
+        "src": "body-neutral-2.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      }
+    ],
+    "wave": [
+      {
+        "src": "body-wave.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      }
+    ],
+    "point-self": [
+      {
+        "src": "body-point-self.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      }
+    ],
+    "point-other": [
+      {
+        "src": "body-point-other.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      }
+    ],
+    "smile": [
+      {
+        "src": "body-smile.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      }
+    ],
+    "shrug": [
+      {
+        "src": "body-shrug.svg",
+        "headAttach": {
+          "x": 30,
+          "y": 8
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 60,
+          "height": 90
+        },
+        "halo": {
+          "x": 8,
+          "y": 0,
+          "width": 44,
+          "height": 90
+        }
+      }
+    ]
+  },
+  "backdropPreferences": [
+    "room",
+    "field"
+  ]
+}

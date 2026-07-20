@@ -1,0 +1,44 @@
+{
+  "name": "comic-chat-composer",
+  "version": "0.1.0",
+  "description": "Comic panel composition from a chat log — an independent open-source reimplementation of the Microsoft Comic Chat layout algorithm described by Kurlander, Skelly & Salesin (SIGGRAPH '96).",
+  "keywords": [
+    "comic",
+    "comic-chat",
+    "layout",
+    "speech-balloon",
+    "panel",
+    "siggraph",
+    "chat"
+  ],
+  "license": "MIT",
+  "author": "Onion Madder",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "example": "node --experimental-strip-types examples/basic-chat.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
