@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>comic-chat-composer demo</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font: 14px/1.5 system-ui, sans-serif;
+    margin: 0; padding: 24px;
+    background: #f4f4f0; color: #111;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16161a; color: #eee; }
+    textarea, input { background: #222; color: #eee; border-color: #444; }
+    .panel-note { color: #999; }
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .panel-note { color: #666; margin: 0 0 20px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+  textarea {
+    width: min(520px, 100%); height: 170px; padding: 10px;
+    font: 13px/1.5 ui-monospace, monospace;
+    border: 1px solid #ccc; border-radius: 8px; resize: vertical;
+  }
+  .side { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+  input[type=number] { width: 100px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
+  button { padding: 6px 12px; border-radius: 6px; border: 1px solid #888; background: transparent; color: inherit; cursor: pointer; }
+  #status { font-size: 13px; color: #666; margin-bottom: 12px; }
+  #out { display: flex; flex-wrap: wrap; gap: 18px; }
+  figure { margin: 0; }
+  .frame svg { display: block; max-width: 100%; height: auto; border-radius: 4px; }
+  figcaption { font-size: 11px; color: #888; margin-top: 5px; text-align: center; }
+  code { background: rgba(128,128,128,.18); padding: 1px 5px; border-radius: 4px; }
+</style>
+
+<h1>comic-chat-composer</h1>
+<p class="panel-note">
+  Type a chat log. Formats: <code>alice: hello</code>,
+  <code>alice -&gt; bob: hello</code> (explicit addressee),
+  <code>* alice waves</code> (action).
+</p>
+
+<div class="controls">
+  <textarea id="log" spellcheck="false">alice: Hi Bob!
+bob -> alice: Hey Alice, LOL you're back
+* alice waves cheerfully
+alice -> bob: I MISSED YOU!!!
+bob -> alice: IMHO you should visit more often
+cara: Did you two start without me? :-(
+alice -> cara: never :-)</textarea>
+  <div class="side">
+    <label>Seed<br><input id="seed" type="number" value="1234"></label>
+    <button id="reseed">Randomise seed</button>
+    <label><input id="debug" type="checkbox"> Show layout guides</label>
+  </div>
+</div>
+
+<div id="status"></div>
+<div id="out"></div>
+
+<script>"use strict";(()=>{var E={id:"nib",name:"Nib",icon:"icon.svg",heads:{neu:{src:"head-neu.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}},hap:{src:"head-hap.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}},laf:{src:"head-laf.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}},coy:{src:"head-coy.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}},sad:{src:"head-sad.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}},ang:{src:"head-ang.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}},sho:{src:"head-sho.svg",attach:{x:20,y:36},tailAnchor:{x:20,y:20},halo:{x:2,y:2,width:36,height:36}}},bodies:{neutral:[{src:"body-neutral-1.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}},{src:"body-neutral-2.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}}],wave:[{src:"body-wave.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}}],"point-self":[{src:"body-point-self.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}}],"point-other":[{src:"body-point-other.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}}],smile:[{src:"body-smile.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}}],shrug:[{src:"body-shrug.svg",headAttach:{x:30,y:8},bounds:{x:0,y:0,width:60,height:90},halo:{x:8,y:0,width:44,height:90}}]},backdropPreferences:["room","field"]};var O={"body-neutral-1.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <line x1="30" y1="18" x2="16" y2="36"/>
+    <line x1="30" y1="18" x2="44" y2="36"/>
+  </g>`,"body-neutral-2.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <line x1="30" y1="18" x2="18" y2="40"/>
+    <line x1="30" y1="18" x2="43" y2="34"/>
+  </g>`,"body-point-other.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <line x1="30" y1="18" x2="16" y2="36"/>
+    <line x1="30" y1="18" x2="52" y2="20"/>
+  </g>`,"body-point-self.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <line x1="30" y1="18" x2="16" y2="36"/>
+    <polyline points="30,18 40,26 31,30"/>
+  </g>`,"body-shrug.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <polyline points="30,18 18,24 14,12"/>
+    <polyline points="30,18 42,24 46,12"/>
+  </g>`,"body-smile.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <polyline points="30,18 18,26 26,34"/>
+    <polyline points="30,18 42,26 34,34"/>
+  </g>`,"body-wave.svg":`<g fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="30" y1="8" x2="30" y2="48"/>
+    <line x1="30" y1="48" x2="18" y2="86"/>
+    <line x1="30" y1="48" x2="42" y2="86"/>
+    <line x1="30" y1="18" x2="16" y2="36"/>
+    <polyline points="30,18 44,12 46,2"/>
+  </g>`,"head-ang.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <circle cx="14" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <circle cx="26" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <path d="M11 13 L17 11"/>
+    <path d="M29 13 L23 11"/>
+    <path d="M13 28 Q20 24 27 28"/>
+  </g>`,"head-coy.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <path d="M11 16 Q14 13 17 16"/>
+    <circle cx="26" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <path d="M15 26 Q20 29 25 26"/>
+    <circle cx="10" cy="23" r="2.5" fill="#f2a0a0" stroke="none"/>
+    <circle cx="30" cy="23" r="2.5" fill="#f2a0a0" stroke="none"/>
+  </g>`,"head-hap.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <circle cx="14" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <circle cx="26" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <path d="M13 25 Q20 31 27 25"/>
+  </g>`,"head-laf.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <path d="M11 17 Q14 13 17 17"/>
+    <path d="M23 17 Q26 13 29 17"/>
+    <ellipse cx="20" cy="27" rx="6" ry="4" fill="#111" stroke="none"/>
+  </g>`,"head-neu.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <circle cx="14" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <circle cx="26" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <path d="M13 27 H27"/>
+  </g>`,"head-sad.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <circle cx="14" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <circle cx="26" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <path d="M11 11 L17 13"/>
+    <path d="M29 11 L23 13"/>
+    <path d="M13 28 Q20 23 27 28"/>
+  </g>`,"head-sho.svg":`<g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="20" r="16" fill="#fff"/>
+    <circle cx="14" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <circle cx="26" cy="16" r="1.8" fill="#111" stroke="none"/>
+    <path d="M11 13 L17 11"/>
+    <path d="M29 13 L23 11"/>
+    <ellipse cx="20" cy="28" rx="7" ry="5" fill="#111" stroke="none"/>
+  </g>`,"icon.svg":`<rect width="40" height="40" fill="#fff"/>
+  <g fill="none" stroke="#111" stroke-width="2" stroke-linecap="round">
+    <circle cx="20" cy="14" r="9"/>
+    <circle cx="17" cy="12" r="1.5" fill="#111" stroke="none"/>
+    <circle cx="23" cy="12" r="1.5" fill="#111" stroke="none"/>
+    <path d="M16 17 Q20 20 24 17"/>
+    <line x1="20" y1="23" x2="20" y2="32"/>
+    <line x1="20" y1="26" x2="13" y2="32"/>
+    <line x1="20" y1="26" x2="27" y2="32"/>
+  </g>`};var le=new Set([..."ijltfIJ1.,;:'\"`!|()[]{}/\\ "]),ce=new Set([..."mwMW@%&"]);function H(e={}){let t=e.fontSize??12,n=t*(e.advanceRatio??.62);return{lineHeight:t*(e.lineHeightRatio??1.25),measure(c){let a=0;for(let o of c)le.has(o)?a+=n*.5:ce.has(o)?a+=n*1.45:a+=n;return a}}}function L(e,t){let n=0;for(let r of e.split(/\s+/))r&&(n=Math.max(n,t.measure(r)));return n}function A(e,t,n){let r=e.split(/\s+/).filter(Boolean);if(r.length===0)return[];let c=[],a="";for(let o of r){let h=a?`${a} ${o}`:o;a&&n.measure(h)>t?(c.push(a),a=o):a=h}return a&&c.push(a),c}function N(e,t){let n=0;for(let r of e)n=Math.max(n,t.measure(r));return n}function j(e,t,n,r){let c=e.split(/\s+/).filter(Boolean);if(c.length===0)return[];let a=[],o=[],h=s=>A(s.join(" "),t,r).length<=n;for(let s of c){let u=[...o,s];o.length>0&&!h(u)?(a.push(o.join(" ")),o=[s]):o=u}return o.length>0&&a.push(o.join(" ")),a.length<=1?a:a.map((s,u)=>{let p=u>0?"...":"",l=u<a.length-1?"...":"";return`${p}${s}${l}`})}function _(e){let t=e>>>0;return()=>{t=t+1831565813|0;let n=Math.imul(t^t>>>15,1|t);return n=n+Math.imul(n^n>>>7,61|n)^n,((n^n>>>14)>>>0)/4294967296}}function R(e,t,n){return n>t?t+e()*(n-t):t}var I=e=>e.r-e.l;function he(e,t,n,r,c){return t<r?{l:Math.max(n.l,Math.min(e.l+c,t)),r:n.r}:{l:n.l,r:Math.min(n.r,Math.max(e.r-c,t))}}function ue(e,t,n,r){return t<r?{l:e.l,r:Math.min(e.r,n.l)}:{l:Math.max(e.l,n.r),r:e.r}}function de(e,t,n,r){let{metrics:c,panelWidth:a,rand:o}=n,h=n.shortLineWidth??a*.4,s=c.measure(e);if(s<=h)return s+r*2;let u=s*c.lineHeight*(4/3),p=t>0?u/t:a,l=Math.max(L(e,c),p)+r*2;return R(o,Math.min(l,a),a)}function q(e,t,n,r){let c=A(e,Math.max(1,t-r*2),n),a=Math.max(1,c.length)*n.lineHeight+r*2;return{lines:c,height:a}}function fe(e,t,n,r){let c=Math.max(e.l,n-t),a=Math.min(e.r-t,n);if(a<c){let h=Math.max(e.l,Math.min(e.r-t,n-t/2));return{l:h,r:h+t}}let o=R(r,c,a);return{l:o,r:o+t}}function G(e,t,n,r,c){let{metrics:a}=r,o=I(e);if(o<=c*2||L(t,a)>o-c*2)return null;let{lines:h,height:s}=q(t,o,a,c);return s>n?null:{lines:h,height:s}}function z(e,t){let{metrics:n,region:r,minTailChannelWidth:c,panelWidth:a}=t,o=t.padding??n.lineHeight*.6,h=[],s=[],u=[],p=r.top;for(let d=0;d<e.length;d++){let f=e[d],y=f.speakerX,k=r.bottom-p;if(k<=0)return l(d);let P=Math.min(de(f.text,k,t,o),a),v={l:Math.max(0,y-P),r:Math.min(a,y+P)};for(let i=0;i<d;i++)v=he(h[i],u[i],v,y,c);let w;if(I(v)>=P){let i=fe(v,P,y,t.rand),{lines:x,height:b}=q(f.text,P,n,o);if(b>k){let g=G(v,f.text,k,t,o);if(!g)return l(d);w={l:v.l,r:v.r,lines:g.lines,height:g.height}}else w={l:i.l,r:i.r,lines:x,height:b}}else{let i=G(v,f.text,k,t,o);if(!i)return l(d);w={l:v.l,r:v.r,lines:i.lines,height:i.height}}let M={l:w.l,r:w.r};for(let i=0;i<d;i++)h[i]=ue(h[i],u[i],M,y);h.push(M),s.push(w),u.push(y),p+=w.height}return l(e.length);function l(d){let f=d;if(f===0)return{balloons:[],placedCount:0};let y=[];for(let P=0;P<f;P++){let v=s[P],w=(v.l+v.r)/2,M=r.top;for(let i=0;i<P;i++){let x=s[i],b=(x.l+x.r)/2;x.l<v.r&&v.l<x.r||b>w?M=Math.max(M,y[i]+x.height):M=Math.max(M,y[i])}if(M+v.height>r.bottom)return k(P);y.push(M)}return k(f);function k(P){if(P===0)return{balloons:[],placedCount:0};let v=Math.max(...Array.from({length:P},(b,g)=>y[g]+s[g].height)),w=r.bottom-r.top,M=Math.max(r.bottom,v+n.lineHeight*.5,r.top+w*(2/3)),i=[];for(let b=0;b<P;b++){let g=s[b],$=e[b],B=h[b],m=y[b],F=m+g.height;i.push({request:$,lines:g.lines,x:g.l,y:m,width:g.r-g.l,height:g.height,channel:B,tail:$.kind==="narration"?null:pe(g,B,$.speakerX,F,M,n,t),readingOrder:0})}return i.map((b,g)=>({i:g,y:b.y,x:b.x})).sort((b,g)=>b.y!==g.y?b.y-g.y:b.x-g.x).forEach((b,g)=>{i[b.i].readingOrder=g}),{balloons:i,placedCount:P}}}}function pe(e,t,n,r,c,a,o){let h=Math.min(o.minTailChannelWidth/2,I(t)/4),s=e.lines[e.lines.length-1]??"",u=N([s],a),p=(e.l+e.r)/2,l={l:p-u/2,r:p+u/2},d={l:Math.max(l.l,t.l+h),r:Math.min(l.r,t.r-h)},f;if(I(d)>=h)f=R(o.rand,d.l,d.r);else{let y=a.lineHeight*.75,k=n<p?n+y:n-y;f=Math.min(Math.max(k,t.l+h),Math.max(t.l+h,t.r-h))}return{fromX:f,fromY:r,toX:n,toY:Math.max(c,r),curve:f<n?"ccw":"cw"}}function U(e,t){let{metrics:n,region:r,panelWidth:c}=t,a=t.padding??n.lineHeight*.6,o=Math.max(1,c-a*2),h=Math.max(1,Math.floor((r.bottom-r.top-a*2)/n.lineHeight));return A(e,o,n).length<=h?[e]:j(e,o,h,n)}function X(e,t){return e.facing==="right"?t.x>e.x:t.x<e.x}function ge(e,t,n){let r=Math.min(t.x,n.x),c=Math.max(t.x,n.x),a=0;for(let o of e)o===t||o===n||o.x>r&&o.x<c&&a++;return a}function xe(e,t,n,r,c){let o=(n.get(e.author)??[]).includes(t.author),h=X(e,t),s=X(t,e),u=0;return o?(s||(u+=c.addrOtherNotFacing),h||(u+=c.addrNotFacing),u+=c.addrBetweenFactor*r):(h||(u+=c.notAddrNotFacing),s||(u+=c.notAddrOtherNotFacing)),u}function Y(e,t,n){let r=0;for(let c of e)for(let a of e)c!==a&&(r+=xe(c,a,t,ge(e,c,a),n));return r}function V(e,t,n){let r=0;for(let c of e){let a=t.get(c.author);a!==void 0&&Math.abs(a-c.x)>1e-6&&(r+=n.neighborChange)}return r}function T(e){let{authors:t,addresseesOf:n,previousPositions:r,panelWidth:c,penalties:a}=e,o=t.length;if(o===0)return[];let h=Array.from({length:o},(l,d)=>(d+1)*c/(o+1)),s=[];for(let l of t){let d=new Set(s.map(k=>k.x)),f,y=Number.POSITIVE_INFINITY;for(let k of h)if(!d.has(k))for(let P of["left","right"]){let v={author:l,x:k,facing:P},w=[...s,v],M=Y(w,n,a)+V(w,r,a);M<y&&(y=M,f=v)}s.push(f)}let u=l=>Y(l,n,a)+V(l,r,a),p=!0;for(;p;){p=!1;let l=u(s);for(let d=0;d<s.length;d++){let f=s.slice(),y=s[d];f[d]={...y,facing:y.facing==="left"?"right":"left"};let k=u(f);k<l&&(s[d]=f[d],l=k,p=!0)}for(let d=0;d<s.length;d++)for(let f=d+1;f<s.length;f++){let y=s[d],k=s[f],P=s.slice();P[d]={...y,x:k.x},P[f]={...k,x:y.x};let v=u(P);v<l&&(s[d]=P[d],s[f]=P[f],l=v,p=!0)}}if(o<=me){let l=ye(s,h,u);if(l)return l}return s}var me=5;function ye(e,t,n){let r=e.length,c=null,a=n(e),o=e.map(l=>l.author),h=[],s=new Array(r).fill(!1),u=()=>{if(h.length===r){for(let l=0;l<1<<r;l++){let d=h.map((y,k)=>({author:y,x:t[k],facing:l&1<<k?"right":"left"})),f=n(d);f<a&&(a=f,c=d)}return}for(let l=0;l<r;l++)s[l]||(s[l]=!0,h.push(o[l]),u(),h.pop(),s[l]=!1)};if(u(),!c)return null;let p=new Map(c.map(l=>[l.author,l]));return o.map(l=>p.get(l))}var be=[{test:/:-?\)/,expression:"happy"},{test:/:-?\(/,expression:"sad"},{test:/:-?D\b/,expression:"laughing"},{test:/;-?\)/,expression:"coy"},{test:/\b(?:LOL|ROTFL|LMAO)\b/i,expression:"laughing"},{test:/\bIMHO\b/i,gesture:"point-self"},{test:/\bBRB\b/i,gesture:"wave"},{test:/<g>|<grin>/i,gesture:"smile",expression:"happy"},{test:/^(?:You|Are you|Will you|Did you|Don't you|Do you)\b/i,gesture:"point-other",anchored:!0},{test:/^(?:I|I'll|I will|I'm|I am|I'd|I would)\b/i,gesture:"point-self",anchored:!0},{test:/^(?:Hi|Hello|Hey|Bye|Goodbye|Welcome)\b/i,gesture:"wave",anchored:!0},{test:/!{3,}/,expression:"shouting"}];function ke(e){return e.replace(/[^A-Za-z]/g,"").length>=3&&e===e.toUpperCase()}function D(e,t={}){let n=e.trim(),r,c;for(let s of be){let u=s.anchored?n:e;s.test.test(u)&&(s.gesture&&(r=s.gesture),s.expression&&(c=s.expression))}ke(n)&&(c="shouting");let a=Math.max(1,t.neutralPoseCount??1),h=r!==void 0?t.previousNeutralVariant??0:((t.previousNeutralVariant??-1)+1)%a;return{gesture:t.gestureOverride??r??"neutral",expression:t.expressionOverride??c??"neutral",neutralVariant:h}}function Q(e){return e.type==="join"||e.type==="leave"}var K={notAddrNotFacing:4,notAddrOtherNotFacing:2,addrOtherNotFacing:4,addrNotFacing:40,addrBetweenFactor:4,neighborChange:1},Pe={maxCharactersPerPanel:5,soloPanelProbability:.15,panelsBetweenEstablishingShots:15,panelWidth:400,panelHeight:300,balloonRegionFraction:.55,minTailChannelWidth:14,facingPenalties:K};function W(){return{utterances:[],order:[],addresseesOf:new Map,expressionOf:new Map,gestureOf:new Map,forceEstablishing:!1,soloRolled:!1,solo:!1}}function ve(e){return{...Pe,...e,facingPenalties:{...K,...e?.facingPenalties??{}}}}function Me(e,t){return t?"establishing":e<=2?"close":e===3?"medium":"wide"}function Z(e){let t=ve(e.rules),n=e.metrics??H(),r=_(e.seed??42),c={top:n.lineHeight*.5,bottom:t.panelHeight*t.balloonRegionFraction},a={panelWidth:t.panelWidth,region:c,metrics:n,minTailChannelWidth:t.minTailChannelWidth,rand:r},o=[],h=new Set,s=new Map,u=0,p=0,l=W(),d=i=>{let x=T({authors:i.order,addresseesOf:i.addresseesOf,previousPositions:s,panelWidth:t.panelWidth,penalties:t.facingPenalties});if(i.utterances.length===0)return{placements:x,balloons:[]};let b=new Map(x.map(m=>[m.author,m.x])),g=i.utterances.map(m=>({speaker:m.author,text:m.kind==="narration"?m.text:m.text.toUpperCase(),kind:m.kind,speakerX:b.get(m.author)??t.panelWidth/2,continued:m.continued})),$=z(g,a);if($.placedCount<g.length)return null;let B=$.balloons.map(m=>({speaker:m.request.speaker,kind:m.request.kind,text:m.request.text,lines:m.lines,x:m.x,y:m.y,width:m.width,height:m.height,tail:m.tail,readingOrder:m.readingOrder,continued:m.request.continued??!1}));return{placements:x,balloons:B}},f=()=>{if(l.utterances.length===0&&!l.forceEstablishing){l=W();return}let i=d(l),x=i?.placements??T({authors:l.order,addresseesOf:l.addresseesOf,previousPositions:s,panelWidth:t.panelWidth,penalties:t.facingPenalties}),b=i?.balloons??[],g=x.map(m=>{let F=l.gestureOf.get(m.author);return{author:m.author,characterId:e.cast[m.author]?.characterId??"unknown",x:m.x,facing:m.facing,gesture:F?.pose.gesture??"neutral",expression:l.expressionOf.get(m.author)??"neutral"}}),$=Me(g.length,l.forceEstablishing),B=e.backdrops.length?e.backdrops[p%e.backdrops.length]:"default";o.push({panelIndex:o.length,zoom:$,characters:g,balloons:b,backdrop:B}),s=new Map(x.map(m=>[m.author,m.x])),$==="establishing"?(u=0,p++):u++,l=W()},y=i=>({utterances:[...i.utterances],order:[...i.order],addresseesOf:new Map(i.addresseesOf),expressionOf:new Map(i.expressionOf),gestureOf:new Map(i.gestureOf),forceEstablishing:i.forceEstablishing,soloRolled:i.soloRolled,solo:i.solo}),k=(i,x)=>{if(i.order.includes(x.author)||i.order.push(x.author),!i.solo)for(let b of x.addressees)i.order.includes(b)||i.order.push(b);i.utterances.push(x),i.addresseesOf.set(x.author,x.addressees),i.expressionOf.set(x.author,x.pose.expression),i.gestureOf.set(x.author,x)},P=i=>{if(l.utterances.length===0)return!1;if(l.solo||l.utterances.some(g=>g.author===i.author&&g.kind!=="narration"))return!0;let x=l.expressionOf.get(i.author);return x!==void 0&&x!==i.pose.expression||new Set([...l.order,i.author,...i.addressees]).size>t.maxCharactersPerPanel},v=new Map,w=(i,x,b)=>{let g=i.addressees??Object.keys(e.cast).filter(B=>B!==i.author&&h.has(B)&&new RegExp(`\\b${we(B)}\\b`,"i").test(i.text)),$=D(i.text,{expressionOverride:i.expressionOverride,gestureOverride:i.gestureOverride,previousNeutralVariant:v.get(i.author),neutralPoseCount:3});return v.set(i.author,$.neutralVariant),{author:i.author,text:x,kind:i.kind??(i.type==="action"?"narration":"speech"),pose:$,addressees:g,continued:b}},M=i=>{P(i)&&f(),l.utterances.length===0&&!l.soloRolled&&(l.soloRolled=!0,i.text.split(/\s+/).length>5&&r()<t.soloPanelProbability&&(l.solo=!0));let x=y(l);if(k(x,i),d(x)!==null){l=x;return}if(l.utterances.length>0){f();let g=y(l);if(k(g,i),d(g)!==null){l=g;return}}let b=U(i.text,a);if(b.length<=1){k(l,i),f();return}for(let g of b)M({...i,text:g,continued:!0})};for(let i of e.events){if(Q(i)){if(i.type==="leave"){h.delete(i.author);continue}f(),h.add(i.author),l.order.push(i.author),l.forceEstablishing=!0,f();continue}h.add(i.author),M(w(i,i.text,!1)),u>=t.panelsBetweenEstablishingShots&&(f(),l.order=[...h].slice(0,t.maxCharactersPerPanel),l.forceEstablishing=!0,f())}return f(),o}function we(e){return e.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}var $e=/^\*\s*(\S+)\s+(.*)$/,Ee=/^(\S+?)\s*->\s*(\S+?)\s*:\s*(.*)$/,Oe=/^(\S+?)\s*:\s*(.*)$/;function J(e){let t=[],n=[],r=new Set,c=0;for(let a of e.split(`
+`)){let o=a.trim();if(!o)continue;let h,s=$e.exec(o),u=Ee.exec(o),p=Oe.exec(o);s?h={type:"action",author:s[1],text:s[2],at:0}:u?h={type:"message",author:u[1],text:u[3],addressees:[u[2]],at:0}:p&&(h={type:"message",author:p[1],text:p[2],at:0}),h&&(r.has(h.author)||(r.add(h.author),n.push(h.author),t.push({type:"join",author:h.author,at:c++})),t.push({...h,at:c++}))}return{events:t,authors:n}}var Be={neutral:"neu",happy:"hap",sad:"sad",angry:"ang",laughing:"laf",shouting:"sho",coy:"coy",scared:"sho",bored:"neu"};function ee(e,t){return e.heads[Be[t]]}function te(e,t,n=0){let r=e.bodies[t]?.length?e.bodies[t]:e.bodies.neutral;return r[(n%r.length+r.length)%r.length]}var ne=e=>e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");function Ce(e,t){let{x:n,y:r,width:c,height:a}=e,o=Math.min(20,a/2,c/2),h=r+a,s=[`M ${n+o} ${r}`,`H ${n+c-o}`,`A ${o} ${o} 0 0 1 ${n+c} ${r+o}`,`V ${h-o}`,`A ${o} ${o} 0 0 1 ${n+c-o} ${h}`];if(t){let u=Math.max(6,Math.min(14,c*.12)),p=Math.min(Math.max(t.fromX,n+o+u),n+c-o-u),l=p+u,d=p-u,f=t.curve==="ccw"?-1:1,y=(h+t.toY)/2,k=`${l+f*6} ${y}`,P=`${d+f*10} ${y}`;s.push(`H ${l}`),s.push(`Q ${k} ${t.toX} ${t.toY}`),s.push(`Q ${P} ${d} ${h}`)}return s.push(`H ${n+o}`),s.push(`A ${o} ${o} 0 0 1 ${n} ${h-o}`),s.push(`V ${r+o}`),s.push(`A ${o} ${o} 0 0 1 ${n+o} ${r}`),s.push("Z"),s.join(" ")}function Ae(e){let{x:t,y:n,width:r,height:c}=e,a=t+r/2,o=n+c/2,h=Math.max(12,Math.round(r/14)),s=[];for(let u=0;u<h*2;u++){let p=u/(h*2)*Math.PI*2-Math.PI/2,l=u%2===0?1:.82;s.push(`${a+Math.cos(p)*(r/2)*l} ${o+Math.sin(p)*(c/2)*l}`)}return`M ${s.join(" L ")} Z`}function Re(e,t){let n=[],r="#111",c=e.x+e.width/2;if(e.kind==="narration")n.push(`<rect x="${e.x}" y="${e.y}" width="${e.width}" height="${e.height}" fill="#fff" stroke="${r}" stroke-width="2"/>`);else if(e.kind==="thought"){if(n.push(`<rect x="${e.x}" y="${e.y}" width="${e.width}" height="${e.height}" rx="${Math.min(24,e.height/2)}" fill="#fff" stroke="${r}" stroke-width="2"/>`),e.tail)for(let l=1;l<=4;l++){let d=l/5,f=e.tail.fromX+(e.tail.toX-e.tail.fromX)*d,y=e.y+e.height+(e.tail.toY-(e.y+e.height))*d,k=6*(1-d)+2;n.push(`<ellipse cx="${f}" cy="${y}" rx="${k*1.2}" ry="${k}" fill="#fff" stroke="${r}" stroke-width="2"/>`)}}else if(e.kind==="shout")n.push(`<path d="${Ae(e)}" fill="#fff" stroke="${r}" stroke-width="2" stroke-linejoin="round"/>`),e.tail&&n.push(`<path d="M ${e.tail.fromX} ${e.y+e.height} L ${e.tail.toX} ${e.tail.toY}" fill="none" stroke="${r}" stroke-width="2"/>`);else{let p=Ce(e,e.tail);e.kind==="whisper"?(n.push(`<path d="${p}" fill="#fff" stroke="#fff" stroke-width="7"/>`),n.push(`<path d="${p}" fill="none" stroke="${r}" stroke-width="2" stroke-dasharray="5 4"/>`)):n.push(`<path d="${p}" fill="#fff" stroke="${r}" stroke-width="2"/>`)}let a=e.kind==="whisper"?' font-style="italic"':"",o=e.kind==="shout"?' font-weight="bold"':"",h=e.lines.length>0?e.lines:[e.text],s=h.length*t,u=e.y+(e.height-s)/2+t*.78;return h.forEach((p,l)=>{n.push(`<text x="${c}" y="${u+l*t}" text-anchor="middle" font-family="'Comic Sans MS', 'Comic Neue', cursive" font-size="${t*.78}"${a}${o} fill="#111">${ne(p)}</text>`)}),n.join(`
+`)}function Ie(e,t,n){let r=t.characters[e.characterId];if(!r)return"";let c=te(r,e.gesture),a=ee(r,e.expression),o=e.x-c.headAttach.x+a.attach.x-a.tailAnchor.x,h=n-c.bounds.height,s=o+c.headAttach.x-a.attach.x,u=h+c.headAttach.y-a.attach.y;return`<g${e.facing==="left"?` transform="translate(${2*e.x},0) scale(-1,1)"`:""}>
+  <g transform="translate(${o},${h})">${t.sprite(c.src)}</g>
+  <g transform="translate(${s},${u})">${t.sprite(a.src)}</g>
+</g>`}function re(e,t){let{panelWidth:n,panelHeight:r}=t,c=15,a=r-8,o=[];o.push(`<rect x="1.5" y="1.5" width="${n-3}" height="${r-3}" fill="${t.background??"#fdfdf8"}" stroke="#111" stroke-width="3"/>`),t.debug&&o.push(`<line x1="0" y1="${r*.55}" x2="${n}" y2="${r*.55}" stroke="#ccc" stroke-dasharray="4 4"/>`);for(let s of e.characters)o.push(Ie(s,t,a));let h=[...e.balloons].sort((s,u)=>s.readingOrder-u.readingOrder);for(let s of h)o.push(Re(s,c));if(t.debug)for(let s of e.characters)o.push(`<text x="${s.x}" y="${r-3}" font-size="9" text-anchor="middle" fill="#999">${ne(s.author)}</text>`);return`<svg xmlns="http://www.w3.org/2000/svg" width="${n}" height="${r}" viewBox="0 0 ${n} ${r}">
+${o.join(`
+`)}
+</svg>`}var Se=O,Fe=E,oe=400,se=300,C=e=>document.getElementById(e);function S(){let e=C("log").value,t=Number(C("seed").value)||0,n=C("debug").checked,r=C("out"),c=C("status");try{let{events:a,authors:o}=J(e);if(o.length===0){r.innerHTML="",c.textContent="Nothing to compose yet.";return}let h=Object.fromEntries(o.map(u=>[u,{characterId:"nib"}])),s=Z({events:a,cast:h,backdrops:["room","field","pastoral"],seed:t,rules:{panelWidth:oe,panelHeight:se}});r.innerHTML=s.map(u=>{let p=re(u,{characters:{nib:Fe},sprite:d=>Se[d]??"",panelWidth:oe,panelHeight:se,debug:n}),l=`panel ${u.panelIndex} \xB7 ${u.zoom} \xB7 ${u.backdrop}`;return`<figure><div class="frame">${p}</div><figcaption>${l}</figcaption></figure>`}).join(""),c.textContent=`${a.length} events \u2192 ${s.length} panels \xB7 ${o.length} participants`}catch(a){r.innerHTML="",c.textContent=`Error: ${a.message}`}}for(let e of["log","seed","debug"])C(e).addEventListener("input",S),C(e).addEventListener("change",S);C("reseed").addEventListener("click",()=>{C("seed").value=String(Math.floor(Math.random()*1e5)),S()});S();})();
+</script>
+</html>

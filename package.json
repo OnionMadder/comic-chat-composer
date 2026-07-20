@@ -35,10 +35,12 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.ts",
-    "example": "node --experimental-strip-types examples/basic-chat.ts"
+    "example": "node --experimental-strip-types examples/basic-chat.ts",
+    "demo": "node --experimental-strip-types examples/demo/build.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "esbuild": "^0.28.1",
     "typescript": "^5.7.2"
   }
 }

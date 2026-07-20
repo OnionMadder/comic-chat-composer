@@ -349,10 +349,16 @@ export function layoutBalloons(
 
       // Tails all come to a point at roughly the same height, below the lowest
       // balloon and within the lowest third of the balloon region (§5.4).
+      //
+      // Those are both lower bounds, so the tip is taken all the way down to
+      // the bottom of the balloon region — which is exactly the line above the
+      // tallest character's head. Stopping at the lowest-third bound instead
+      // leaves the tail hanging in mid-air well short of the speaker.
       const regionHeight = region.bottom - region.top;
-      const tipY = Math.min(
+      const tipY = Math.max(
         region.bottom,
-        Math.max(lowestBottom + metrics.lineHeight * 0.5, region.top + regionHeight * (2 / 3)),
+        lowestBottom + metrics.lineHeight * 0.5,
+        region.top + regionHeight * (2 / 3),
       );
 
       const laid: LaidOutBalloon[] = [];

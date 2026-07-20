@@ -3,7 +3,9 @@
   "compilerOptions": {
     "noEmit": false,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    // No DOM: the published library must not depend on a browser environment.
+    "lib": ["ES2022"]
   },
   "include": ["src/**/*.ts"]
 }

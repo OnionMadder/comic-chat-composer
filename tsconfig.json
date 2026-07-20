@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    // DOM is here for the browser demo under examples/. The published build
+    // (tsconfig.build.json) narrows this back to ES2022 so `src/` stays
+    // environment-agnostic and cannot reach for DOM globals by accident.
+    "lib": ["ES2022", "DOM"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
 

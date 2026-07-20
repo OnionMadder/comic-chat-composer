@@ -93,20 +93,84 @@ Validate one with `parseCharacterManifest` (throws, listing every problem) or `v
 
 A reference character, **Nib**, ships in [`assets/characters/nib/`](assets/characters/nib/): a placeholder stick figure with all seven expressions and six gestures as inline SVG. It exists so the library has something to compose against in tests and examples.
 
-## Install
+## Seeing it work
 
 ```sh
-npm install comic-chat-composer
+npm install
+npm run demo
 ```
 
-Requires Node 22 or newer. ESM only.
+That writes `examples/demo/index.html` — a **single self-contained file** with the composer, renderer and all sprites inlined. No build step, no server, no external requests. Open it from disk, or drop it on any static host and it just works. Edit the chat log in the page and panels recompose live.
+
+There's also a terminal walkthrough of the layout tree:
+
+```sh
+npm run example
+```
+
+## Rendering
+
+The composer emits geometry, not pixels — so you need a renderer. [`examples/render-svg.ts`](examples/render-svg.ts) is a working reference one (~200 lines): balloon tails are spliced into the balloon outline as a single path, thought balloons get a chain of ovals, whisper balloons get a dashed outline over a halo, narration boxes are plain rectangles.
+
+```ts
+import { compose } from 'comic-chat-composer';
+import { renderPanelToSvg } from './render-svg.ts';
+
+const panels = compose({ /* ... */ });
+
+const svg = renderPanelToSvg(panels[0], {
+  characters: { nib },                     // manifests by characterId
+  sprite: (src) => spriteMarkup[src],      // src → inline SVG markup
+  panelWidth: 400,
+  panelHeight: 300,
+});
+```
+
+It's an example rather than package API on purpose — copy it and change it. The main thing it doesn't do is the paper's §5.3 balloon bodies (B-splines at tension 5.0 fitted around the text outline); it uses rounded rectangles, which is the biggest visual gap from real Comic Chat output.
+
+[`examples/parse-log.ts`](examples/parse-log.ts) turns plain text (`alice: hi`, `alice -> bob: hi`, `* alice waves`) into composer events, if you'd rather not build them by hand.
+
+## Using it in your own project
+
+Not published to npm yet. Until it is:
+
+**Local path dependency** — best while both are on your machine:
+
+```jsonc
+// your-site/package.json
+{ "dependencies": { "comic-chat-composer": "file:../comic-chat-composer" } }
+```
+
+```sh
+cd comic-chat-composer && npm run build   # populates dist/
+cd ../your-site && npm install
+```
+
+**Tarball** — pin an exact snapshot, or copy it to another machine:
+
+```sh
+npm run build && npm pack        # → comic-chat-composer-0.1.0.tgz
+cd ../your-site && npm install ../comic-chat-composer/comic-chat-composer-0.1.0.tgz
+```
+
+**Straight into a browser, no bundler** — `dist/` is plain ESM with relative imports, so a browser can load it directly once it's served over HTTP:
+
+```html
+<script type="module">
+  import { compose } from '/vendor/comic-chat-composer/dist/index.js';
+  const panels = compose({ /* ... */ });
+</script>
+```
+
+Copy `dist/` to `/vendor/comic-chat-composer/` after running `npm run build`. This won't work from `file://` — browsers block module loading over that scheme. Use the self-contained demo page for offline poking.
+
+Requires Node 22 or newer. ESM only, zero runtime dependencies.
 
 ## Try it
 
 ```sh
 npm install
 npm test
-npm run example
 ```
 
 ## Credit and provenance
