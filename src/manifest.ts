@@ -72,6 +72,22 @@ export interface BodySprite {
   halo?: Bounds;
 }
 
+/**
+ * Anatomical landmarks used by the camera framing rules (§6.2), as fractions of
+ * the character's full standing height measured down from the top of the head.
+ *
+ * Optional: when a manifest omits these, {@link DEFAULT_FRAMING} is used. They
+ * exist so the camera can crop at the shoulders (never the neck) and at the
+ * knees (never the ankles) for characters whose proportions differ from the
+ * default humanoid.
+ */
+export interface CharacterFraming {
+  /** Head-top to shoulder line. The tightest crop sits here. */
+  shoulderFraction: number;
+  /** Head-top to knees. A permitted crop line; the ankles are not. */
+  kneeFraction: number;
+}
+
 export interface CharacterManifest {
   id: string;
   /** Human-readable name for pickers and credits. */
@@ -87,9 +103,17 @@ export interface CharacterManifest {
    * any gesture the character does not supply.
    */
   bodies: Partial<Record<Gesture, BodySprite[]>> & { neutral: BodySprite[] };
+  /** Anatomical crop lines for the camera (§6.2). Optional; see {@link DEFAULT_FRAMING}. */
+  framing?: CharacterFraming;
   /** Backdrop ids this character reads well against, most preferred first. */
   backdropPreferences?: string[];
 }
+
+/** Framing for a roughly humanoid figure, when a manifest gives none. */
+export const DEFAULT_FRAMING: CharacterFraming = {
+  shoulderFraction: 0.22,
+  kneeFraction: 0.78,
+};
 
 /** Maps a composer {@link Expression} onto a manifest head sprite key. */
 const EXPRESSION_TO_CODE: Record<Expression, EmotionCode> = {
@@ -129,6 +153,31 @@ export function bodyForGesture(
     ? manifest.bodies[gesture]!
     : manifest.bodies.neutral;
   return list[((variant % list.length) + list.length) % list.length]!;
+}
+
+/** Proportions the camera needs from a character (§6.2). */
+export interface CharacterProportions {
+  /** Body width ÷ body height, for the character's horizontal extent. */
+  aspect: number;
+  /** Head-top to shoulder line, as a fraction of full height. */
+  shoulderFraction: number;
+  /** Head-top to knees, as a fraction of full height. */
+  kneeFraction: number;
+}
+
+/**
+ * Derive the proportions the camera uses to frame a character, from its neutral
+ * body bounds and its {@link CharacterFraming} (or the default).
+ */
+export function characterProportions(manifest: CharacterManifest): CharacterProportions {
+  const body = manifest.bodies.neutral[0]!;
+  const framing = manifest.framing ?? DEFAULT_FRAMING;
+  const aspect = body.bounds.height > 0 ? body.bounds.width / body.bounds.height : 0.5;
+  return {
+    aspect,
+    shoulderFraction: framing.shoulderFraction,
+    kneeFraction: framing.kneeFraction,
+  };
 }
 
 // ---- Validation ---------------------------------------------------------
@@ -250,6 +299,27 @@ export function validateCharacterManifest(input: unknown): ValidationResult {
       input.backdropPreferences.forEach((b, i) =>
         checkNonEmptyString(b, `backdropPreferences[${i}]`, errors),
       );
+    }
+  }
+
+  if (input.framing !== undefined) {
+    if (!isRecord(input.framing)) {
+      errors.push('framing: expected an object with shoulderFraction and kneeFraction');
+    } else {
+      for (const k of ['shoulderFraction', 'kneeFraction'] as const) {
+        const v = input.framing[k];
+        if (typeof v !== 'number' || !(v > 0 && v < 1)) {
+          errors.push(`framing.${k}: expected a number strictly between 0 and 1`);
+        }
+      }
+      const { shoulderFraction, kneeFraction } = input.framing;
+      if (
+        typeof shoulderFraction === 'number' &&
+        typeof kneeFraction === 'number' &&
+        shoulderFraction >= kneeFraction
+      ) {
+        errors.push('framing: shoulderFraction must be above the knees (smaller than kneeFraction)');
+      }
     }
   }
 

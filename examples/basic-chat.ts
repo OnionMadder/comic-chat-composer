@@ -38,6 +38,8 @@ const panels = compose({
     bob: { characterId: 'nib' },
     cara: { characterId: 'nib' },
   },
+  // Optional: gives the camera (§6.2) real character proportions to frame with.
+  characterAssets: { nib },
   backdrops: ['room', 'field', 'pastoral'],
   seed: 1234,
 });
@@ -54,7 +56,10 @@ const assetsFor = (expression: Expression, gesture: Gesture) => ({
 console.log(`${events.length} events → ${panels.length} panels\n`);
 
 for (const panel of panels) {
-  console.log(`── panel ${panel.panelIndex} · ${panel.zoom} · backdrop "${panel.backdrop}"`);
+  console.log(
+    `── panel ${panel.panelIndex} · ${panel.zoom} (camera ×${panel.camera.scale.toFixed(2)})` +
+      ` · backdrop "${panel.backdrop}"`,
+  );
 
   for (const c of panel.characters) {
     const { head, body } = assetsFor(c.expression, c.gesture);

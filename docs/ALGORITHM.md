@@ -138,11 +138,24 @@ The one §5.3 element deliberately left out is fitting the spline to the actual 
 
 ---
 
+## §6.2 — Camera zoom
+
+**Followed.** Each panel carries a `camera` — a rectangle of world space mapped onto the panel viewport (`computeCamera` in [`src/camera.ts`](../src/camera.ts)). It pulls in to the tightest shot the paper's three rules allow: never cut a character at the neck (include the shoulders), never let a required character be cut by the panel sides, never cut at the ankles (pull back to full body; knees are fine). Establishing shots — on a join, and every ~15 panels — pull back to show the surroundings. One line drives the whole design: "word balloons are unaffected by the virtual zoom factor," so the camera frames the character and background layer only, and a renderer draws balloons over the top in unscaled panel space.
+
+The composer needs character proportions to apply the rules, so `compose` takes an optional `characterAssets` map of manifests (the extraction plan's original API, restored here). From each it reads the body aspect ratio (for horizontal extent) and the anatomical crop lines. Without it, a default humanoid is assumed and framing still works, just uniformly across the cast.
+
+**Filled in — the vertical model.** The paper says "pull in as close as possible" and lists what not to cut, but not how the character sits in the frame. A landscape panel with balloons occupying the top cannot both show a large character *and* keep its head clear of the balloons if the frame is anchored to the head-top — the head ends up at the top of the panel, under the balloons. So the camera anchors the top of the head to a fixed screen line just below the balloon region, and lets magnification decide how far down the body the panel bottom cuts. The safe magnification range is a continuum — any crop between the knees and the shoulders — plus full body; the ankle zone in between is skipped, so rule 3 holds by construction. The tightest scale in that range that still fits the required characters horizontally (rule 2) and stays under a magnification ceiling wins. A cast too wide for even a full-body head-anchored shot switches to standing the characters on the ground and pulling back.
+
+**Filled in — the numbers.** The paper gives none of these. The crop landmarks live on the manifest as an optional `framing: { shoulderFraction, kneeFraction }` (fractions of full height from the head-top), defaulting to a humanoid `0.22 / 0.78`; the reference character overrides them to match its big-headed proportions. The full standing height is a fraction of the panel (`characterHeightFraction`, default 0.82), the magnification ceiling is `maxZoom` (2.2), and the establishing pull-back is `establishingZoom` (0.85) — all tunable in `Rules`. The renderer must use the same `characterHeightFraction`, or the camera would crop in the wrong place; it is a `RenderOptions` field with the same default.
+
+The coarse `zoom` label (`establishing` / `close` / `medium` / `wide`) is now derived from the camera's magnification and kept only for convenience and backward compatibility.
+
+---
+
 ## Not implemented in v0.1
 
 | Feature | Paper | Status |
 |---|---|---|
-| Zoom framing constraints (§4.4) | don't cut at the neck, include shoulders, prefer full body over cutting at the ankles, knees are acceptable | `zoom` is chosen from cast size and establishing-shot rules only. The constraint solver needs character bounding boxes; the manifest already carries `bounds` for it. |
 | Shout balloons (§5.1) | jagged outline | Laid out identically to `speech`. The reference renderer draws the jagged outline; the paper notes these were unimplemented in the original. |
 | Thought balloons (§5.1) | tail as a chain of ovals | Laid out, and drawn by the reference renderer with the oval-chain tail. |
 | Semantic elements / Greek Chorus (§6.3) | keyword-triggered backdrop swaps, overlay objects, a commenting meta-character | Not started. Content-heavy and opt-in by design; a natural v0.2 extension point. |

@@ -55,9 +55,13 @@ export {
   parseCharacterManifest,
   headForExpression,
   bodyForGesture,
+  characterProportions,
+  DEFAULT_FRAMING,
   EMOTION_CODES,
   GESTURE_KEYS,
   type CharacterManifest,
+  type CharacterFraming,
+  type CharacterProportions,
   type HeadSprite,
   type BodySprite,
   type EmotionCode,
@@ -66,11 +70,18 @@ export {
   type ValidationResult,
 } from './manifest.ts';
 
+export {
+  computeCamera,
+  type CameraCharacter,
+  type CameraOptions,
+} from './camera.ts';
+
 export { isMessageEvent, isPresenceEvent } from './types.ts';
 
 export type {
   BalloonKind,
   BalloonTail,
+  Camera,
   CastEntry,
   ChatEvent,
   Expression,

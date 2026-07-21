@@ -31,6 +31,38 @@ describe('the Nib reference character', () => {
     assert.ok(Object.keys(nib.bodies).length >= 6);
     assert.equal(nib.bodies.neutral.length, 2, 'neutrals must cycle');
   });
+
+  it('carries camera framing landmarks', () => {
+    assert.ok(nib.framing, 'Nib should declare framing');
+    assert.ok(nib.framing!.shoulderFraction < nib.framing!.kneeFraction);
+  });
+});
+
+describe('framing validation', () => {
+  it('accepts a valid framing block', () => {
+    const result = validateCharacterManifest({
+      ...nib,
+      framing: { shoulderFraction: 0.3, kneeFraction: 0.75 },
+    });
+    assert.equal(result.ok, true);
+  });
+
+  it('rejects fractions outside (0, 1)', () => {
+    const result = validateCharacterManifest({
+      ...nib,
+      framing: { shoulderFraction: 0, kneeFraction: 1.2 },
+    });
+    assert.equal(result.ok, false);
+  });
+
+  it('rejects shoulders below the knees', () => {
+    const result = validateCharacterManifest({
+      ...nib,
+      framing: { shoulderFraction: 0.85, kneeFraction: 0.4 },
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.errors.some((e) => e.includes('framing')));
+  });
 });
 
 describe('sprite resolution', () => {

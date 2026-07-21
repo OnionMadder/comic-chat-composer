@@ -39,6 +39,27 @@ describe('compose', () => {
     assert.equal(panels[1]!.zoom, 'establishing');
   });
 
+  it('gives every panel a valid camera', () => {
+    for (const panel of run(SAMPLE)) {
+      const c = panel.camera;
+      assert.ok(c.scale > 0 && Number.isFinite(c.scale), `panel ${panel.panelIndex} scale`);
+      assert.ok(c.width > 0 && c.height > 0, `panel ${panel.panelIndex} size`);
+      assert.ok(Math.abs(c.scale - 400 / c.width) < 1e-6, 'scale agrees with width');
+    }
+  });
+
+  it('pulls the camera back for establishing shots', () => {
+    const panels = run(SAMPLE);
+    const establishing = panels.filter((p) => p.zoom === 'establishing');
+    const conversational = panels.filter((p) => p.zoom !== 'establishing');
+    const widestEstablishing = Math.max(...establishing.map((p) => p.camera.scale));
+    const tightestConversational = Math.min(...conversational.map((p) => p.camera.scale));
+    assert.ok(
+      widestEstablishing < tightestConversational,
+      'establishing shots should be wider than any conversational panel',
+    );
+  });
+
   it('is deterministic for a fixed seed', () => {
     assert.deepEqual(run(SAMPLE), run(SAMPLE));
   });

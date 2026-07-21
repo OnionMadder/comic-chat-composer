@@ -43,6 +43,12 @@ export interface RenderOptions {
    * will not agree with the text inside it.
    */
   metrics?: FontMetrics;
+  /**
+   * Full standing character height as a fraction of panel height. Must match
+   * the composer's `characterHeightFraction` rule (default 0.82), or the camera
+   * will crop characters in the wrong place.
+   */
+  characterHeightFraction?: number;
 }
 
 const escapeXml = (s: string): string =>
@@ -181,6 +187,7 @@ function renderCharacter(
   c: PanelCharacter,
   options: RenderOptions,
   groundY: number,
+  characterHeight: number,
 ): string {
   const manifest = options.characters[c.characterId];
   if (!manifest) return '';
@@ -188,19 +195,31 @@ function renderCharacter(
   const body = bodyForGesture(manifest, c.gesture);
   const head = headForExpression(manifest, c.expression);
 
-  // Place the body so the head's face centre lands on the composer's `x`, then
-  // place the head so its `attach` meets the body's `headAttach`.
-  const bodyX = c.x - body.headAttach.x + head.attach.x - head.tailAnchor.x;
-  const bodyY = groundY - body.bounds.height;
-  const headX = bodyX + body.headAttach.x - head.attach.x;
-  const headY = bodyY + body.headAttach.y - head.attach.y;
+  // Head sits on the body where its `attach` meets the body's `headAttach`.
+  // In body-sprite coordinates (body top-left at the origin) that puts the head
+  // at this offset, and the head reaches this far above the body's top edge.
+  const headDx = body.headAttach.x - head.attach.x;
+  const headDy = body.headAttach.y - head.attach.y;
+  const overhang = Math.max(0, -headDy);
+
+  // The character's full visible height — head-top down to the feet — is scaled
+  // to `characterHeight`, the same world height the composer's camera assumes.
+  // Keeping the two in step is what makes the camera crop at the right places.
+  const spriteHeight = body.bounds.height + overhang;
+  const scale = characterHeight / spriteHeight;
+
+  // Position so the feet land on the ground and the face centre lands on the
+  // composer's `x`.
+  const faceSpriteX = headDx + head.tailAnchor.x;
+  const tx = c.x - scale * faceSpriteX;
+  const ty = groundY - scale * body.bounds.height;
 
   // Facing is a horizontal mirror about the character's own x.
-  const flip = c.facing === 'left' ? ` transform="translate(${2 * c.x},0) scale(-1,1)"` : '';
+  const flip = c.facing === 'left' ? `translate(${2 * c.x},0) scale(-1,1) ` : '';
 
-  return `<g${flip}>
-  <g transform="translate(${bodyX},${bodyY})">${options.sprite(body.src)}</g>
-  <g transform="translate(${headX},${headY})">${options.sprite(head.src)}</g>
+  return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
+  <g>${options.sprite(body.src)}</g>
+  <g transform="translate(${headDx},${headDy})">${options.sprite(head.src)}</g>
 </g>`;
 }
 
@@ -223,11 +242,39 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   // text the composer wrapped.
   const metrics = options.metrics ?? createApproximateMetrics();
   const lineHeight = metrics.lineHeight;
-  const groundY = h - 8;
+
+  // The character world the composer's camera assumes: feet at the panel
+  // bottom, full standing height a fixed fraction of the panel.
+  const groundY = h;
+  const characterHeight = h * (options.characterHeightFraction ?? 0.82);
+
+  // Map the camera's world window onto the panel viewport.
+  const cam = panel.camera;
+  const camScale = w / cam.width;
+  const clipId = `clip-${panel.panelIndex}`;
+
+  const characterLayer = panel.characters
+    .map((c) => renderCharacter(c, options, groundY, characterHeight))
+    .join('\n');
+
   const parts: string[] = [];
 
   parts.push(
+    `<defs><clipPath id="${clipId}"><rect x="3" y="3" width="${w - 6}" height="${h - 6}"/></clipPath></defs>`,
+  );
+  parts.push(
     `<rect x="1.5" y="1.5" width="${w - 3}" height="${h - 3}" fill="${options.background ?? '#fdfdf8'}" stroke="#111" stroke-width="3"/>`,
+  );
+
+  // Characters (and, in a fuller renderer, the backdrop) are drawn through the
+  // camera transform and clipped to the panel. Balloons are not — "word
+  // balloons are unaffected by the virtual zoom factor" (§6.2) — so they are
+  // drawn afterwards in unscaled panel space.
+  parts.push(
+    `<g clip-path="url(#${clipId})">` +
+      `<g transform="scale(${camScale.toFixed(4)}) translate(${(-cam.x).toFixed(2)},${(-cam.y).toFixed(2)})">` +
+      characterLayer +
+      `</g></g>`,
   );
 
   if (options.debug) {
@@ -236,19 +283,15 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
     );
   }
 
-  for (const c of panel.characters) parts.push(renderCharacter(c, options, groundY));
-
   // Reading order determines paint order, so later balloons overlap earlier
   // ones rather than the other way round.
   const ordered = [...panel.balloons].sort((a, b) => a.readingOrder - b.readingOrder);
   for (const b of ordered) parts.push(renderBalloon(b, lineHeight, metrics));
 
   if (options.debug) {
-    for (const c of panel.characters) {
-      parts.push(
-        `<text x="${c.x}" y="${h - 3}" font-size="9" text-anchor="middle" fill="#999">${escapeXml(c.author)}</text>`,
-      );
-    }
+    parts.push(
+      `<text x="6" y="${h - 6}" font-size="9" fill="#999">scale ${cam.scale.toFixed(2)} · ${panel.zoom}</text>`,
+    );
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">

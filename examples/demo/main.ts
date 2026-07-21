@@ -41,6 +41,7 @@ function run(): void {
     const panels = compose({
       events,
       cast,
+      characterAssets: { nib },
       backdrops: ['room', 'field', 'pastoral'],
       seed,
       rules: { panelWidth: PANEL_W, panelHeight: PANEL_H },
@@ -55,7 +56,7 @@ function run(): void {
           panelHeight: PANEL_H,
           debug,
         });
-        const label = `panel ${p.panelIndex} · ${p.zoom} · ${p.backdrop}`;
+        const label = `panel ${p.panelIndex} · ${p.zoom} ×${p.camera.scale.toFixed(2)} · ${p.backdrop}`;
         return `<figure><div class="frame">${svg}</div><figcaption>${label}</figcaption></figure>`;
       })
       .join('');

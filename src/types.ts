@@ -142,6 +142,13 @@ export interface Rules {
   /** Minimum horizontal width a routing channel must retain for its tail (§5.2, `t`). */
   minTailChannelWidth: number;
   facingPenalties: FacingPenalties;
+
+  /** Full standing height of a character as a fraction of panel height (§6.2). */
+  characterHeightFraction: number;
+  /** Hard ceiling on camera magnification, so a solo close-up stays sane (§6.2). */
+  maxZoom: number;
+  /** Camera magnification for an establishing shot; below 1 pulls back (§6.2). */
+  establishingZoom: number;
 }
 
 /** A character as placed in a composed panel. */
@@ -197,10 +204,31 @@ export interface PanelBalloon {
   continued: boolean;
 }
 
+/**
+ * A rectangle of world space mapped onto the panel viewport, framing the
+ * character and background layer (§6.2). Balloons are drawn over the top in
+ * unscaled panel coordinates — "word balloons are unaffected by the virtual
+ * zoom factor". See {@link import('./camera.ts').Camera}.
+ */
+export interface Camera {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Magnification: `panelWidth / width`. */
+  scale: number;
+}
+
 /** A fully composed panel: geometry and identity, no pixels. */
 export interface Panel {
   panelIndex: number;
+  /**
+   * Coarse framing label, kept for convenience and backward compatibility.
+   * Derived from {@link camera}: use `camera` for exact geometry.
+   */
   zoom: Zoom;
+  /** The virtual camera framing the character layer (§6.2). */
+  camera: Camera;
   characters: PanelCharacter[];
   balloons: PanelBalloon[];
   backdrop: string;

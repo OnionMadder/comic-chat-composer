@@ -32,7 +32,8 @@ Each panel comes back like this:
 ```ts
 {
   panelIndex: 2,
-  zoom: 'close',
+  zoom: 'medium',
+  camera: { x: 21, y: -94, width: 357, height: 268, scale: 1.12 },  // §6.2 framing
   backdrop: 'pastoral',
   characters: [
     { author: 'alice', characterId: 'nib', x: 133, facing: 'right', gesture: 'wave', expression: 'neutral' },
@@ -59,6 +60,8 @@ Each panel comes back like this:
 **Balloon layout.** Balloon bodies are placed greedily above the character row, each one reserving a *routing channel* — a horizontal interval kept free for its tail. As bodies are placed they trim their own channel so earlier channels stay wide enough for a tail, then shrink earlier channels so nothing overlaps. Vertical placement then pushes each balloon as high as reading order allows, and tails are routed last. Reading order is strictly top-down, then left-to-right.
 
 **Panel breaks.** A new panel starts when a balloon can't fit, when the cast would exceed five, when a character would speak twice, or when a character already drawn would need a different expression. There's also a small random chance of giving a long opening utterance a solo panel.
+
+**Camera framing.** Each panel gets a virtual camera that pulls in to the tightest shot the comic rules allow — never cutting a character at the neck or ankles, never cutting a required character at the panel sides — and pulls back to an establishing shot on joins and periodically. Pass `characterAssets` (the character manifests) so it can frame from real proportions. The balloons stay put; only the character layer is zoomed.
 
 **Determinism.** All layout randomness comes from a seeded PRNG. The same events, cast and seed always produce the same panels — which is both testable and a property of the original design, where every client composed its own view of the stream with nothing to reconcile.
 

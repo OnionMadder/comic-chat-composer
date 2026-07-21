@@ -270,6 +270,10 @@
       }
     ]
   },
+  "framing": {
+    "shoulderFraction": 0.37,
+    "kneeFraction": 0.8
+  },
   "backdropPreferences": [
     "room",
     "field"

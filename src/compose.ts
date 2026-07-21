@@ -21,6 +21,13 @@ import {
   type BalloonLayoutOptions,
   type BalloonRequest,
 } from './balloons.ts';
+import { computeCamera, type CameraCharacter } from './camera.ts';
+import {
+  bodyForGesture,
+  characterProportions,
+  DEFAULT_FRAMING,
+  type CharacterManifest,
+} from './manifest.ts';
 import { placeCharacters, type Placement } from './placement.ts';
 import { inferPose, type Pose } from './pose.ts';
 import { createRandom, type Random } from './rng.ts';
@@ -28,6 +35,7 @@ import { createApproximateMetrics, type FontMetrics } from './text.ts';
 import { isPresenceEvent } from './types.ts';
 import type {
   BalloonKind,
+  Camera,
   CastEntry,
   ChatEvent,
   Expression,
@@ -60,6 +68,9 @@ export const DEFAULT_RULES: Rules = {
   balloonRegionFraction: 0.55,
   minTailChannelWidth: 14,
   facingPenalties: DEFAULT_FACING_PENALTIES,
+  characterHeightFraction: 0.82,
+  maxZoom: 2.2,
+  establishingZoom: 0.85,
 };
 
 export interface ComposeInput {
@@ -69,6 +80,13 @@ export interface ComposeInput {
   /** Backdrop ids to cycle through on establishing shots. */
   backdrops: readonly string[];
   rules?: Partial<Rules>;
+  /**
+   * Character manifests keyed by `characterId`. Optional: when provided, the
+   * camera (§6.2) frames each panel from real character proportions — body
+   * aspect ratio and anatomical crop lines. When omitted, a default humanoid
+   * figure is assumed and framing still works, just uniformly.
+   */
+  characterAssets?: Record<string, CharacterManifest>;
   /** Text metrics for balloon layout. Defaults to a built-in approximation. */
   metrics?: FontMetrics;
   /** Seed for all layout randomness. Same seed → same panels. */
@@ -123,11 +141,14 @@ function resolveRules(partial: Partial<Rules> | undefined): Rules {
   };
 }
 
-/** Choose camera framing (§4.4). */
-function chooseZoom(characterCount: number, establishing: boolean): Zoom {
+/**
+ * Coarse framing label derived from the camera's magnification (§6.2). The
+ * exact geometry lives in `panel.camera`; this is a convenience/compat summary.
+ */
+function zoomLabel(scale: number, establishing: boolean): Zoom {
   if (establishing) return 'establishing';
-  if (characterCount <= 2) return 'close';
-  if (characterCount === 3) return 'medium';
+  if (scale >= 1.6) return 'close';
+  if (scale >= 1.1) return 'medium';
   return 'wide';
 }
 
@@ -173,6 +194,54 @@ export function compose(input: ComposeInput): Panel[] {
   let panelsSinceEstablishing = 0;
   let backdropIndex = 0;
   let state = emptyPanelState();
+
+  const groundY = rules.panelHeight;
+  const characterHeight = rules.panelHeight * rules.characterHeightFraction;
+
+  /** Frame a panel's characters with the virtual camera (§6.2). */
+  const buildCamera = (characters: readonly PanelCharacter[], establishing: boolean): Camera => {
+    // Every character the composer placed was included on purpose, so all of
+    // them are "required" and must stay within the panel sides.
+    const cameraCharacters: CameraCharacter[] = characters.map((c) => {
+      const manifest = input.characterAssets?.[c.characterId];
+      const proportions = manifest
+        ? characterProportions(manifest)
+        : { aspect: 0.5, ...DEFAULT_FRAMING };
+      return {
+        x: c.x,
+        halfWidth: (characterHeight * proportions.aspect) / 2,
+        required: true,
+      };
+    });
+
+    // Crop at the shallowest shoulders and knees in the cast, so no one is cut
+    // at the neck (rule 1) or the ankles (rule 3).
+    let shoulderFraction = DEFAULT_FRAMING.shoulderFraction;
+    let kneeFraction = DEFAULT_FRAMING.kneeFraction;
+    for (const c of characters) {
+      const manifest = input.characterAssets?.[c.characterId];
+      const proportions = manifest ? characterProportions(manifest) : DEFAULT_FRAMING;
+      shoulderFraction = Math.max(shoulderFraction, proportions.shoulderFraction);
+      kneeFraction = Math.max(kneeFraction, proportions.kneeFraction);
+    }
+
+    return computeCamera(cameraCharacters, {
+      panelWidth: rules.panelWidth,
+      panelHeight: rules.panelHeight,
+      characterHeight,
+      groundY,
+      shoulderFraction,
+      kneeFraction,
+      establishing,
+      maxScale: rules.maxZoom,
+      // Heads sit just below the balloon region, so balloons read as being
+      // above them; the tails bridge the gap.
+      headScreenY: balloonRegion.bottom,
+      groundScreenY: rules.panelHeight - rules.panelHeight * 0.03,
+      sideMargin: rules.panelWidth * 0.04,
+      establishingScale: rules.establishingZoom,
+    });
+  };
 
   /**
    * Run character placement and balloon layout for a candidate panel.
@@ -253,7 +322,8 @@ export function compose(input: ComposeInput): Panel[] {
       };
     });
 
-    const zoom = chooseZoom(characters.length, state.forceEstablishing);
+    const camera = buildCamera(characters, state.forceEstablishing);
+    const zoom = zoomLabel(camera.scale, state.forceEstablishing);
     const backdrop = input.backdrops.length
       ? input.backdrops[backdropIndex % input.backdrops.length]!
       : 'default';
@@ -261,6 +331,7 @@ export function compose(input: ComposeInput): Panel[] {
     panels.push({
       panelIndex: panels.length,
       zoom,
+      camera,
       characters,
       balloons,
       backdrop,
