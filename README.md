@@ -110,7 +110,7 @@ npm run example
 
 ## Rendering
 
-The composer emits geometry, not pixels — so you need a renderer. [`examples/render-svg.ts`](examples/render-svg.ts) is a working reference one (~200 lines): balloon tails are spliced into the balloon outline as a single path, thought balloons get a chain of ovals, whisper balloons get a dashed outline over a halo, narration boxes are plain rectangles.
+The composer emits geometry, not pixels — so you need a renderer. [`examples/render-svg.ts`](examples/render-svg.ts) is a working reference one: balloon bodies are the paper's §5.3 splines (see below), tails are spliced into the same outline as a single path, thought balloons get a chain of ovals, whisper balloons get a dashed outline over a halo, narration boxes are plain rectangles.
 
 ```ts
 import { compose } from 'comic-chat-composer';
@@ -126,7 +126,7 @@ const svg = renderPanelToSvg(panels[0], {
 });
 ```
 
-It's an example rather than package API on purpose — copy it and change it. The main thing it doesn't do is the paper's §5.3 balloon bodies (B-splines at tension 5.0 fitted around the text outline); it uses rounded rectangles, which is the biggest visual gap from real Comic Chat output.
+It's an example rather than package API on purpose — copy it and change it. Balloon bodies are built by [`examples/balloon-shape.ts`](examples/balloon-shape.ts), which implements the paper's §5.3 construction in full: a closed B-spline at tension 5.0 fitted around the text, with both anti-amoeba rules and the low-frequency perturbation that keeps the outline from looking machine-drawn. [`docs/ALGORITHM.md`](docs/ALGORITHM.md#53--balloon-body-construction) explains the three details the paper leaves unstated (tension scale, control-point fitting, tail splicing).
 
 [`examples/parse-log.ts`](examples/parse-log.ts) turns plain text (`alice: hi`, `alice -> bob: hi`, `* alice waves`) into composer events, if you'd rather not build them by hand.
 

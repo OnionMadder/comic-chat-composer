@@ -107,13 +107,28 @@ Both at `y=8`, overlapping across 167–226. The vertical pass now requires a ba
 
 **Followed.** Tails leave from under the last line of text where a large enough part of that line spans the routing channel, staying clear of the channel edges so they don't run flush against a neighbour. Failing that they attach within the channel at a small horizontal offset from the speaker's head. All tails in a panel come to a point at roughly the same height, below the lowest balloon and within the lowest third of the balloon region. Tails starting left of the speaker curve counterclockwise, those starting right curve clockwise, and both end above the centre of the speaker's face.
 
-**Not ported.** The tail is emitted as `{ fromX, fromY, toX, toY, curve }` — endpoints and a direction, not a stroked path. Turning that into arcs, straight segments, or the chain of ovals a thought balloon needs is a rendering decision.
+The composer emits the tail as `{ fromX, fromY, toX, toY, curve }` — endpoints and a direction, not a stroked path. The reference renderer turns that into a solid tapered shape spliced into the speech-balloon outline (see §5.3 above), or a chain of shrinking ovals for a thought balloon.
 
 ---
 
 ## §5.3 — Balloon body construction
 
-**Not ported — rendering, not layout.** The paper's B-splines at tension 5.0, the two anti-amoeba rules (never dip inward on a per-line basis, respond only to large changes in the text outline) and the low-frequency perturbation of long flat segments all describe how to draw an outline around laid-out text. This library emits the text already broken into lines plus a bounding box; a renderer supplies the outline.
+**Not in the library; implemented in the reference renderer** ([`examples/balloon-shape.ts`](../examples/balloon-shape.ts)). §5.3 describes how to *draw* an outline around laid-out text, which is a rendering concern — the composer emits only the text broken into lines plus a bounding box. But because it is the single biggest thing standing between the output and something that reads as hand-drawn, the reference renderer implements it in full rather than boxing the text.
+
+All four of the paper's rules are ported:
+
+1. **Margin.** Line boundaries are expanded outward before splining.
+2. **No inward dip** (anti-amoeba, rule 1). A line narrower than both neighbours is raised to the smaller of them, so the outline never pinches in on one line only to bulge back out.
+3. **Ignore small changes** (anti-amoeba, rule 2). The outline holds its position until the text demands a move larger than a threshold.
+4. **Low-frequency perturbation.** Runs of lines whose outline doesn't move get control points nudged alternately toward and away from the text — the paper's last remaining gap from Woodring's hand-drawn originals.
+
+The outline is a closed cubic B-spline at tension 5.0 (the paper's value). Three things the paper does not spell out had to be worked through:
+
+- **Tension has no stated scale.** The paper's "5.0" is presumably its own spline library's. It is mapped here as `t / (t + 5)`, a smooth 0→1 ramp that puts 5.0 at exactly 0.5 — 0 being a pure uniform B-spline and 1 collapsing onto the control polygon.
+- **A B-spline does not pass through its control points.** Feeding the balloon boundary in directly yields an outline visibly *tighter* than intended — the widest line of text spills outside the balloon drawn to hold it. `fitControlPoints` corrects for this by iterative refinement: evaluate where the curve actually lands, push each control point by the shortfall, repeat. The correction is capped and bounded so a sharp contour change can't throw a control point out into a spike.
+- **Tails are spliced into the same closed spline**, not drawn as a separate shape, so body and tail share one continuous outline. The tip is given control-point multiplicity 3, which forces the spline to interpolate it exactly and produce the sharp point a tail needs.
+
+The one §5.3 element deliberately left out is fitting the spline to the actual glyph outline of a specific font; the renderer fits to measured line widths instead, and pins the drawn text to those widths with SVG `textLength` so the outline and glyphs agree in any environment.
 
 ---
 
@@ -128,7 +143,7 @@ Both at `y=8`, overlapping across 167–226. The vertical pass now requires a ba
 | Feature | Paper | Status |
 |---|---|---|
 | Zoom framing constraints (§4.4) | don't cut at the neck, include shoulders, prefer full body over cutting at the ankles, knees are acceptable | `zoom` is chosen from cast size and establishing-shot rules only. The constraint solver needs character bounding boxes; the manifest already carries `bounds` for it. |
-| Shout balloons (§5.1) | jagged outline | Carried through layout identically to `speech`; expected to differ only at render time. The paper notes these were unimplemented in the original too. |
-| Thought balloons (§5.1) | tail as a chain of ovals | The kind exists and lays out; the oval chain is a rendering concern. |
+| Shout balloons (§5.1) | jagged outline | Laid out identically to `speech`. The reference renderer draws the jagged outline; the paper notes these were unimplemented in the original. |
+| Thought balloons (§5.1) | tail as a chain of ovals | Laid out, and drawn by the reference renderer with the oval-chain tail. |
 | Semantic elements / Greek Chorus (§6.3) | keyword-triggered backdrop swaps, overlay objects, a commenting meta-character | Not started. Content-heavy and opt-in by design; a natural v0.2 extension point. |
 | `.avb` character import | — | Deliberately out of scope. Legacy import belongs in a separate codec package, not on the critical path. |

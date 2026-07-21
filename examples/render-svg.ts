@@ -6,23 +6,22 @@
  * one possible consumer of that output, not part of the library's API. Copy it,
  * adapt it, or replace it with a canvas/React/print renderer.
  *
- * What it does implement faithfully: balloon tails are spliced into the balloon
- * outline as a single path (so there is no seam where the tail meets the body),
- * thought balloons get a chain of ovals instead, whisper balloons get a dashed
- * outline over a white halo, and narration boxes are plain rectangles.
- *
- * What it does not: the paper's §5.3 balloon bodies are B-splines at tension
- * 5.0 fitted around the text outline, with anti-amoeba rules and low-frequency
- * perturbation. This uses rounded rectangles. That is the single biggest
- * visual gap between this renderer and real Comic Chat output.
+ * Balloon bodies come from `balloon-shape.ts`, which implements the paper's
+ * §5.3 construction: a closed B-spline fitted around the text at tension 5.0,
+ * with both anti-amoeba rules and low-frequency perturbation. Tails are spliced
+ * into that same spline, so body and tail share one continuous outline with no
+ * seam. Thought balloons get a chain of ovals instead, whisper balloons get a
+ * dashed outline over a white halo, and narration boxes are plain rectangles.
  */
 
-import type { BalloonTail, Panel, PanelBalloon, PanelCharacter } from '../src/types.ts';
+import type { Panel, PanelBalloon, PanelCharacter } from '../src/types.ts';
 import {
   bodyForGesture,
   headForExpression,
   type CharacterManifest,
 } from '../src/manifest.ts';
+import { createApproximateMetrics, type FontMetrics } from '../src/text.ts';
+import { balloonOutlinePath } from './balloon-shape.ts';
 
 /** Returns the inner markup of a sprite (everything inside its `<svg>` tag). */
 export type SpriteResolver = (src: string) => string;
@@ -38,52 +37,53 @@ export interface RenderOptions {
   background?: string;
   /** Draw the balloon-region boundary and speaker labels. */
   debug?: boolean;
+  /**
+   * Metrics used to measure line widths when fitting the balloon outline.
+   * Should match whatever the composer laid the text out with, or the outline
+   * will not agree with the text inside it.
+   */
+  metrics?: FontMetrics;
 }
 
 const escapeXml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
- * Build the balloon outline as one path, splicing the tail into the bottom
- * edge so body and tail share a single continuous stroke.
+ * Fit the §5.3 spline outline around a balloon's laid-out text.
+ *
+ * The composer gives a bounding box and the text already broken into lines;
+ * this measures those lines and hands them to the shape builder, which does the
+ * margin expansion, anti-amoeba smoothing, perturbation and tail splicing.
  */
-function balloonPath(b: PanelBalloon, tail: BalloonTail | null): string {
-  const { x, y, width: w, height: h } = b;
-  const r = Math.min(20, h / 2, w / 2);
-  const bottom = y + h;
+function balloonPath(
+  b: PanelBalloon,
+  lineHeight: number,
+  metrics: FontMetrics,
+  spliceTail: boolean,
+): string {
+  const lines = b.lines.length > 0 ? b.lines : [b.text];
+  const measured = lines.map((line) => metrics.measure(line));
+  const blockHeight = lines.length * lineHeight;
+  const margin = Math.max(6, lineHeight * 0.55);
 
-  const parts: string[] = [
-    `M ${x + r} ${y}`,
-    `H ${x + w - r}`,
-    `A ${r} ${r} 0 0 1 ${x + w} ${y + r}`,
-    `V ${bottom - r}`,
-    `A ${r} ${r} 0 0 1 ${x + w - r} ${bottom}`,
-  ];
+  // The outline follows the *relative* contour of the lines, but the absolute
+  // scale comes from the composer's box. Measured widths are only an estimate —
+  // whatever font actually renders will differ — and an outline fitted to an
+  // underestimate leaves the text hanging outside the balloon. The composer
+  // already wrapped these lines to fit `b.width`, so normalising the widest
+  // line to that box keeps the shape while guaranteeing the text fits.
+  const widest = Math.max(...measured, 1);
+  const target = Math.max(1, b.width - margin * 2);
+  const scale = target / widest;
 
-  // Splice the tail into the bottom edge, which runs right-to-left.
-  if (tail) {
-    const mouth = Math.max(6, Math.min(14, w * 0.12));
-    const cx = Math.min(Math.max(tail.fromX, x + r + mouth), x + w - r - mouth);
-    const right = cx + mouth;
-    const left = cx - mouth;
-
-    // Bow the two sides of the tail the same way the composer routed it.
-    const bow = tail.curve === 'ccw' ? -1 : 1;
-    const midY = (bottom + tail.toY) / 2;
-    const ctrlRight = `${right + bow * 6} ${midY}`;
-    const ctrlLeft = `${left + bow * 10} ${midY}`;
-
-    parts.push(`H ${right}`);
-    parts.push(`Q ${ctrlRight} ${tail.toX} ${tail.toY}`);
-    parts.push(`Q ${ctrlLeft} ${left} ${bottom}`);
-  }
-
-  parts.push(`H ${x + r}`);
-  parts.push(`A ${r} ${r} 0 0 1 ${x} ${bottom - r}`);
-  parts.push(`V ${y + r}`);
-  parts.push(`A ${r} ${r} 0 0 1 ${x + r} ${y}`);
-  parts.push('Z');
-  return parts.join(' ');
+  return balloonOutlinePath({
+    lineWidths: measured.map((w) => w * scale),
+    centreX: b.x + b.width / 2,
+    textTop: b.y + (b.height - blockHeight) / 2,
+    lineHeight,
+    margin,
+    tail: spliceTail ? b.tail : null,
+  });
 }
 
 /** Jagged outline for shout balloons (§5.1). */
@@ -101,7 +101,7 @@ function shoutPath(b: PanelBalloon): string {
   return `M ${pts.join(' L ')} Z`;
 }
 
-function renderBalloon(b: PanelBalloon, lineHeight: number): string {
+function renderBalloon(b: PanelBalloon, lineHeight: number, metrics: FontMetrics): string {
   const out: string[] = [];
   const stroke = '#111';
   const centreX = b.x + b.width / 2;
@@ -111,8 +111,10 @@ function renderBalloon(b: PanelBalloon, lineHeight: number): string {
       `<rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="#fff" stroke="${stroke}" stroke-width="2"/>`,
     );
   } else if (b.kind === 'thought') {
+    // Same spline body, but no tail spliced in — a thought balloon's tail is a
+    // separate chain of ovals.
     out.push(
-      `<rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" rx="${Math.min(24, b.height / 2)}" fill="#fff" stroke="${stroke}" stroke-width="2"/>`,
+      `<path d="${balloonPath(b, lineHeight, metrics, false)}" fill="#fff" stroke="${stroke}" stroke-width="2"/>`,
     );
     if (b.tail) {
       // Tail as a chain of shrinking ovals rather than a solid taper.
@@ -135,7 +137,7 @@ function renderBalloon(b: PanelBalloon, lineHeight: number): string {
       );
     }
   } else {
-    const d = balloonPath(b, b.tail);
+    const d = balloonPath(b, lineHeight, metrics, true);
     // Whisper balloons get a white halo under a dashed outline (§5.1, §5.5).
     if (b.kind === 'whisper') {
       out.push(`<path d="${d}" fill="#fff" stroke="#fff" stroke-width="7"/>`);
@@ -151,9 +153,22 @@ function renderBalloon(b: PanelBalloon, lineHeight: number): string {
   const blockHeight = lines.length * lineHeight;
   const firstBaseline = b.y + (b.height - blockHeight) / 2 + lineHeight * 0.78;
 
+  // The balloon outline is fitted to `metrics`, which is an estimate — whatever
+  // font actually resolves will be wider or narrower, and then the text spills
+  // outside the balloon that was drawn to hold it. `textLength` pins each line
+  // to exactly the width it was measured at, so outline and glyphs agree in any
+  // font and any environment. This is why the renderer must be given the same
+  // metrics the composer wrapped the text with.
+  const widths = lines.map((line) => metrics.measure(line));
+  const widest = Math.max(...widths, 1);
+  const target = Math.max(1, b.width - Math.max(6, lineHeight * 0.55) * 2);
+  const scale = target / widest;
+
   lines.forEach((line, i) => {
+    const length = widths[i]! * scale;
     out.push(
       `<text x="${centreX}" y="${firstBaseline + i * lineHeight}" text-anchor="middle"` +
+        ` textLength="${length.toFixed(2)}" lengthAdjust="spacingAndGlyphs"` +
         ` font-family="'Comic Sans MS', 'Comic Neue', cursive" font-size="${lineHeight * 0.78}"` +
         `${italic}${weight} fill="#111">${escapeXml(line)}</text>`,
     );
@@ -204,7 +219,10 @@ function renderCharacter(
  */
 export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   const { panelWidth: w, panelHeight: h } = options;
-  const lineHeight = 15;
+  // Matches the composer's default metrics, so the outline agrees with the
+  // text the composer wrapped.
+  const metrics = options.metrics ?? createApproximateMetrics();
+  const lineHeight = metrics.lineHeight;
   const groundY = h - 8;
   const parts: string[] = [];
 
@@ -223,7 +241,7 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   // Reading order determines paint order, so later balloons overlap earlier
   // ones rather than the other way round.
   const ordered = [...panel.balloons].sort((a, b) => a.readingOrder - b.readingOrder);
-  for (const b of ordered) parts.push(renderBalloon(b, lineHeight));
+  for (const b of ordered) parts.push(renderBalloon(b, lineHeight, metrics));
 
   if (options.debug) {
     for (const c of panel.characters) {
