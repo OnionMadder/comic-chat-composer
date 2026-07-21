@@ -124,12 +124,13 @@ const panels = compose({ /* ... */ });
 const svg = renderPanelToSvg(panels[0], {
   characters: { nib },                     // manifests by characterId
   sprite: (src) => spriteMarkup[src],      // src → inline SVG markup
+  backdrops: { room, field, pastoral },    // id → scene art (world coords)
   panelWidth: 400,
   panelHeight: 300,
 });
 ```
 
-It's an example rather than package API on purpose — copy it and change it. Balloon bodies are built by [`examples/balloon-shape.ts`](examples/balloon-shape.ts), which implements the paper's §5.3 construction in full: a closed B-spline at tension 5.0 fitted around the text, with both anti-amoeba rules and the low-frequency perturbation that keeps the outline from looking machine-drawn. [`docs/ALGORITHM.md`](docs/ALGORITHM.md#53--balloon-body-construction) explains the three details the paper leaves unstated (tension scale, control-point fitting, tail splicing).
+It's an example rather than package API on purpose — copy it and change it. Balloon bodies are built by [`examples/balloon-shape.ts`](examples/balloon-shape.ts), which implements the paper's §5.3 construction in full: a closed B-spline at tension 5.0 fitted around the text, with both anti-amoeba rules and the low-frequency perturbation that keeps the outline from looking machine-drawn. Pass `backdrops` (scene art in world coordinates, e.g. [`assets/backdrops/`](assets/backdrops)) and the renderer draws them behind the characters through the camera transform, with a white halo (§6.1) lifting each character off the scene. [`docs/ALGORITHM.md`](docs/ALGORITHM.md) explains the details the paper leaves unstated.
 
 [`examples/parse-log.ts`](examples/parse-log.ts) turns plain text (`alice: hi`, `alice -> bob: hi`, `* alice waves`) into composer events, if you'd rather not build them by hand.
 

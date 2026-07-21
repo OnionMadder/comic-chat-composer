@@ -13,9 +13,11 @@ import { renderPanelToSvg } from '../render-svg.ts';
 
 declare const __SPRITES__: Record<string, string>;
 declare const __MANIFEST__: CharacterManifest;
+declare const __BACKDROPS__: Record<string, string>;
 
 const sprites = __SPRITES__;
 const nib = __MANIFEST__;
+const backdrops = __BACKDROPS__;
 
 const PANEL_W = 400;
 const PANEL_H = 300;
@@ -52,6 +54,7 @@ function run(): void {
         const svg = renderPanelToSvg(p, {
           characters: { nib },
           sprite: (src) => sprites[src] ?? '',
+          backdrops,
           panelWidth: PANEL_W,
           panelHeight: PANEL_H,
           debug,

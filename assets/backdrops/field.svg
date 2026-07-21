@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-360 -420 1120 780" width="1120" height="780">
+  <!-- ground line at world y=300; characters stand here -->
+  <rect x="-360" y="-420" width="1120" height="780" fill="#e9f1fb"/>
+  <rect x="-360" y="248" width="1120" height="112" fill="#e4efd6"/><line x1="-360" y1="248" x2="760" y2="248" stroke="#3a3a3a" stroke-width="1.5"/>
+  <circle cx="-150" cy="-210" r="34" fill="#fdf3c8" stroke="#3a3a3a" stroke-width="1.5"/>
+  <g fill="#ffffff" stroke="#3a3a3a" stroke-width="1.5">
+       <path d="M120 -150 q-24 0 -24 18 q-24 2 -20 20 q4 14 24 12 h72 q22 2 22 -16 q0 -18 -22 -18 q-4 -18 -30 -16 q-10 -1 -22 0 z"/>
+       <path d="M470 -230 q-20 0 -20 15 q-20 2 -16 17 q3 12 20 10 h60 q18 2 18 -13 q0 -15 -18 -15 q-4 -15 -25 -13 z"/>
+     </g>
+  <g stroke="#3a3a3a" stroke-width="3" fill="#dcebc6" stroke-linejoin="round">
+       <rect x="486" y="150" width="16" height="100" rx="4" fill="#e7dcc4"/>
+       <circle cx="494" cy="126" r="66"/>
+       <circle cx="446" cy="150" r="44"/>
+       <circle cx="542" cy="150" r="44"/>
+     </g>
+  <g stroke="#7f9e5c" stroke-width="2" fill="none" stroke-linecap="round">
+       <path d="M-320 250 q3 -12 6 0 M-314 250 q3 -14 6 0 M-308 250 q3 -12 6 0"/><path d="M-276 250 q3 -12 6 0 M-270 250 q3 -14 6 0 M-264 250 q3 -12 6 0"/><path d="M-232 250 q3 -12 6 0 M-226 250 q3 -14 6 0 M-220 250 q3 -12 6 0"/><path d="M-188 250 q3 -12 6 0 M-182 250 q3 -14 6 0 M-176 250 q3 -12 6 0"/><path d="M-144 250 q3 -12 6 0 M-138 250 q3 -14 6 0 M-132 250 q3 -12 6 0"/><path d="M-100 250 q3 -12 6 0 M-94 250 q3 -14 6 0 M-88 250 q3 -12 6 0"/><path d="M-56 250 q3 -12 6 0 M-50 250 q3 -14 6 0 M-44 250 q3 -12 6 0"/><path d="M-12 250 q3 -12 6 0 M-6 250 q3 -14 6 0 M0 250 q3 -12 6 0"/><path d="M32 250 q3 -12 6 0 M38 250 q3 -14 6 0 M44 250 q3 -12 6 0"/><path d="M76 250 q3 -12 6 0 M82 250 q3 -14 6 0 M88 250 q3 -12 6 0"/><path d="M120 250 q3 -12 6 0 M126 250 q3 -14 6 0 M132 250 q3 -12 6 0"/><path d="M164 250 q3 -12 6 0 M170 250 q3 -14 6 0 M176 250 q3 -12 6 0"/><path d="M208 250 q3 -12 6 0 M214 250 q3 -14 6 0 M220 250 q3 -12 6 0"/><path d="M252 250 q3 -12 6 0 M258 250 q3 -14 6 0 M264 250 q3 -12 6 0"/><path d="M296 250 q3 -12 6 0 M302 250 q3 -14 6 0 M308 250 q3 -12 6 0"/><path d="M340 250 q3 -12 6 0 M346 250 q3 -14 6 0 M352 250 q3 -12 6 0"/><path d="M384 250 q3 -12 6 0 M390 250 q3 -14 6 0 M396 250 q3 -12 6 0"/><path d="M428 250 q3 -12 6 0 M434 250 q3 -14 6 0 M440 250 q3 -12 6 0"/><path d="M472 250 q3 -12 6 0 M478 250 q3 -14 6 0 M484 250 q3 -12 6 0"/><path d="M516 250 q3 -12 6 0 M522 250 q3 -14 6 0 M528 250 q3 -12 6 0"/><path d="M560 250 q3 -12 6 0 M566 250 q3 -14 6 0 M572 250 q3 -12 6 0"/><path d="M604 250 q3 -12 6 0 M610 250 q3 -14 6 0 M616 250 q3 -12 6 0"/><path d="M648 250 q3 -12 6 0 M654 250 q3 -14 6 0 M660 250 q3 -12 6 0"/><path d="M692 250 q3 -12 6 0 M698 250 q3 -14 6 0 M704 250 q3 -12 6 0"/>
+     </g>
+</svg>

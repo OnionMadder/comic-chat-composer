@@ -18,15 +18,24 @@ const assetDir = join(here, '..', '..', 'assets', 'characters', 'nib');
 
 const manifest = JSON.parse(readFileSync(join(assetDir, 'character.json'), 'utf8'));
 
-/** Strip the outer `<svg>` wrapper so sprites can be positioned with `<g>`. */
-const sprites: Record<string, string> = {};
-for (const file of readdirSync(assetDir)) {
-  if (!file.endsWith('.svg')) continue;
-  const raw = readFileSync(join(assetDir, file), 'utf8');
-  sprites[file] = raw
+/** Strip the outer `<svg>` wrapper so art can be positioned with `<g>`. */
+const stripSvg = (raw: string): string =>
+  raw
     .replace(/^[\s\S]*?<svg[^>]*>/, '')
     .replace(/<\/svg>\s*$/, '')
     .trim();
+
+const sprites: Record<string, string> = {};
+for (const file of readdirSync(assetDir)) {
+  if (file.endsWith('.svg')) sprites[file] = stripSvg(readFileSync(join(assetDir, file), 'utf8'));
+}
+
+const backdropDir = join(here, '..', '..', 'assets', 'backdrops');
+const backdrops: Record<string, string> = {};
+for (const file of readdirSync(backdropDir)) {
+  if (file.endsWith('.svg')) {
+    backdrops[file.replace('.svg', '')] = stripSvg(readFileSync(join(backdropDir, file), 'utf8'));
+  }
 }
 
 const bundle = await esbuild.build({
@@ -39,6 +48,7 @@ const bundle = await esbuild.build({
   define: {
     __SPRITES__: JSON.stringify(sprites),
     __MANIFEST__: JSON.stringify(manifest),
+    __BACKDROPS__: JSON.stringify(backdrops),
   },
 });
 

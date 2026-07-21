@@ -12,6 +12,10 @@
  * into that same spline, so body and tail share one continuous outline with no
  * seam. Thought balloons get a chain of ovals instead, whisper balloons get a
  * dashed outline over a white halo, and narration boxes are plain rectangles.
+ *
+ * Backdrops (optional) are drawn behind the characters through the same camera
+ * transform, so the whole scene zooms together (§6.2). Each character gets a
+ * white halo so it reads against a busy backdrop (§6.1).
  */
 
 import type { Panel, PanelBalloon, PanelCharacter } from '../src/types.ts';
@@ -33,8 +37,20 @@ export interface RenderOptions {
   sprite: SpriteResolver;
   panelWidth: number;
   panelHeight: number;
-  /** Fill for the panel background. Backdrop art is out of scope here. */
+  /** Flat fill shown when a panel's backdrop has no art. */
   background?: string;
+  /**
+   * Backdrop art keyed by id, as inline SVG markup in world coordinates (the
+   * composer's 400×300 panel space, ground at the panel bottom). Drawn behind
+   * the characters and through the same camera transform, so the scene zooms
+   * with them (§6.2). Ids come from the composer's `backdrop` field.
+   */
+  backdrops?: Record<string, string>;
+  /**
+   * Draw a white halo behind each character so it reads against a busy backdrop
+   * (§6.1). Defaults to on when {@link backdrops} is supplied.
+   */
+  halo?: boolean;
   /** Draw the balloon-region boundary and speaker labels. */
   debug?: boolean;
   /**
@@ -183,11 +199,24 @@ function renderBalloon(b: PanelBalloon, lineHeight: number, metrics: FontMetrics
   return out.join('\n');
 }
 
+/**
+ * Turn sprite markup into a white halo underlay: recolour the ink to white and
+ * fatten every stroke, so a copy drawn behind the sprite reads as a white
+ * outline hugging the line art (§6.1). Works in any SVG engine — it is just
+ * more strokes, no filter.
+ */
+function haloUnderlay(markup: string, extra: number): string {
+  return markup
+    .replace(/#111\b/g, '#ffffff')
+    .replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${Number(w) + extra}"`);
+}
+
 function renderCharacter(
   c: PanelCharacter,
   options: RenderOptions,
   groundY: number,
   characterHeight: number,
+  halo: boolean,
 ): string {
   const manifest = options.characters[c.characterId];
   if (!manifest) return '';
@@ -217,9 +246,22 @@ function renderCharacter(
   // Facing is a horizontal mirror about the character's own x.
   const flip = c.facing === 'left' ? `translate(${2 * c.x},0) scale(-1,1) ` : '';
 
+  const bodyMarkup = options.sprite(body.src);
+  const headMarkup = options.sprite(head.src);
+  const headGroup = (m: string): string => `<g transform="translate(${headDx},${headDy})">${m}</g>`;
+
+  // Halo underlay first (in sprite units, so it scales with the character),
+  // then the sprite itself on top.
+  const haloLayer = halo
+    ? `<g stroke-linejoin="round" stroke-linecap="round">${haloUnderlay(bodyMarkup, 4)}${headGroup(
+        haloUnderlay(headMarkup, 4),
+      )}</g>`
+    : '';
+
   return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-  <g>${options.sprite(body.src)}</g>
-  <g transform="translate(${headDx},${headDy})">${options.sprite(head.src)}</g>
+  ${haloLayer}
+  <g>${bodyMarkup}</g>
+  ${headGroup(headMarkup)}
 </g>`;
 }
 
@@ -252,9 +294,11 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   const cam = panel.camera;
   const camScale = w / cam.width;
   const clipId = `clip-${panel.panelIndex}`;
+  const halo = options.halo ?? options.backdrops !== undefined;
 
+  const backdropArt = options.backdrops?.[panel.backdrop];
   const characterLayer = panel.characters
-    .map((c) => renderCharacter(c, options, groundY, characterHeight))
+    .map((c) => renderCharacter(c, options, groundY, characterHeight, halo))
     .join('\n');
 
   const parts: string[] = [];
@@ -266,13 +310,14 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
     `<rect x="1.5" y="1.5" width="${w - 3}" height="${h - 3}" fill="${options.background ?? '#fdfdf8'}" stroke="#111" stroke-width="3"/>`,
   );
 
-  // Characters (and, in a fuller renderer, the backdrop) are drawn through the
-  // camera transform and clipped to the panel. Balloons are not — "word
-  // balloons are unaffected by the virtual zoom factor" (§6.2) — so they are
-  // drawn afterwards in unscaled panel space.
+  // The backdrop and characters are drawn through the camera transform and
+  // clipped to the panel, so the whole scene zooms together. Balloons are not —
+  // "word balloons are unaffected by the virtual zoom factor" (§6.2) — so they
+  // are drawn afterwards in unscaled panel space.
   parts.push(
     `<g clip-path="url(#${clipId})">` +
       `<g transform="scale(${camScale.toFixed(4)}) translate(${(-cam.x).toFixed(2)},${(-cam.y).toFixed(2)})">` +
+      (backdropArt ?? '') +
       characterLayer +
       `</g></g>`,
   );

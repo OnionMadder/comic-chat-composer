@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-360 -420 1120 780" width="1120" height="780">
+  <!-- ground line at world y=300; characters stand here -->
+  <rect x="-360" y="-420" width="1120" height="780" fill="#eef4fb"/>
+  <path d="M-360 210 q220 -70 460 -6 q240 62 660 -10 v150 h-1120 z" fill="#dde9cd" stroke="#3a3a3a" stroke-width="1.5"/>
+  <path d="M-360 262 q260 -60 540 4 q220 50 580 -8 v98 h-1120 z" fill="#d0e0bd" stroke="#3a3a3a" stroke-width="1.5"/>
+  <circle cx="470" cy="-230" r="40" fill="#fdf3c8" stroke="#3a3a3a" stroke-width="1.5"/>
+  <path d="M180 300 q40 -30 10 -60 q-30 -30 20 -56" fill="none" stroke="#c7b48f" stroke-width="10" stroke-linecap="round"/>
+</svg>
