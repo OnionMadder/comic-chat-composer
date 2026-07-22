@@ -188,6 +188,59 @@ describe('compose', () => {
     assert.notEqual(establishing[0]!.backdrop, establishing[1]!.backdrop);
   });
 
+  it('lets the establishing shot and the scene share a backdrop', () => {
+    const panels = run(SAMPLE);
+    // The first conversational panel inherits the backdrop of the establishing
+    // shot that opened its scene, rather than jumping to a different place.
+    const firstEstablishing = panels.find((p) => p.zoom === 'establishing')!;
+    const firstConversation = panels.find((p) => p.zoom !== 'establishing')!;
+    // Both belong to the opening scene; the conversation keeps a stable backdrop.
+    const conversational = panels.filter((p) => p.zoom !== 'establishing');
+    assert.ok(conversational.every((p) => p.backdrop === firstConversation.backdrop));
+    assert.ok(backdrops.includes(firstEstablishing.backdrop));
+  });
+
+  it('honours a character’s backdropPreferences', () => {
+    const room = { id: 'r', name: 'R', src: 'r.svg' };
+    // A character that reads best against "field", worst against "room".
+    const outdoorsy = {
+      id: 'out',
+      name: 'Out',
+      heads: Object.fromEntries(
+        ['hap', 'laf', 'coy', 'neu', 'sad', 'ang', 'sho'].map((k) => [
+          k,
+          { src: `${k}.svg`, attach: { x: 20, y: 36 }, tailAnchor: { x: 20, y: 20 } },
+        ]),
+      ),
+      bodies: { neutral: [{ src: 'b.svg', headAttach: { x: 30, y: 8 }, bounds: { x: 0, y: 0, width: 60, height: 90 } }] },
+      backdropPreferences: ['field', 'pastoral', 'room'],
+    };
+    void room;
+
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'sam', at: 0 },
+        { type: 'message', author: 'sam', text: 'hello there', at: 1 },
+      ],
+      cast: { sam: { characterId: 'out' } },
+      characterAssets: { out: outdoorsy as never },
+      backdrops,
+      seed: 1,
+    });
+    // With no previous backdrop to exclude, the top preference wins outright.
+    assert.equal(panels[0]!.backdrop, 'field');
+  });
+
+  it('falls back to a single backdrop without cycling', () => {
+    const panels = compose({
+      events: SAMPLE,
+      cast,
+      backdrops: ['room'],
+      seed: 2,
+    });
+    assert.ok(panels.every((p) => p.backdrop === 'room'));
+  });
+
   it('handles an empty event list', () => {
     assert.deepEqual(run([]), []);
   });

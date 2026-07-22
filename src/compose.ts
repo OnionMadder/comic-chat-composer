@@ -153,6 +153,49 @@ function zoomLabel(scale: number, establishing: boolean): Zoom {
 }
 
 /**
+ * Pick the backdrop for a new scene. Establishing shots choose a fresh backdrop
+ * and the conversation that follows inherits it, so the establishing shot
+ * actually establishes the place the scene happens in.
+ *
+ * The present cast's `backdropPreferences` steer the choice: a backdrop ranked
+ * `r` (0-based, most-preferred first) in a character's list scores
+ * `listLength - r`, summed across the characters in the panel, so a backdrop
+ * everyone reads well against wins. The previous backdrop is excluded when
+ * there is an alternative, so consecutive scenes vary. Ties are broken with the
+ * seeded RNG. With no manifests, or none expressing a preference, this reduces
+ * to non-repeating rotation.
+ */
+function chooseBackdrop(
+  characters: readonly PanelCharacter[],
+  backdrops: readonly string[],
+  previous: string | null,
+  characterAssets: Record<string, CharacterManifest> | undefined,
+  rand: Random,
+): string {
+  if (backdrops.length === 0) return 'default';
+  if (backdrops.length === 1) return backdrops[0]!;
+
+  // Don't repeat the previous backdrop when there's somewhere else to go.
+  const candidates =
+    previous !== null && backdrops.includes(previous)
+      ? backdrops.filter((b) => b !== previous)
+      : [...backdrops];
+
+  const score = new Map<string, number>(candidates.map((b) => [b, 0]));
+  for (const c of characters) {
+    const prefs = characterAssets?.[c.characterId]?.backdropPreferences;
+    if (!prefs) continue;
+    prefs.forEach((id, rank) => {
+      if (score.has(id)) score.set(id, score.get(id)! + (prefs.length - rank));
+    });
+  }
+
+  const best = Math.max(...score.values());
+  const top = candidates.filter((b) => score.get(b) === best);
+  return top[Math.floor(rand() * top.length)]!;
+}
+
+/**
  * Compose a chat log into comic panels.
  *
  * @example
@@ -192,7 +235,7 @@ export function compose(input: ComposeInput): Panel[] {
   const knownParticipants = new Set<string>();
   let previousPositions = new Map<string, number>();
   let panelsSinceEstablishing = 0;
-  let backdropIndex = 0;
+  let currentBackdrop: string | null = null;
   let state = emptyPanelState();
 
   const groundY = rules.panelHeight;
@@ -324,9 +367,19 @@ export function compose(input: ComposeInput): Panel[] {
 
     const camera = buildCamera(characters, state.forceEstablishing);
     const zoom = zoomLabel(camera.scale, state.forceEstablishing);
-    const backdrop = input.backdrops.length
-      ? input.backdrops[backdropIndex % input.backdrops.length]!
-      : 'default';
+
+    // A new scene (establishing shot) picks a fresh backdrop; conversation
+    // panels inherit it, so establishing and scene agree. The very first panel
+    // also needs one even if it isn't an establishing shot.
+    if (state.forceEstablishing || currentBackdrop === null) {
+      currentBackdrop = chooseBackdrop(
+        characters,
+        input.backdrops,
+        currentBackdrop,
+        input.characterAssets,
+        rand,
+      );
+    }
 
     panels.push({
       panelIndex: panels.length,
@@ -334,16 +387,11 @@ export function compose(input: ComposeInput): Panel[] {
       camera,
       characters,
       balloons,
-      backdrop,
+      backdrop: currentBackdrop,
     });
 
     previousPositions = new Map(placements.map((p) => [p.author, p.x]));
-    if (zoom === 'establishing') {
-      panelsSinceEstablishing = 0;
-      backdropIndex++;
-    } else {
-      panelsSinceEstablishing++;
-    }
+    panelsSinceEstablishing = zoom === 'establishing' ? 0 : panelsSinceEstablishing + 1;
     state = emptyPanelState();
   };
 
