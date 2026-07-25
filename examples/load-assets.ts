@@ -72,16 +72,14 @@ export function loadCharacters(root: string): Record<string, LoadedCharacter> {
 }
 
 /**
- * Load backdrop art keyed by id. PNGs are emitted as an `<image>` that covers a
- * generous world rectangle (so establishing shots still find art at the edges)
- * with `slice` scaling, so the square source fills without distortion. SVGs are
- * inlined as-is. Both are drawn through the camera transform (§6.2).
+ * Load backdrop art keyed by id, as markup that fills the panel behind the
+ * characters. PNGs become an `<image>` sized to the whole panel with
+ * `xMidYMax slice` — bottom-aligned so the scene's ground meets the characters'
+ * feet, and cropped rather than stretched to fill. A light scrim keeps the
+ * dense Comic Chat line art from fighting the characters; the §6.1 halos do the
+ * rest. SVGs are inlined as-is.
  */
-export function loadBackdrops(
-  root: string,
-  world = { x: -160, y: -110, width: 720, height: 470 },
-  opacity = 0.62,
-): Record<string, string> {
+export function loadBackdrops(root: string, opacity = 0.6): Record<string, string> {
   const out: Record<string, string> = {};
   for (const file of readdirSync(root)) {
     const id = file.replace(/\.(png|svg)$/, '');
@@ -89,13 +87,10 @@ export function loadBackdrops(
       out[id] = innerSvg(readFileSync(join(root, file), 'utf8'));
     } else if (file.endsWith('.png')) {
       const buf = readFileSync(join(root, file));
-      // Comic Chat backdrops are dense black line art. A light scrim keeps them
-      // authentic but stops them fighting the characters — the §6.1 halos do
-      // the rest. `slice` fills the square source into the world box uncropped.
       out[id] =
         `<image href="data:image/png;base64,${buf.toString('base64')}" ` +
-        `x="${world.x}" y="${world.y}" width="${world.width}" height="${world.height}" ` +
-        `preserveAspectRatio="xMidYMid slice" opacity="${opacity}"/>`;
+        `x="0" y="0" width="100%" height="100%" ` +
+        `preserveAspectRatio="xMidYMax slice" opacity="${opacity}"/>`;
     }
   }
   return out;

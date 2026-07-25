@@ -319,14 +319,16 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
     `<rect x="1.5" y="1.5" width="${w - 3}" height="${h - 3}" fill="${options.background ?? '#fdfdf8'}" stroke="#111" stroke-width="3"/>`,
   );
 
-  // The backdrop and characters are drawn through the camera transform and
-  // clipped to the panel, so the whole scene zooms together. Balloons are not —
-  // "word balloons are unaffected by the virtual zoom factor" (§6.2) — so they
-  // are drawn afterwards in unscaled panel space.
+  // The backdrop fills the panel behind the characters, bottom-aligned so its
+  // ground sits where the characters stand. It is *not* put through the camera
+  // transform: tying a flat scene image to the character zoom drifts the
+  // horizon and, on close-ups, frames a meaningless slice of it. Characters are
+  // drawn through the camera; balloons come last in unscaled panel space —
+  // "word balloons are unaffected by the virtual zoom factor" (§6.2).
   parts.push(
     `<g clip-path="url(#${clipId})">` +
-      `<g transform="scale(${camScale.toFixed(4)}) translate(${(-cam.x).toFixed(2)},${(-cam.y).toFixed(2)})">` +
       (backdropArt ?? '') +
+      `<g transform="scale(${camScale.toFixed(4)}) translate(${(-cam.x).toFixed(2)},${(-cam.y).toFixed(2)})">` +
       characterLayer +
       `</g></g>`,
   );
