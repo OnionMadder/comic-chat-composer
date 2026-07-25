@@ -8,8 +8,10 @@
 
 import { compose } from '../../src/compose.ts';
 import type { CharacterManifest } from '../../src/manifest.ts';
+import type { Panel } from '../../src/types.ts';
 import { parseLog } from '../parse-log.ts';
-import { renderPanelToSvg } from '../render-svg.ts';
+import { renderPanelToSvg, type RenderOptions } from '../render-svg.ts';
+import { renderStripSvg } from '../strip.ts';
 
 // Injected at build time by build.ts: one manifest and one sprite set per
 // bundled Comic Chat character, plus the backdrop art.
@@ -29,6 +31,21 @@ const PANEL_H = 300;
 
 const $ = (id: string) => document.getElementById(id)!;
 
+/** Render options are the same for on-screen panels and the downloadable strip. */
+function renderOptions(debug: boolean): RenderOptions {
+  return {
+    characters: manifests,
+    sprite: (src, cid) => spritesByChar[cid]?.[src] ?? '',
+    backdrops,
+    panelWidth: PANEL_W,
+    panelHeight: PANEL_H,
+    debug,
+  };
+}
+
+/** The panels from the most recent compose, for the download buttons to act on. */
+let currentPanels: Panel[] = [];
+
 function run(): void {
   const log = ($('log') as HTMLTextAreaElement).value;
   const seed = Number(($('seed') as HTMLInputElement).value) || 0;
@@ -39,6 +56,7 @@ function run(): void {
   try {
     const { events, authors } = parseLog(log);
     if (authors.length === 0) {
+      currentPanels = [];
       out.innerHTML = '';
       status.textContent = 'Nothing to compose yet.';
       return;
@@ -60,17 +78,12 @@ function run(): void {
       seed,
       rules: { panelWidth: PANEL_W, panelHeight: PANEL_H },
     });
+    currentPanels = panels;
 
+    const opts = renderOptions(debug);
     out.innerHTML = panels
       .map((p) => {
-        const svg = renderPanelToSvg(p, {
-          characters: manifests,
-          sprite: (src, cid) => spritesByChar[cid]?.[src] ?? '',
-          backdrops,
-          panelWidth: PANEL_W,
-          panelHeight: PANEL_H,
-          debug,
-        });
+        const svg = renderPanelToSvg(p, opts);
         const label = `panel ${p.panelIndex} · ${p.zoom} ×${p.camera.scale.toFixed(2)} · ${p.backdrop}`;
         return `<figure><div class="frame">${svg}</div><figcaption>${label}</figcaption></figure>`;
       })
@@ -80,9 +93,59 @@ function run(): void {
     status.textContent =
       `${events.length} events → ${panels.length} panels · ${castList}`;
   } catch (error) {
+    currentPanels = [];
     out.innerHTML = '';
     status.textContent = `Error: ${(error as Error).message}`;
   }
+}
+
+/** Trigger a browser download of a blob under a filename. */
+function download(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Build the current strip as one SVG string, or null if there's nothing to save. */
+function currentStripSvg(): string | null {
+  if (currentPanels.length === 0) return null;
+  const columns = Number(($('cols') as HTMLInputElement).value) || 3;
+  // Never draw the layout guides into a saved image.
+  return renderStripSvg(currentPanels, renderOptions(false), { columns });
+}
+
+function downloadSvg(): void {
+  const svg = currentStripSvg();
+  if (!svg) return;
+  download(new Blob([svg], { type: 'image/svg+xml' }), 'comic.svg');
+}
+
+function downloadPng(): void {
+  const svg = currentStripSvg();
+  if (!svg) return;
+  const scale = 2; // render at 2× for a crisp raster
+  const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth * scale;
+    canvas.height = img.naturalHeight * scale;
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(svgUrl);
+    canvas.toBlob((blob) => {
+      if (blob) download(blob, 'comic.png');
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(svgUrl);
+    $('status').textContent = 'Could not rasterise the strip to PNG.';
+  };
+  img.src = svgUrl;
 }
 
 for (const id of ['log', 'seed', 'debug']) {
@@ -93,5 +156,7 @@ $('reseed').addEventListener('click', () => {
   ($('seed') as HTMLInputElement).value = String(Math.floor(Math.random() * 100000));
   run();
 });
+$('dl-svg').addEventListener('click', downloadSvg);
+$('dl-png').addEventListener('click', downloadPng);
 
 run();

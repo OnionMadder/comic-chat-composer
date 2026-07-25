@@ -82,6 +82,9 @@ const html = `<!doctype html>
   .side { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
   input[type=number] { width: 100px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
   button { padding: 6px 12px; border-radius: 6px; border: 1px solid #888; background: transparent; color: inherit; cursor: pointer; }
+  .save { border-top: 1px solid rgba(128,128,128,.3); padding-top: 10px; margin-top: 2px; }
+  .save-row { display: flex; gap: 8px; margin-top: 6px; }
+  .cols { width: 56px; }
   #status { font-size: 13px; color: #666; margin-bottom: 12px; }
   #out { display: flex; flex-wrap: wrap; gap: 18px; }
   figure { margin: 0; }
@@ -103,6 +106,13 @@ const html = `<!doctype html>
     <label>Seed<br><input id="seed" type="number" value="1234"></label>
     <button id="reseed">Randomise seed</button>
     <label><input id="debug" type="checkbox"> Show layout guides</label>
+    <div class="save">
+      <label>Save strip — columns <input id="cols" class="cols" type="number" min="1" max="8" value="3"></label>
+      <div class="save-row">
+        <button id="dl-png">Download PNG</button>
+        <button id="dl-svg">Download SVG</button>
+      </div>
+    </div>
   </div>
 </div>
 
