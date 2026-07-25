@@ -11,13 +11,18 @@ import type { CharacterManifest } from '../../src/manifest.ts';
 import { parseLog } from '../parse-log.ts';
 import { renderPanelToSvg } from '../render-svg.ts';
 
-declare const __SPRITES__: Record<string, string>;
-declare const __MANIFEST__: CharacterManifest;
+// Injected at build time by build.ts: one manifest and one sprite set per
+// bundled Comic Chat character, plus the backdrop art.
+declare const __MANIFESTS__: Record<string, CharacterManifest>;
+declare const __SPRITES__: Record<string, Record<string, string>>;
 declare const __BACKDROPS__: Record<string, string>;
 
-const sprites = __SPRITES__;
-const nib = __MANIFEST__;
+const manifests = __MANIFESTS__;
+const spritesByChar = __SPRITES__;
 const backdrops = __BACKDROPS__;
+
+// The cast pool participants are assigned from, in a stable order.
+const POOL = Object.keys(manifests).sort();
 
 const PANEL_W = 400;
 const PANEL_H = 300;
@@ -39,12 +44,19 @@ function run(): void {
       return;
     }
 
-    const cast = Object.fromEntries(authors.map((a) => [a, { characterId: 'nib' }]));
+    // Give each participant a distinct character, cycling the pool by
+    // first-appearance order (seed-shifted so "Randomise" reshuffles casting).
+    const castOf = new Map<string, string>();
+    authors.forEach((a, i) => castOf.set(a, POOL[(i + seed) % POOL.length]!));
+    const cast = Object.fromEntries(
+      authors.map((a) => [a, { characterId: castOf.get(a)! }]),
+    );
+
     const panels = compose({
       events,
       cast,
-      characterAssets: { nib },
-      backdrops: ['room', 'field', 'pastoral'],
+      characterAssets: manifests,
+      backdrops: Object.keys(backdrops),
       seed,
       rules: { panelWidth: PANEL_W, panelHeight: PANEL_H },
     });
@@ -52,8 +64,8 @@ function run(): void {
     out.innerHTML = panels
       .map((p) => {
         const svg = renderPanelToSvg(p, {
-          characters: { nib },
-          sprite: (src) => sprites[src] ?? '',
+          characters: manifests,
+          sprite: (src, cid) => spritesByChar[cid]?.[src] ?? '',
           backdrops,
           panelWidth: PANEL_W,
           panelHeight: PANEL_H,
@@ -64,7 +76,9 @@ function run(): void {
       })
       .join('');
 
-    status.textContent = `${events.length} events → ${panels.length} panels · ${authors.length} participants`;
+    const castList = authors.map((a) => `${a}=${manifests[castOf.get(a)!]!.name}`).join(', ');
+    status.textContent =
+      `${events.length} events → ${panels.length} panels · ${castList}`;
   } catch (error) {
     out.innerHTML = '';
     status.textContent = `Error: ${(error as Error).message}`;

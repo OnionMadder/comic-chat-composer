@@ -12,31 +12,23 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as esbuild from 'esbuild';
+import { loadCharacters, loadBackdrops } from '../load-assets.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const assetDir = join(here, '..', '..', 'assets', 'characters', 'nib');
+const root = join(here, '..', '..', 'assets', 'comic-chat');
 
-const manifest = JSON.parse(readFileSync(join(assetDir, 'character.json'), 'utf8'));
-
-/** Strip the outer `<svg>` wrapper so art can be positioned with `<g>`. */
-const stripSvg = (raw: string): string =>
-  raw
-    .replace(/^[\s\S]*?<svg[^>]*>/, '')
-    .replace(/<\/svg>\s*$/, '')
-    .trim();
-
-const sprites: Record<string, string> = {};
-for (const file of readdirSync(assetDir)) {
-  if (file.endsWith('.svg')) sprites[file] = stripSvg(readFileSync(join(assetDir, file), 'utf8'));
+// Every bundled Comic Chat character (manifest + sprite markup) and backdrop,
+// inlined so the page is self-contained.
+const loaded = loadCharacters(join(root, 'characters'));
+const manifests: Record<string, unknown> = {};
+const sprites: Record<string, Record<string, string>> = {};
+for (const [cid, { manifest, sprites: s }] of Object.entries(loaded)) {
+  manifests[cid] = manifest;
+  sprites[cid] = s;
 }
+const backdrops = loadBackdrops(join(root, 'backdrops'));
 
-const backdropDir = join(here, '..', '..', 'assets', 'backdrops');
-const backdrops: Record<string, string> = {};
-for (const file of readdirSync(backdropDir)) {
-  if (file.endsWith('.svg')) {
-    backdrops[file.replace('.svg', '')] = stripSvg(readFileSync(join(backdropDir, file), 'utf8'));
-  }
-}
+console.log(`inlining ${Object.keys(manifests).length} characters, ${Object.keys(backdrops).length} backdrops`);
 
 const bundle = await esbuild.build({
   entryPoints: [join(here, 'main.ts')],
@@ -46,8 +38,8 @@ const bundle = await esbuild.build({
   minify: true,
   write: false,
   define: {
+    __MANIFESTS__: JSON.stringify(manifests),
     __SPRITES__: JSON.stringify(sprites),
-    __MANIFEST__: JSON.stringify(manifest),
     __BACKDROPS__: JSON.stringify(backdrops),
   },
 });

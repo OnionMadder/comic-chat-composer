@@ -27,8 +27,13 @@ import {
 import { createApproximateMetrics, type FontMetrics } from '../src/text.ts';
 import { balloonOutlinePath } from './balloon-shape.ts';
 
-/** Returns the inner markup of a sprite (everything inside its `<svg>` tag). */
-export type SpriteResolver = (src: string) => string;
+/**
+ * Returns the markup for a sprite: the inner SVG for a vector sprite, or an
+ * `<image>` for a raster one. `characterId` is passed because sprite filenames
+ * (`head-neu.png`, …) repeat across characters, so the resolver must namespace
+ * by character.
+ */
+export type SpriteResolver = (src: string, characterId: string) => string;
 
 export interface RenderOptions {
   /** Character manifests, keyed by the `characterId` used in the cast. */
@@ -204,8 +209,12 @@ function renderBalloon(b: PanelBalloon, lineHeight: number, metrics: FontMetrics
  * fatten every stroke, so a copy drawn behind the sprite reads as a white
  * outline hugging the line art (§6.1). Works in any SVG engine — it is just
  * more strokes, no filter.
+ *
+ * Returns empty for raster (`<image>`) sprites: there is nothing to restroke,
+ * and the imported Comic Chat art already carries a baked-in aura halo.
  */
 function haloUnderlay(markup: string, extra: number): string {
+  if (markup.includes('<image')) return '';
   return markup
     .replace(/#111\b/g, '#ffffff')
     .replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${Number(w) + extra}"`);
@@ -246,8 +255,8 @@ function renderCharacter(
   // Facing is a horizontal mirror about the character's own x.
   const flip = c.facing === 'left' ? `translate(${2 * c.x},0) scale(-1,1) ` : '';
 
-  const bodyMarkup = options.sprite(body.src);
-  const headMarkup = options.sprite(head.src);
+  const bodyMarkup = options.sprite(body.src, c.characterId);
+  const headMarkup = options.sprite(head.src, c.characterId);
   const headGroup = (m: string): string => `<g transform="translate(${headDx},${headDy})">${m}</g>`;
 
   // Halo underlay first (in sprite units, so it scales with the character),
