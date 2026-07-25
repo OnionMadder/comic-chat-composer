@@ -85,53 +85,53 @@
       {
         "src": "body-neutral-0.png",
         "headAttach": {
-          "x": 121,
-          "y": 19
+          "x": 119,
+          "y": 17
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 206,
-          "height": 310
+          "width": 202,
+          "height": 308
         }
       },
       {
         "src": "body-neutral-1.png",
         "headAttach": {
-          "x": 88,
-          "y": 24
+          "x": 86,
+          "y": 22
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 165,
-          "height": 319
+          "width": 163,
+          "height": 315
         }
       },
       {
         "src": "body-neutral-2.png",
         "headAttach": {
-          "x": 139,
-          "y": 26
+          "x": 137,
+          "y": 24
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 272,
-          "height": 321
+          "width": 268,
+          "height": 319
         }
       },
       {
         "src": "body-neutral-3.png",
         "headAttach": {
-          "x": 116,
-          "y": 35
+          "x": 114,
+          "y": 33
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 212,
-          "height": 327
+          "width": 208,
+          "height": 325
         }
       }
     ],
@@ -139,14 +139,14 @@
       {
         "src": "body-wave-0.png",
         "headAttach": {
-          "x": 135,
-          "y": 52
+          "x": 133,
+          "y": 50
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 258,
-          "height": 351
+          "width": 254,
+          "height": 347
         }
       }
     ],
@@ -154,14 +154,14 @@
       {
         "src": "body-point-self-0.png",
         "headAttach": {
-          "x": 141,
-          "y": 25
+          "x": 139,
+          "y": 23
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 273,
-          "height": 334
+          "width": 269,
+          "height": 332
         }
       }
     ],
@@ -169,20 +169,20 @@
       {
         "src": "body-point-other-0.png",
         "headAttach": {
-          "x": 100,
-          "y": 20
+          "x": 98,
+          "y": 18
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 196,
-          "height": 314
+          "width": 192,
+          "height": 312
         }
       }
     ]
   },
   "framing": {
-    "shoulderFraction": 0.317,
-    "kneeFraction": 0.809
+    "shoulderFraction": 0.322,
+    "kneeFraction": 0.81
   }
 }

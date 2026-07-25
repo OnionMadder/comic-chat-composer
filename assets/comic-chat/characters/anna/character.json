@@ -85,66 +85,66 @@
       {
         "src": "body-neutral-0.png",
         "headAttach": {
-          "x": 84,
-          "y": 16
+          "x": 82,
+          "y": 14
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 181,
-          "height": 352
+          "width": 177,
+          "height": 348
         }
       },
       {
         "src": "body-neutral-1.png",
         "headAttach": {
-          "x": 54,
-          "y": 16
+          "x": 52,
+          "y": 14
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 107,
-          "height": 355
+          "width": 103,
+          "height": 351
         }
       },
       {
         "src": "body-neutral-2.png",
         "headAttach": {
-          "x": 57,
-          "y": 3
+          "x": 55,
+          "y": 1
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 119,
-          "height": 347
+          "width": 115,
+          "height": 343
         }
       },
       {
         "src": "body-neutral-3.png",
         "headAttach": {
-          "x": 73,
-          "y": 21
+          "x": 71,
+          "y": 19
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 182,
-          "height": 368
+          "width": 178,
+          "height": 364
         }
       },
       {
         "src": "body-neutral-4.png",
         "headAttach": {
-          "x": 63,
-          "y": 21
+          "x": 61,
+          "y": 19
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 153,
-          "height": 354
+          "width": 149,
+          "height": 350
         }
       }
     ],
@@ -152,14 +152,14 @@
       {
         "src": "body-point-self-0.png",
         "headAttach": {
-          "x": 73,
-          "y": 15
+          "x": 71,
+          "y": 13
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 158,
-          "height": 358
+          "width": 154,
+          "height": 354
         }
       }
     ],
@@ -167,14 +167,14 @@
       {
         "src": "body-wave-0.png",
         "headAttach": {
-          "x": 68,
-          "y": 17
+          "x": 66,
+          "y": 15
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 164,
-          "height": 353
+          "width": 160,
+          "height": 349
         }
       }
     ],
@@ -182,20 +182,20 @@
       {
         "src": "body-point-other-0.png",
         "headAttach": {
-          "x": 53,
-          "y": 18
+          "x": 51,
+          "y": 16
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 173,
-          "height": 356
+          "width": 169,
+          "height": 352
         }
       }
     ]
   },
   "framing": {
-    "shoulderFraction": 0.191,
-    "kneeFraction": 0.773
+    "shoulderFraction": 0.196,
+    "kneeFraction": 0.775
   }
 }

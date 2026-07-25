@@ -29,7 +29,7 @@ import sys
 import io
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageFilter
 except ImportError:
     sys.exit("This tool needs Pillow:  pip install Pillow")
 
@@ -140,19 +140,27 @@ def sprite_rgba(data, fg, tr, au):
     """
     Foreground art keyed to a silhouette (dark = opaque shape).
 
-    Heads carry an exact transparency mask (`tr`); torsos leave `tr` empty and
-    are keyed by their aura (`au`) silhouette instead, which is slightly dilated
-    and so leaves a thin white halo fringe — the §6.1 halo, for free.
+    Heads carry an exact transparency mask (`tr`), which hugs the ink. Torsos
+    leave `tr` empty and only have the aura (`au`) silhouette, which Comic Chat
+    dilated by a few pixels to draw the §6.1 halo — used directly it leaves a fat
+    white ring around the figure that doesn't match the clean heads. So when we
+    fall back to the aura we erode it back to the ink edge, giving every sprite a
+    consistent tight edge. (A halo, if wanted, is better drawn uniformly behind
+    the whole assembled character than baked unevenly into each part.)
     """
     art = bmp_at(data, fg)
     if art is None:
         return None
     art = art.convert("RGB")
-    mask = bmp_at(data, tr) or bmp_at(data, au)
+    exact = bmp_at(data, tr)
+    mask = exact or bmp_at(data, au)
     if mask is None:
         return art.convert("RGBA")
     mask = mask.convert("L").resize(art.size)
     alpha = mask.point(lambda v: 255 if v < 128 else 0)
+    if exact is None:
+        # Aura-derived: shrink the dilated silhouette back onto the ink.
+        alpha = alpha.filter(ImageFilter.MinFilter(5))
     out = art.convert("RGBA")
     out.putalpha(alpha)
     return out

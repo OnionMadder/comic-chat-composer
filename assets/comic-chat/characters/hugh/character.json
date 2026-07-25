@@ -85,40 +85,40 @@
       {
         "src": "body-neutral-0.png",
         "headAttach": {
-          "x": 121,
-          "y": 24
+          "x": 119,
+          "y": 22
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 215,
-          "height": 331
+          "width": 211,
+          "height": 327
         }
       },
       {
         "src": "body-neutral-1.png",
         "headAttach": {
-          "x": 125,
-          "y": 31
+          "x": 123,
+          "y": 29
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 218,
-          "height": 346
+          "width": 214,
+          "height": 342
         }
       },
       {
         "src": "body-neutral-2.png",
         "headAttach": {
-          "x": 117,
-          "y": 25
+          "x": 115,
+          "y": 23
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 217,
-          "height": 334
+          "width": 213,
+          "height": 330
         }
       }
     ],
@@ -126,14 +126,14 @@
       {
         "src": "body-point-self-0.png",
         "headAttach": {
-          "x": 157,
-          "y": 22
+          "x": 155,
+          "y": 20
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 282,
-          "height": 335
+          "width": 278,
+          "height": 331
         }
       }
     ],
@@ -141,14 +141,14 @@
       {
         "src": "body-point-other-0.png",
         "headAttach": {
-          "x": 91,
-          "y": 18
+          "x": 89,
+          "y": 16
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 210,
-          "height": 341
+          "width": 206,
+          "height": 337
         }
       }
     ],
@@ -156,20 +156,20 @@
       {
         "src": "body-wave-0.png",
         "headAttach": {
-          "x": 159,
-          "y": 70
+          "x": 157,
+          "y": 68
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 256,
-          "height": 381
+          "width": 252,
+          "height": 377
         }
       }
     ]
   },
   "framing": {
-    "shoulderFraction": 0.225,
-    "kneeFraction": 0.783
+    "shoulderFraction": 0.231,
+    "kneeFraction": 0.785
   }
 }
