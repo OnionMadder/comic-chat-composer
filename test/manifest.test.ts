@@ -21,15 +21,17 @@ describe('the Nib reference character', () => {
   });
 
   it('supplies all seven emotion heads', () => {
+    const heads = nib.heads!;
     for (const code of EMOTION_CODES) {
-      assert.ok(nib.heads[code], `missing head sprite ${code}`);
-      assert.match(nib.heads[code].src, /\.svg$/);
+      assert.ok(heads[code], `missing head sprite ${code}`);
+      assert.match(heads[code].src, /\.svg$/);
     }
   });
 
   it('supplies at least six gestures including two neutrals', () => {
-    assert.ok(Object.keys(nib.bodies).length >= 6);
-    assert.equal(nib.bodies.neutral.length, 2, 'neutrals must cycle');
+    const bodies = nib.bodies!;
+    assert.ok(Object.keys(bodies).length >= 6);
+    assert.equal(bodies.neutral.length, 2, 'neutrals must cycle');
   });
 
   it('carries camera framing landmarks', () => {
@@ -84,7 +86,7 @@ describe('sprite resolution', () => {
   });
 
   it('falls back to neutral for a gesture the character lacks', () => {
-    const stripped = { ...nib, bodies: { neutral: nib.bodies.neutral } };
+    const stripped = { ...nib, bodies: { neutral: nib.bodies!.neutral } };
     assert.equal(bodyForGesture(stripped, 'wave').src, 'body-neutral-1.svg');
   });
 });
@@ -116,7 +118,7 @@ describe('validateCharacterManifest', () => {
   it('rejects an unrecognised gesture key', () => {
     const result = validateCharacterManifest({
       ...nib,
-      bodies: { ...nib.bodies, moonwalk: nib.bodies.neutral },
+      bodies: { ...nib.bodies, moonwalk: nib.bodies!.neutral },
     });
     assert.equal(result.ok, false);
     if (!result.ok) {

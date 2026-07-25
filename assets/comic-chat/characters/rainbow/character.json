@@ -1,0 +1,24 @@
+{
+  "id": "rainbow",
+  "name": "Rainbow",
+  "figures": [
+    {
+      "src": "figure-neutral-0.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 145,
+        "y": 145
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 224,
+        "height": 335
+      }
+    }
+  ],
+  "framing": {
+    "shoulderFraction": 0.42,
+    "kneeFraction": 0.85
+  }
+}

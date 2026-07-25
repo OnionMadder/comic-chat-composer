@@ -1,0 +1,150 @@
+{
+  "id": "jordan",
+  "name": "Jordan",
+  "figures": [
+    {
+      "src": "figure-point-other-0.png",
+      "key": "point-other",
+      "tailAnchor": {
+        "x": 126,
+        "y": 124
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 263,
+        "height": 413
+      }
+    },
+    {
+      "src": "figure-point-self-0.png",
+      "key": "point-self",
+      "tailAnchor": {
+        "x": 119,
+        "y": 125
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 209,
+        "height": 410
+      }
+    },
+    {
+      "src": "figure-angry-0.png",
+      "key": "angry",
+      "tailAnchor": {
+        "x": 125,
+        "y": 124
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 246,
+        "height": 417
+      }
+    },
+    {
+      "src": "figure-bored-0.png",
+      "key": "bored",
+      "tailAnchor": {
+        "x": 127,
+        "y": 121
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 277,
+        "height": 426
+      }
+    },
+    {
+      "src": "figure-laughing-0.png",
+      "key": "laughing",
+      "tailAnchor": {
+        "x": 126,
+        "y": 124
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 178,
+        "height": 454
+      }
+    },
+    {
+      "src": "figure-wave-0.png",
+      "key": "wave",
+      "tailAnchor": {
+        "x": 128,
+        "y": 125
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 215,
+        "height": 429
+      }
+    },
+    {
+      "src": "figure-neutral-0.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 126,
+        "y": 124
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 210,
+        "height": 404
+      }
+    },
+    {
+      "src": "figure-neutral-1.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 122,
+        "y": 123
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 191,
+        "height": 424
+      }
+    },
+    {
+      "src": "figure-neutral-2.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 124,
+        "y": 125
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 268,
+        "height": 425
+      }
+    },
+    {
+      "src": "figure-shouting-0.png",
+      "key": "shouting",
+      "tailAnchor": {
+        "x": 126,
+        "y": 121
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 272,
+        "height": 427
+      }
+    }
+  ],
+  "framing": {
+    "shoulderFraction": 0.387,
+    "kneeFraction": 0.837
+  }
+}

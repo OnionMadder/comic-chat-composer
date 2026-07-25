@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseCharacterManifest, bodyForGesture } from '../src/manifest.ts';
+import { parseCharacterManifest, bodyForGesture, isFigureManifest } from '../src/manifest.ts';
 import { compose } from '../src/compose.ts';
 import { EMOTION_CODES } from '../src/manifest.ts';
 
@@ -25,23 +25,38 @@ describe('bundled Comic Chat characters', () => {
         JSON.parse(readFileSync(join(ROOT, id, 'character.json'), 'utf8')),
       );
 
-      it('validates and has all seven expressions', () => {
-        for (const code of EMOTION_CODES) {
-          assert.ok(manifest.heads[code], `${id} missing head ${code}`);
+      it('validates and covers its poses', () => {
+        if (isFigureManifest(manifest)) {
+          assert.ok(
+            manifest.figures!.some((f) => f.key === 'neutral'),
+            `${id} has no neutral figure`,
+          );
+        } else {
+          for (const code of EMOTION_CODES) {
+            assert.ok(manifest.heads![code], `${id} missing head ${code}`);
+          }
         }
       });
 
-      it('has a neutral body and real framing landmarks', () => {
-        assert.ok(manifest.bodies.neutral?.length, `${id} has no neutral body`);
+      it('has a neutral pose and real framing landmarks', () => {
+        if (isFigureManifest(manifest)) {
+          assert.ok(manifest.figures!.length, `${id} has no figures`);
+        } else {
+          assert.ok(manifest.bodies!.neutral?.length, `${id} has no neutral body`);
+        }
         assert.ok(manifest.framing, `${id} has no framing`);
         assert.ok(manifest.framing!.shoulderFraction < manifest.framing!.kneeFraction);
       });
 
       it('every sprite src resolves to a file on disk', () => {
         const srcs = new Set<string>();
-        for (const code of EMOTION_CODES) srcs.add(manifest.heads[code].src);
-        for (const list of Object.values(manifest.bodies)) {
-          for (const b of list ?? []) srcs.add(b.src);
+        if (isFigureManifest(manifest)) {
+          for (const f of manifest.figures!) srcs.add(f.src);
+        } else {
+          for (const code of EMOTION_CODES) srcs.add(manifest.heads![code].src);
+          for (const list of Object.values(manifest.bodies!)) {
+            for (const b of list ?? []) srcs.add(b.src);
+          }
         }
         for (const src of srcs) {
           assert.ok(existsSync(join(ROOT, id, src)), `${id}: missing sprite ${src}`);

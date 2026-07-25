@@ -1,0 +1,24 @@
+{
+  "id": "glenda",
+  "name": "Greg",
+  "figures": [
+    {
+      "src": "figure-neutral-0.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 143,
+        "y": 63
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 210,
+        "height": 375
+      }
+    }
+  ],
+  "framing": {
+    "shoulderFraction": 0.248,
+    "kneeFraction": 0.698
+  }
+}

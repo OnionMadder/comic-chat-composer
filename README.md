@@ -67,7 +67,7 @@ Each panel comes back like this:
 
 ## Character assets
 
-Characters are described by a JSON manifest. Heads and bodies are separate sprites that combine freely — any head on any body — which is how a small set of drawings covers the whole gesture × expression matrix.
+Characters are described by a JSON manifest. Most are *layered*: heads and bodies are separate sprites that combine freely — any head on any body — which is how a small set of drawings covers the whole gesture × expression matrix. Some characters are instead *whole-figure* (`figures` in place of `heads`/`bodies`): one complete sprite per pose, with the expression and gesture baked in and no separable head. The composer treats both the same; only the renderer branches.
 
 ```jsonc
 {
@@ -98,7 +98,7 @@ A reference character, **Nib**, ships in [`assets/characters/nib/`](assets/chara
 
 ### Real Comic Chat characters
 
-Fifteen of the original **Microsoft Comic Chat** characters — Anna, Hugh, Tiki, and the rest — are also bundled, under [`assets/comic-chat/`](assets/comic-chat/), along with the room/field/pastoral backdrops. Comic Chat's art shipped in a binary `.avb` format; [`tools/import-avb.py`](tools/import-avb.py) decodes it (the format read straight from Comic Chat's own loader source) and converts each avatar to the same manifest shape as Nib — separate head and body sprites with the original neck-crosshair and face-centre anchor points, and the avatars' own aura masks baked in as §6.1 halos. The demo casts a different one of these to each participant.
+All twenty-two of the original **Microsoft Comic Chat** v1.0 characters — Anna, Hugh, Tiki, and the rest — are also bundled, under [`assets/comic-chat/`](assets/comic-chat/), along with the room/field/pastoral backdrops. Comic Chat's art shipped in a binary `.avb` format; [`tools/import-avb.py`](tools/import-avb.py) decodes it (the format read straight from Comic Chat's own loader source) and converts each avatar to the same manifest shape as Nib. Fifteen are layered (separate head + body sprites with the original neck-crosshair and face-centre anchors); the other seven — Tux, Waf, Connor, Jordan, and three single-pose figures — are whole-figure. The demo casts a different one to each participant.
 
 This art is Microsoft's, MIT-licensed and redistributed with attribution — see [`assets/comic-chat/NOTICE.md`](assets/comic-chat/NOTICE.md). It is bundled art, not a Microsoft-endorsed product; this project is independent and unaffiliated (details under [Credit and provenance](#credit-and-provenance)).
 

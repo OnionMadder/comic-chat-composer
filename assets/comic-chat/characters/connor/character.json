@@ -1,0 +1,178 @@
+{
+  "id": "connor",
+  "name": "Connor",
+  "figures": [
+    {
+      "src": "figure-sad-0.png",
+      "key": "sad",
+      "tailAnchor": {
+        "x": 125,
+        "y": 119
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 168,
+        "height": 392
+      }
+    },
+    {
+      "src": "figure-neutral-0.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 120,
+        "y": 118
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 141,
+        "height": 397
+      }
+    },
+    {
+      "src": "figure-laughing-0.png",
+      "key": "laughing",
+      "tailAnchor": {
+        "x": 121,
+        "y": 122
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 167,
+        "height": 401
+      }
+    },
+    {
+      "src": "figure-bored-0.png",
+      "key": "bored",
+      "tailAnchor": {
+        "x": 117,
+        "y": 118
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 150,
+        "height": 397
+      }
+    },
+    {
+      "src": "figure-bored-1.png",
+      "key": "bored",
+      "tailAnchor": {
+        "x": 121,
+        "y": 115
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 138,
+        "height": 393
+      }
+    },
+    {
+      "src": "figure-happy-0.png",
+      "key": "happy",
+      "tailAnchor": {
+        "x": 127,
+        "y": 122
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 146,
+        "height": 390
+      }
+    },
+    {
+      "src": "figure-angry-0.png",
+      "key": "angry",
+      "tailAnchor": {
+        "x": 125,
+        "y": 122
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 149,
+        "height": 402
+      }
+    },
+    {
+      "src": "figure-happy-1.png",
+      "key": "happy",
+      "tailAnchor": {
+        "x": 122,
+        "y": 118
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 152,
+        "height": 407
+      }
+    },
+    {
+      "src": "figure-sad-1.png",
+      "key": "sad",
+      "tailAnchor": {
+        "x": 118,
+        "y": 114
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 162,
+        "height": 401
+      }
+    },
+    {
+      "src": "figure-happy-2.png",
+      "key": "happy",
+      "tailAnchor": {
+        "x": 114,
+        "y": 113
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 142,
+        "height": 402
+      }
+    },
+    {
+      "src": "figure-coy-0.png",
+      "key": "coy",
+      "tailAnchor": {
+        "x": 121,
+        "y": 115
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 188,
+        "height": 387
+      }
+    },
+    {
+      "src": "figure-neutral-1.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 120,
+        "y": 122
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 144,
+        "height": 402
+      }
+    }
+  ],
+  "framing": {
+    "shoulderFraction": 0.377,
+    "kneeFraction": 0.827
+  }
+}

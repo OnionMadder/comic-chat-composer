@@ -73,6 +73,24 @@ export interface BodySprite {
 }
 
 /**
+ * A whole-figure pose: a complete standing figure with the expression and
+ * gesture baked in and no separable head. Some original characters (Tux, Waf,
+ * Connor, Jordan…) are built this way — one sprite per pose rather than a head
+ * combined with a body. A manifest supplies `figures` *instead of*
+ * `heads`/`bodies`.
+ */
+export interface FigureSprite {
+  src: string;
+  /** The expression or gesture this pose depicts, e.g. `happy` or `wave`. */
+  key: Expression | Gesture;
+  /** Centre of the face; balloon tails point here (§5.4). */
+  tailAnchor: Point;
+  /** Footprint of the figure, used by the zoom rules. */
+  bounds: Bounds;
+  halo?: Bounds;
+}
+
+/**
  * Anatomical landmarks used by the camera framing rules (§6.2), as fractions of
  * the character's full standing height measured down from the top of the head.
  *
@@ -94,19 +112,34 @@ export interface CharacterManifest {
   name: string;
   /** Optional small icon (the original used 40×40). */
   icon?: string;
-  /** One head sprite per emotion code. All seven are required. */
-  heads: Record<EmotionCode, HeadSprite>;
   /**
-   * Body sprites keyed by gesture. Each value is a list of variants; the
-   * composer cycles through a gesture's variants across panels so repeated
-   * poses do not look identical. `neutral` is required and is the fallback for
-   * any gesture the character does not supply.
+   * One head sprite per emotion code, for a layered character. All seven are
+   * required. Present together with {@link bodies}, and absent for a
+   * whole-figure character (which uses {@link figures} instead).
    */
-  bodies: Partial<Record<Gesture, BodySprite[]>> & { neutral: BodySprite[] };
+  heads?: Record<EmotionCode, HeadSprite>;
+  /**
+   * Body sprites keyed by gesture, for a layered character. Each value is a
+   * list of variants the composer cycles through so repeated poses do not look
+   * identical; `neutral` is required and is the fallback for any gesture the
+   * character does not supply. Absent for a whole-figure character.
+   */
+  bodies?: Partial<Record<Gesture, BodySprite[]>> & { neutral: BodySprite[] };
+  /**
+   * Whole-figure poses, for a character with no separable head. Present
+   * *instead of* {@link heads} and {@link bodies}. Must include a `neutral`
+   * pose as the fallback. See {@link figureFor} for how a pose is chosen.
+   */
+  figures?: FigureSprite[];
   /** Anatomical crop lines for the camera (§6.2). Optional; see {@link DEFAULT_FRAMING}. */
   framing?: CharacterFraming;
   /** Backdrop ids this character reads well against, most preferred first. */
   backdropPreferences?: string[];
+}
+
+/** Whether a manifest is a whole-figure character rather than head + body. */
+export function isFigureManifest(manifest: CharacterManifest): boolean {
+  return Array.isArray(manifest.figures) && manifest.figures.length > 0;
 }
 
 /** Framing for a roughly humanoid figure, when a manifest gives none. */
@@ -130,17 +163,17 @@ const EXPRESSION_TO_CODE: Record<Expression, EmotionCode> = {
   bored: 'neu',
 };
 
-/** Resolve the head sprite a given expression should use. */
+/** Resolve the head sprite a given expression should use (layered characters). */
 export function headForExpression(
   manifest: CharacterManifest,
   expression: Expression,
 ): HeadSprite {
-  return manifest.heads[EXPRESSION_TO_CODE[expression]];
+  return manifest.heads![EXPRESSION_TO_CODE[expression]];
 }
 
 /**
  * Resolve the body sprite for a gesture, falling back to `neutral` when the
- * character has no art for it.
+ * character has no art for it (layered characters).
  *
  * @param variant - Which variant of the gesture to use; wraps around.
  */
@@ -149,10 +182,34 @@ export function bodyForGesture(
   gesture: Gesture,
   variant = 0,
 ): BodySprite {
-  const list = manifest.bodies[gesture]?.length
-    ? manifest.bodies[gesture]!
-    : manifest.bodies.neutral;
+  const bodies = manifest.bodies!;
+  const list = bodies[gesture]?.length ? bodies[gesture]! : bodies.neutral;
   return list[((variant % list.length) + list.length) % list.length]!;
+}
+
+/**
+ * Resolve the whole-figure pose for an expression and gesture.
+ *
+ * A distinctive gesture (a wave, a point) reads more strongly at comic scale
+ * than a facial expression, so a matching gesture pose is preferred; failing
+ * that, a pose matching the expression; failing that, `neutral`. When several
+ * poses share a key (some characters have three neutrals), `variant` cycles
+ * through them so repeated poses do not look identical.
+ */
+export function figureFor(
+  manifest: CharacterManifest,
+  expression: Expression,
+  gesture: Gesture,
+  variant = 0,
+): FigureSprite {
+  const figures = manifest.figures!;
+  const matching = (key: string): FigureSprite[] => figures.filter((f) => f.key === key);
+  const pick =
+    (gesture !== 'neutral' && matching(gesture).length ? matching(gesture) : null) ??
+    (matching(expression).length ? matching(expression) : null) ??
+    (matching('neutral').length ? matching('neutral') : null) ??
+    figures;
+  return pick[((variant % pick.length) + pick.length) % pick.length]!;
 }
 
 /** Proportions the camera needs from a character (§6.2). */
@@ -167,12 +224,15 @@ export interface CharacterProportions {
 
 /**
  * Derive the proportions the camera uses to frame a character, from its neutral
- * body bounds and its {@link CharacterFraming} (or the default).
+ * pose's bounds and its {@link CharacterFraming} (or the default). Works for
+ * both layered and whole-figure characters.
  */
 export function characterProportions(manifest: CharacterManifest): CharacterProportions {
-  const body = manifest.bodies.neutral[0]!;
+  const bounds = isFigureManifest(manifest)
+    ? figureFor(manifest, 'neutral', 'neutral').bounds
+    : manifest.bodies!.neutral[0]!.bounds;
   const framing = manifest.framing ?? DEFAULT_FRAMING;
-  const aspect = body.bounds.height > 0 ? body.bounds.width / body.bounds.height : 0.5;
+  const aspect = bounds.height > 0 ? bounds.width / bounds.height : 0.5;
   return {
     aspect,
     shoulderFraction: framing.shoulderFraction,
@@ -243,8 +303,37 @@ export function validateCharacterManifest(input: unknown): ValidationResult {
   checkNonEmptyString(input.name, 'name', errors);
   if (input.icon !== undefined) checkNonEmptyString(input.icon, 'icon', errors);
 
-  if (!isRecord(input.heads)) {
-    errors.push('heads: expected an object keyed by emotion code');
+  // A manifest is either a whole-figure character (`figures`) or a layered one
+  // (`heads` + `bodies`), never both.
+  const isFigure = input.figures !== undefined;
+
+  if (isFigure) {
+    if (input.heads !== undefined || input.bodies !== undefined) {
+      errors.push('figures: a whole-figure manifest must not also define heads or bodies');
+    }
+    if (!Array.isArray(input.figures) || input.figures.length === 0) {
+      errors.push('figures: expected a non-empty array of poses');
+    } else {
+      const keys = new Set<string>();
+      input.figures.forEach((fig, i) => {
+        const path = `figures[${i}]`;
+        if (!isRecord(fig)) {
+          errors.push(`${path}: expected an object`);
+          return;
+        }
+        checkNonEmptyString(fig.src, `${path}.src`, errors);
+        checkNonEmptyString(fig.key, `${path}.key`, errors);
+        checkPoint(fig.tailAnchor, `${path}.tailAnchor`, errors);
+        checkBounds(fig.bounds, `${path}.bounds`, errors);
+        if (fig.halo !== undefined) checkBounds(fig.halo, `${path}.halo`, errors);
+        if (typeof fig.key === 'string') keys.add(fig.key);
+      });
+      if (!keys.has('neutral')) {
+        errors.push('figures: at least one pose with key "neutral" is required');
+      }
+    }
+  } else if (!isRecord(input.heads)) {
+    errors.push('heads: expected an object keyed by emotion code (or supply figures)');
   } else {
     for (const code of EMOTION_CODES) {
       const head = input.heads[code];
@@ -263,32 +352,34 @@ export function validateCharacterManifest(input: unknown): ValidationResult {
     }
   }
 
-  if (!isRecord(input.bodies)) {
-    errors.push('bodies: expected an object keyed by gesture');
-  } else {
-    if (!Array.isArray(input.bodies.neutral) || input.bodies.neutral.length === 0) {
-      errors.push('bodies.neutral: at least one neutral body is required');
-    }
-    for (const [key, value] of Object.entries(input.bodies)) {
-      if (!GESTURE_KEYS.includes(key as Gesture)) {
-        errors.push(`bodies.${key}: not a recognised gesture`);
-        continue;
+  if (!isFigure && input.heads !== undefined) {
+    if (!isRecord(input.bodies)) {
+      errors.push('bodies: expected an object keyed by gesture');
+    } else {
+      if (!Array.isArray(input.bodies.neutral) || input.bodies.neutral.length === 0) {
+        errors.push('bodies.neutral: at least one neutral body is required');
       }
-      if (!Array.isArray(value) || value.length === 0) {
-        errors.push(`bodies.${key}: expected a non-empty array of sprites`);
-        continue;
-      }
-      value.forEach((body, i) => {
-        const path = `bodies.${key}[${i}]`;
-        if (!isRecord(body)) {
-          errors.push(`${path}: expected an object`);
-          return;
+      for (const [key, value] of Object.entries(input.bodies)) {
+        if (!GESTURE_KEYS.includes(key as Gesture)) {
+          errors.push(`bodies.${key}: not a recognised gesture`);
+          continue;
         }
-        checkNonEmptyString(body.src, `${path}.src`, errors);
-        checkPoint(body.headAttach, `${path}.headAttach`, errors);
-        checkBounds(body.bounds, `${path}.bounds`, errors);
-        if (body.halo !== undefined) checkBounds(body.halo, `${path}.halo`, errors);
-      });
+        if (!Array.isArray(value) || value.length === 0) {
+          errors.push(`bodies.${key}: expected a non-empty array of sprites`);
+          continue;
+        }
+        value.forEach((body, i) => {
+          const path = `bodies.${key}[${i}]`;
+          if (!isRecord(body)) {
+            errors.push(`${path}: expected an object`);
+            return;
+          }
+          checkNonEmptyString(body.src, `${path}.src`, errors);
+          checkPoint(body.headAttach, `${path}.headAttach`, errors);
+          checkBounds(body.bounds, `${path}.bounds`, errors);
+          if (body.halo !== undefined) checkBounds(body.halo, `${path}.halo`, errors);
+        });
+      }
     }
   }
 

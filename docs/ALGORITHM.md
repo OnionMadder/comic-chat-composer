@@ -162,6 +162,32 @@ The coarse `zoom` label (`establishing` / `close` / `medium` / `wide`) is now de
 
 ---
 
+## Character assets — layered and whole-figure
+
+The paper's character model is a head and a body as **separate bitmaps that
+combine freely**: any of the seven emotion heads on any gesture body, so a
+modest set of drawings covers the whole expression × gesture matrix. That is a
+manifest's `heads` + `bodies`, and the renderer composites the two at their
+registration points.
+
+Not every original character is built that way. Some — Tux, Waf, Connor,
+Jordan and the rest of the `type == 1` avatars — are **whole-figure**: each pose
+is a complete standing figure with the expression and gesture baked in and no
+separable head. A manifest represents these with `figures` *instead of*
+`heads`/`bodies`, one entry per pose keyed by an expression or gesture name.
+`figureFor` (in [`src/manifest.ts`](../src/manifest.ts)) chooses a pose for the
+composer's `(expression, gesture)` pair, preferring a matching gesture (a wave,
+a point reads strongly at comic scale), then the expression, then `neutral`;
+single-pose characters just always show their one figure. The composer is
+oblivious to the distinction — it emits identity and geometry either way — and
+only the renderer and `characterProportions` branch on it.
+
+`.avb` import ([`tools/import-avb.py`](../tools/import-avb.py)) decodes both
+kinds from Microsoft's binary avatar format into this manifest shape; the
+committed PNGs and manifests are the deliverable, so the tool is rarely re-run.
+
+---
+
 ## Not implemented in v0.1
 
 | Feature | Paper | Status |
@@ -169,4 +195,3 @@ The coarse `zoom` label (`establishing` / `close` / `medium` / `wide`) is now de
 | Shout balloons (§5.1) | jagged outline | Laid out identically to `speech`. The reference renderer draws the jagged outline; the paper notes these were unimplemented in the original. |
 | Thought balloons (§5.1) | tail as a chain of ovals | Laid out, and drawn by the reference renderer with the oval-chain tail. |
 | Semantic elements / Greek Chorus (§6.3) | keyword-triggered backdrop swaps, overlay objects, a commenting meta-character | Not started. Content-heavy and opt-in by design; a natural v0.2 extension point. |
-| `.avb` character import | — | Deliberately out of scope. Legacy import belongs in a separate codec package, not on the critical path. |

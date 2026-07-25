@@ -66,6 +66,17 @@ GESTURE_FROM = {
     "point-self": "point-self", "point-other": "point-other",
 }
 
+# Whole-figure pose key <- Comic Chat emotion/gesture name. Covers both the
+# expression names and the gesture names, since a figure pose bakes in both.
+# Walking poses have no place in a static comic and are dropped.
+FIGURE_KEY = {
+    "neutral": "neutral", "happy": "happy", "sad": "sad", "angry": "angry",
+    "laugh": "laughing", "shout": "shouting", "coy": "coy",
+    "bored": "bored", "scared": "scared",
+    "wave": "wave", "point-self": "point-self", "point-other": "point-other",
+    "double-point": "point-other", "shrug": "shrug",
+}
+
 
 def parse_avb(data):
     p = [6]  # skip magic(2) avType(2) version(2); we re-read below
@@ -228,6 +239,67 @@ def pick_first(recs, name):
     return None
 
 
+def convert_figure(data, av, cid, name, out):
+    """
+    Emit a whole-figure manifest for a `type == 1` avatar.
+
+    These characters have no separable head: each pose in `av["bodies"]` is a
+    complete standing figure with an expression or gesture baked in, plus a face
+    crosshair the balloon tail aims at. We key each pose by its expression or
+    gesture name and let the renderer pick the closest one; single-pose
+    characters (Tux, Waf…) just always show their one figure.
+    """
+    figures = []
+    seen = {}
+    neutral_bounds = None
+    neutral_face_y = None
+    for rec in av["bodies"]:
+        key = FIGURE_KEY.get(rec["name"])
+        if key is None:
+            continue  # walking / unmapped pose
+        off = (rec["fg"], rec["tr"])
+        if off in seen:
+            continue
+        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"])
+        if img is None:
+            continue
+        anchors = {"tail": (rec["faceX"], rec["faceY"])}
+        img, anchors = trim(img, anchors)
+        idx = sum(1 for f in figures if f["key"] == key)
+        fn = f"figure-{key}-{idx}.png"
+        img.save(os.path.join(out, fn))
+        seen[off] = fn
+        figures.append({
+            "src": fn,
+            "key": key,
+            "tailAnchor": {"x": anchors["tail"][0], "y": anchors["tail"][1]},
+            "bounds": {"x": 0, "y": 0, "width": img.size[0], "height": img.size[1]},
+        })
+        if key == "neutral" and neutral_bounds is None:
+            neutral_bounds = img.size
+            neutral_face_y = anchors["tail"][1]
+
+    if not any(f["key"] == "neutral" for f in figures):
+        print(f"  {cid}: no neutral figure — skipped")
+        return None
+
+    # Framing (§6.2): the face crosshair sits mid-head, so shoulders are a little
+    # below it; the knees are roughly three-quarters down the whole figure.
+    h = neutral_bounds[1]
+    shoulder = min(0.42, max(0.12, neutral_face_y / h + 0.08))
+    manifest = {
+        "id": cid, "name": name,
+        "figures": figures,
+        "framing": {"shoulderFraction": round(shoulder, 3),
+                    "kneeFraction": round(min(0.85, shoulder + 0.45), 3)},
+    }
+    with open(os.path.join(out, "character.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+    poses = ", ".join(sorted({f["key"] for f in figures}))
+    print(f"  {cid}: {name} — whole-figure, {len(figures)} poses [{poses}]")
+    return cid
+
+
 def convert(avb_path, out_root):
     data = open(avb_path, "rb").read()
     av = parse_avb(data)
@@ -240,13 +312,10 @@ def convert(avb_path, out_root):
     out = os.path.join(out_root, cid)
     os.makedirs(out, exist_ok=True)
 
-    manifest = {"id": cid, "name": name, "heads": {}, "bodies": {}}
-
     if av["type"] == 1:
-        # Simple avatars are whole-figure poses with no separable head; the
-        # project's model needs head+body, so skip them for now.
-        print(f"  {cid}: SIMPLE avatar (no separable head/body) — skipped")
-        return None
+        return convert_figure(data, av, cid, name, out)
+
+    manifest = {"id": cid, "name": name, "heads": {}, "bodies": {}}
 
     # --- Heads, one per emotion code -------------------------------------
     head_dims = {}

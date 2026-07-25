@@ -1,0 +1,24 @@
+{
+  "id": "pedagog",
+  "name": "Pedagogue",
+  "figures": [
+    {
+      "src": "figure-neutral-0.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 105,
+        "y": 76
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 158,
+        "height": 385
+      }
+    }
+  ],
+  "framing": {
+    "shoulderFraction": 0.277,
+    "kneeFraction": 0.727
+  }
+}

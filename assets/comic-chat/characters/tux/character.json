@@ -1,0 +1,24 @@
+{
+  "id": "tux",
+  "name": "Tux",
+  "figures": [
+    {
+      "src": "figure-neutral-0.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 98,
+        "y": 68
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 156,
+        "height": 377
+      }
+    }
+  ],
+  "framing": {
+    "shoulderFraction": 0.26,
+    "kneeFraction": 0.71
+  }
+}

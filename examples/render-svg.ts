@@ -22,6 +22,8 @@ import type { Panel, PanelBalloon, PanelCharacter } from '../src/types.ts';
 import {
   bodyForGesture,
   headForExpression,
+  figureFor,
+  isFigureManifest,
   type CharacterManifest,
 } from '../src/manifest.ts';
 import { createApproximateMetrics, type FontMetrics } from '../src/text.ts';
@@ -220,6 +222,36 @@ function haloUnderlay(markup: string, extra: number): string {
     .replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${Number(w) + extra}"`);
 }
 
+/**
+ * Render a whole-figure character: one sprite per pose, chosen by expression
+ * and gesture, scaled so the full figure is `characterHeight` tall with its
+ * feet on the ground and its face centre on the composer's `x`.
+ */
+function renderFigure(
+  c: PanelCharacter,
+  manifest: CharacterManifest,
+  options: RenderOptions,
+  groundY: number,
+  characterHeight: number,
+  halo: boolean,
+): string {
+  const figure = figureFor(manifest, c.expression, c.gesture);
+  const scale = characterHeight / figure.bounds.height;
+  const tx = c.x - scale * figure.tailAnchor.x;
+  const ty = groundY - scale * figure.bounds.height;
+  const flip = c.facing === 'left' ? `translate(${2 * c.x},0) scale(-1,1) ` : '';
+
+  const markup = options.sprite(figure.src, c.characterId);
+  const haloLayer = halo
+    ? `<g stroke-linejoin="round" stroke-linecap="round">${haloUnderlay(markup, 4)}</g>`
+    : '';
+
+  return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
+  ${haloLayer}
+  <g>${markup}</g>
+</g>`;
+}
+
 function renderCharacter(
   c: PanelCharacter,
   options: RenderOptions,
@@ -229,6 +261,10 @@ function renderCharacter(
 ): string {
   const manifest = options.characters[c.characterId];
   if (!manifest) return '';
+
+  if (isFigureManifest(manifest)) {
+    return renderFigure(c, manifest, options, groundY, characterHeight, halo);
+  }
 
   const body = bodyForGesture(manifest, c.gesture);
   const head = headForExpression(manifest, c.expression);
