@@ -1,0 +1,175 @@
+{
+  "id": "armando",
+  "name": "Armando",
+  "heads": {
+    "neu": {
+      "src": "head-neu.png",
+      "attach": {
+        "x": 39,
+        "y": 87
+      },
+      "tailAnchor": {
+        "x": 55,
+        "y": 62
+      }
+    },
+    "hap": {
+      "src": "head-hap.png",
+      "attach": {
+        "x": 39,
+        "y": 87
+      },
+      "tailAnchor": {
+        "x": 55,
+        "y": 62
+      }
+    },
+    "laf": {
+      "src": "head-laf.png",
+      "attach": {
+        "x": 39,
+        "y": 88
+      },
+      "tailAnchor": {
+        "x": 48,
+        "y": 66
+      }
+    },
+    "coy": {
+      "src": "head-coy.png",
+      "attach": {
+        "x": 38,
+        "y": 81
+      },
+      "tailAnchor": {
+        "x": 52,
+        "y": 65
+      }
+    },
+    "sad": {
+      "src": "head-sad.png",
+      "attach": {
+        "x": 39,
+        "y": 87
+      },
+      "tailAnchor": {
+        "x": 55,
+        "y": 62
+      }
+    },
+    "ang": {
+      "src": "head-ang.png",
+      "attach": {
+        "x": 37,
+        "y": 94
+      },
+      "tailAnchor": {
+        "x": 52,
+        "y": 70
+      }
+    },
+    "sho": {
+      "src": "head-sho.png",
+      "attach": {
+        "x": 37,
+        "y": 94
+      },
+      "tailAnchor": {
+        "x": 52,
+        "y": 70
+      }
+    }
+  },
+  "bodies": {
+    "neutral": [
+      {
+        "src": "body-neutral-0.png",
+        "headAttach": {
+          "x": 70,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 139,
+          "height": 317
+        }
+      },
+      {
+        "src": "body-neutral-1.png",
+        "headAttach": {
+          "x": 77,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 123,
+          "height": 285
+        }
+      },
+      {
+        "src": "body-neutral-2.png",
+        "headAttach": {
+          "x": 67,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 147,
+          "height": 307
+        }
+      }
+    ],
+    "point-other": [
+      {
+        "src": "body-point-other-0.png",
+        "headAttach": {
+          "x": 57,
+          "y": 11
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 107,
+          "height": 316
+        }
+      }
+    ],
+    "point-self": [
+      {
+        "src": "body-point-self-0.png",
+        "headAttach": {
+          "x": 47,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 135,
+          "height": 316
+        }
+      }
+    ],
+    "wave": [
+      {
+        "src": "body-wave-0.png",
+        "headAttach": {
+          "x": 80,
+          "y": 12
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 185,
+          "height": 307
+        }
+      }
+    ]
+  },
+  "framing": {
+    "shoulderFraction": 0.185,
+    "kneeFraction": 0.772
+  }
+}
