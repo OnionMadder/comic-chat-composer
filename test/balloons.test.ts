@@ -42,11 +42,14 @@ describe('routing channel primitives', () => {
     assert.equal(out.l, Rj.l);
   });
 
-  it('maxAllowable keeps xi inside the space left for Ri', () => {
+  it('maxAllowable pushes Rj clear of Ri’s speaker and tail room', () => {
     const Ri = { l: 0, r: 100 };
     const xi = 90;
+    // Rj is the newer channel, to the right (xj > xi). Its left edge is raised
+    // clear of both Ri's speaker xi and Ri's reserved tail room Ri.l + t.
     const out = maxAllowable(Ri, xi, { l: 0, r: 400 }, 200, 14);
-    assert.ok(out.l <= xi, 'Ri must still be able to contain its own speaker');
+    assert.ok(out.l >= xi, 'Rj must clear Ri’s speaker');
+    assert.ok(out.l >= Ri.l + 14, 'Ri keeps at least t of tail room on its left');
   });
 
   it('reduceChannel makes Ri disjoint from Rj', () => {

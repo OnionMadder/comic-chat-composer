@@ -102,13 +102,18 @@ export interface BalloonLayoutResult {
 
 /**
  * Trim candidate channel `Rj` just enough that `Ri` keeps at least `t` width
- * for its own tail, while still containing `xi` (§5.2, `MaxAllowable`).
+ * for its own tail and stays clear of its own speaker `xi` (§5.2,
+ * `MaxAllowable`).
  *
- * Deviation from the paper: the published pseudocode assigns
- * `R.l := max{Ri.l + t, xi}` outright, which can *widen* `Rj` when that value
- * falls left of `Rj.l`. The surrounding prose says the operation only ever
- * trims ("we trim the routing channel Rj just enough to ensure that..."), so
- * the bounds are folded in monotonically here.
+ * The paper's pseudocode assigns `R.l := max{Ri.l + t, xi}` outright, which can
+ * *widen* `Rj` when that value falls left of `Rj.l` — and the surrounding prose
+ * says the operation only ever trims. The fix is to fold that bound in
+ * monotonically, `max(Rj.l, max(Ri.l + t, xi))`, so it can only ever raise
+ * `Rj.l`. The inner operator stays the paper's `max`; the original Comic Chat
+ * source (`balloon.cpp`'s `QueryRoute`, transcribed in remsky/comic-chat-web)
+ * confirms both the `max(Ri.l + t, xi)` bound and that `Rj` is pushed clear of
+ * the prior speaker. `test/balloons-crosscheck.test.ts` pins this against a
+ * port of that routine.
  */
 export function maxAllowable(
   Ri: Interval,
@@ -118,9 +123,9 @@ export function maxAllowable(
   t: number,
 ): Interval {
   if (xi < xj) {
-    return { l: Math.max(Rj.l, Math.min(Ri.l + t, xi)), r: Rj.r };
+    return { l: Math.max(Rj.l, Math.max(Ri.l + t, xi)), r: Rj.r };
   }
-  return { l: Rj.l, r: Math.min(Rj.r, Math.max(Ri.r - t, xi)) };
+  return { l: Rj.l, r: Math.min(Rj.r, Math.min(Ri.r - t, xi)) };
 }
 
 /**

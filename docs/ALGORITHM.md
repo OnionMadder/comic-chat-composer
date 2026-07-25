@@ -44,7 +44,7 @@ The greedy solver is also the paper's: place character 1 (1 slot × 2 facings), 
 
 ## §5.2 — Balloon layout
 
-The most detailed algorithm in the paper, and the core of this library. `PlaceBalloons`, `MaxAllowable` and `ReduceChannel` are ported structurally, with the following notes.
+The most detailed algorithm in the paper, and the core of this library. `PlaceBalloons`, `MaxAllowable` and `ReduceChannel` are ported structurally, with the following notes. Both helpers are pinned against a port of the original C++ (`balloon.cpp`'s `QueryRoute`/`SetRoute`, via remsky/comic-chat-web) in [`test/balloons-crosscheck.test.ts`](../test/balloons-crosscheck.test.ts) — see the [implementation comparison](#appendix-comparison-with-other-reimplementations) below.
 
 ### `MaxAllowable` — the pseudocode can widen, the prose says trim
 
@@ -58,7 +58,7 @@ function MaxAllowable (Ri, xi, Rj, xj):
   return R
 ```
 
-Assigning `R.l` outright *widens* `Rj` whenever `max{Ri.l + t, xi}` falls left of the existing `Rj.l`. The surrounding prose is explicit that the operation only ever trims — "we trim the routing channel Rj just enough to ensure that…". The bounds are folded in monotonically here so the channel can only shrink.
+Assigning `R.l` outright *widens* `Rj` whenever `max{Ri.l + t, xi}` falls left of the existing `Rj.l`. The surrounding prose is explicit that the operation only ever trims — "we trim the routing channel Rj just enough to ensure that…". The bound is folded in monotonically here — `max(Rj.l, max(Ri.l + t, xi))` — so the channel can only shrink while keeping the paper's inner `max`. (An earlier version of this port mistakenly weakened the inner `max` to a `min`; the cross-check against the C++ source caught it. The source computes exactly `max(Ri.l + t, xi)` and pushes the new channel clear of the prior speaker.)
 
 ### `ReduceChannel` — the pseudocode returns the wrong variable
 
@@ -72,7 +72,7 @@ function ReduceChannel (Ri, xi, Rj, xj)
   return R
 ```
 
-It copies `Ri` into `R`, mutates `Ri`, then returns the unmutated `R`. The evident intent is to return the reduced interval, which is what this port does.
+It copies `Ri` into `R`, mutates `Ri`, then returns the unmutated `R`. The evident intent is to return the reduced interval, which is what this port does — and it matches the source's `SetRoute` exactly.
 
 ### Target width
 
@@ -195,3 +195,21 @@ committed PNGs and manifests are the deliverable, so the tool is rarely re-run.
 | Shout balloons (§5.1) | jagged outline | Laid out identically to `speech`. The reference renderer draws the jagged outline; the paper notes these were unimplemented in the original. |
 | Thought balloons (§5.1) | tail as a chain of ovals | Laid out, and drawn by the reference renderer with the oval-chain tail. |
 | Semantic elements / Greek Chorus (§6.3) | keyword-triggered backdrop swaps, overlay objects, a commenting meta-character | Not started. Content-heavy and opt-in by design; a natural v0.2 extension point. |
+
+---
+
+## Appendix: comparison with other reimplementations
+
+After Microsoft open-sourced Comic Chat (July 2026), several independent reimplementations appeared. Two are useful reference points, because they take the *opposite* approach to this library and so make good oracles.
+
+**[remsky/comic-chat-web](https://github.com/remsky/comic-chat-web)** is a line-by-line transcription of the original **C++** (`panel.cpp`, `balloon.cpp`), down to a hand-ported MSVC `rand()` for bit-exact output and TWIPS coordinates. Where this library reconstructs intent from the *paper* — and had to resolve the paper's ambiguous `MaxAllowable`/`ReduceChannel` pseudocode — remsky inherits the unambiguous source. That makes it ground truth for exactly those two spots:
+
+- Their `SetRoute` matches our `reduceChannel` exactly.
+- Their `QueryRoute` uses `max(Ri.l + t, xi)` and pushes the new channel clear of the prior speaker — which is what our `maxAllowable` now does, after the cross-check caught an inner `min` that should have been `max`.
+- Their `pairRating` uses the same **40 / 4 / 2** facing weights as our `scorePair`, independently confirming the §4.3 numbers.
+
+Their **camera** (`panel.cpp`) is *simpler* than the paper: `zoomFactor = unitWidth / sumWidth` capped by a head factor, snapped to 1 below 1.1×. The v1.0 source never implemented the paper's neck/ankle/knee caveats — so this library's §6.2 head-anchored model is actually closer to the paper's stated rules than the original code was.
+
+**[gyng/comicchat](https://github.com/gyng/comicchat)** (the most-starred reimplementation, predating the open-sourcing) is a "quick and dirty" web app that approximates the look without the routing-channel algorithm.
+
+`test/balloons-crosscheck.test.ts` encodes remsky's `QueryRoute`/`SetRoute` as an oracle and fuzzes our primitives against it, so any future drift is caught at the exact inputs.
