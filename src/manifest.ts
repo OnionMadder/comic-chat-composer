@@ -142,6 +142,30 @@ export function isFigureManifest(manifest: CharacterManifest): boolean {
   return Array.isArray(manifest.figures) && manifest.figures.length > 0;
 }
 
+/** The facial expressions a manifest key may name (vs. a gesture). */
+const EXPRESSION_KEYS: ReadonlySet<string> = new Set<Expression>([
+  'neutral', 'happy', 'sad', 'angry', 'laughing', 'shouting', 'coy', 'scared', 'bored',
+]);
+
+/**
+ * Whether a character can show more than one facial expression.
+ *
+ * Layered characters always can (seven emotion heads). Whole-figure characters
+ * can only if their poses cover more than one expression — the multi-pose
+ * avatars (Connor, Jordan) do; the single-pose ones (Tux, Pedagogue, …) are
+ * frozen on one drawing and will never match the text's emotion. Useful for
+ * auto-casting: prefer expressive characters so inferred emotions actually show
+ * (the paper notes text-only users get assigned a character on the receiver's
+ * side, so a sender never guarantees an expressive one).
+ */
+export function isExpressive(manifest: CharacterManifest): boolean {
+  if (!isFigureManifest(manifest)) return true;
+  const expressions = new Set(
+    manifest.figures!.filter((f) => EXPRESSION_KEYS.has(f.key)).map((f) => f.key),
+  );
+  return expressions.size >= 2;
+}
+
 /** Framing for a roughly humanoid figure, when a manifest gives none. */
 export const DEFAULT_FRAMING: CharacterFraming = {
   shoulderFraction: 0.22,

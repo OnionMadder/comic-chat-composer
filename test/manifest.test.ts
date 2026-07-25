@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 import {
   bodyForGesture,
   headForExpression,
+  isExpressive,
   parseCharacterManifest,
   validateCharacterManifest,
   EMOTION_CODES,
 } from '../src/manifest.ts';
+import type { CharacterManifest } from '../src/manifest.ts';
 
 const nibPath = fileURLToPath(new URL('../assets/characters/nib/character.json', import.meta.url));
 const nib = parseCharacterManifest(JSON.parse(readFileSync(nibPath, 'utf8')));
@@ -88,6 +90,37 @@ describe('sprite resolution', () => {
   it('falls back to neutral for a gesture the character lacks', () => {
     const stripped = { ...nib, bodies: { neutral: nib.bodies!.neutral } };
     assert.equal(bodyForGesture(stripped, 'wave').src, 'body-neutral-1.svg');
+  });
+});
+
+describe('isExpressive', () => {
+  const figure = (keys: string[]): CharacterManifest =>
+    ({
+      id: 'f',
+      name: 'F',
+      figures: keys.map((key) => ({
+        src: `${key}.png`,
+        key,
+        tailAnchor: { x: 0, y: 0 },
+        bounds: { x: 0, y: 0, width: 10, height: 20 },
+      })),
+    }) as unknown as CharacterManifest;
+
+  it('treats layered characters as expressive', () => {
+    assert.equal(isExpressive(nib), true);
+  });
+
+  it('treats a single-pose figure as inexpressive', () => {
+    assert.equal(isExpressive(figure(['neutral'])), false);
+  });
+
+  it('treats a multi-expression figure as expressive', () => {
+    assert.equal(isExpressive(figure(['neutral', 'happy', 'sad'])), true);
+  });
+
+  it('does not count gesture-only variety as expression variety', () => {
+    // One expression (neutral) plus gestures is still frozen-faced.
+    assert.equal(isExpressive(figure(['neutral', 'wave', 'point-self'])), false);
   });
 });
 

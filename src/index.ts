@@ -57,6 +57,7 @@ export {
   bodyForGesture,
   figureFor,
   isFigureManifest,
+  isExpressive,
   characterProportions,
   DEFAULT_FRAMING,
   EMOTION_CODES,

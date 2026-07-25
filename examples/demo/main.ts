@@ -7,7 +7,7 @@
  */
 
 import { compose } from '../../src/compose.ts';
-import type { CharacterManifest } from '../../src/manifest.ts';
+import { isExpressive, type CharacterManifest } from '../../src/manifest.ts';
 import type { Panel } from '../../src/types.ts';
 import { parseLog } from '../parse-log.ts';
 import { renderPanelToSvg, type RenderOptions } from '../render-svg.ts';
@@ -23,8 +23,15 @@ const manifests = __MANIFESTS__;
 const spritesByChar = __SPRITES__;
 const backdrops = __BACKDROPS__;
 
-// The cast pool participants are assigned from, in a stable order.
-const POOL = Object.keys(manifests).sort();
+// The cast pool participants are assigned from. Expressive characters (seven
+// emotion heads, or multi-pose figures) come first so inferred emotions
+// actually show; the single-pose whole-figure avatars (Tux, Pedagogue, …) are
+// frozen on one drawing, so they're held back and only used once a cast is
+// larger than the expressive roster.
+const ALL = Object.keys(manifests).sort();
+const EXPRESSIVE = ALL.filter((id) => isExpressive(manifests[id]!));
+const FLAT = ALL.filter((id) => !isExpressive(manifests[id]!));
+const POOL = [...EXPRESSIVE, ...FLAT];
 
 const PANEL_W = 400;
 const PANEL_H = 300;
@@ -64,8 +71,12 @@ function run(): void {
 
     // Give each participant a distinct character, cycling the pool by
     // first-appearance order (seed-shifted so "Randomise" reshuffles casting).
+    // Draw only from the expressive roster while the cast fits in it, so a
+    // small chat never lands two frozen single-pose avatars; fall back to the
+    // full pool only for a cast larger than the expressive roster.
+    const roster = authors.length <= EXPRESSIVE.length ? EXPRESSIVE : POOL;
     const castOf = new Map<string, string>();
-    authors.forEach((a, i) => castOf.set(a, POOL[(i + seed) % POOL.length]!));
+    authors.forEach((a, i) => castOf.set(a, roster[(i + seed) % roster.length]!));
     const cast = Object.fromEntries(
       authors.map((a) => [a, { characterId: castOf.get(a)! }]),
     );
