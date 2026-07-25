@@ -53,11 +53,6 @@ export interface RenderOptions {
    * with them (§6.2). Ids come from the composer's `backdrop` field.
    */
   backdrops?: Record<string, string>;
-  /**
-   * Draw a white halo behind each character so it reads against a busy backdrop
-   * (§6.1). Defaults to on when {@link backdrops} is supplied.
-   */
-  halo?: boolean;
   /** Draw the balloon-region boundary and speaker labels. */
   debug?: boolean;
   /**
@@ -73,6 +68,9 @@ export interface RenderOptions {
    */
   characterHeightFraction?: number;
 }
+
+/** Halo dilation in sprite pixels — matches the original Comic Chat aura (§6.1). */
+const HALO_RADIUS = 4;
 
 const escapeXml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -207,22 +205,6 @@ function renderBalloon(b: PanelBalloon, lineHeight: number, metrics: FontMetrics
 }
 
 /**
- * Turn sprite markup into a white halo underlay: recolour the ink to white and
- * fatten every stroke, so a copy drawn behind the sprite reads as a white
- * outline hugging the line art (§6.1). Works in any SVG engine — it is just
- * more strokes, no filter.
- *
- * Returns empty for raster (`<image>`) sprites: there is nothing to restroke,
- * and the imported Comic Chat art already carries a baked-in aura halo.
- */
-function haloUnderlay(markup: string, extra: number): string {
-  if (markup.includes('<image')) return '';
-  return markup
-    .replace(/#111\b/g, '#ffffff')
-    .replace(/stroke-width="([\d.]+)"/g, (_, w) => `stroke-width="${Number(w) + extra}"`);
-}
-
-/**
  * Render a whole-figure character: one sprite per pose, chosen by expression
  * and gesture, scaled so the full figure is `characterHeight` tall with its
  * feet on the ground and its face centre on the composer's `x`.
@@ -233,7 +215,7 @@ function renderFigure(
   options: RenderOptions,
   groundY: number,
   characterHeight: number,
-  halo: boolean,
+  haloId: string,
 ): string {
   const figure = figureFor(manifest, c.expression, c.gesture);
   const scale = characterHeight / figure.bounds.height;
@@ -242,13 +224,9 @@ function renderFigure(
   const flip = c.facing === 'left' ? `translate(${2 * c.x},0) scale(-1,1) ` : '';
 
   const markup = options.sprite(figure.src, c.characterId);
-  const haloLayer = halo
-    ? `<g stroke-linejoin="round" stroke-linecap="round">${haloUnderlay(markup, 4)}</g>`
-    : '';
 
   return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-  ${haloLayer}
-  <g>${markup}</g>
+  <g filter="url(#${haloId})">${markup}</g>
 </g>`;
 }
 
@@ -257,13 +235,13 @@ function renderCharacter(
   options: RenderOptions,
   groundY: number,
   characterHeight: number,
-  halo: boolean,
+  haloId: string,
 ): string {
   const manifest = options.characters[c.characterId];
   if (!manifest) return '';
 
   if (isFigureManifest(manifest)) {
-    return renderFigure(c, manifest, options, groundY, characterHeight, halo);
+    return renderFigure(c, manifest, options, groundY, characterHeight, haloId);
   }
 
   const body = bodyForGesture(manifest, c.gesture);
@@ -295,18 +273,14 @@ function renderCharacter(
   const headMarkup = options.sprite(head.src, c.characterId);
   const headGroup = (m: string): string => `<g transform="translate(${headDx},${headDy})">${m}</g>`;
 
-  // Halo underlay first (in sprite units, so it scales with the character),
-  // then the sprite itself on top.
-  const haloLayer = halo
-    ? `<g stroke-linejoin="round" stroke-linecap="round">${haloUnderlay(bodyMarkup, 4)}${headGroup(
-        haloUnderlay(headMarkup, 4),
-      )}</g>`
-    : '';
-
+  // The halo filter runs over the whole head+body group, so the white aura
+  // follows the assembled silhouette as one shape — no seam where the head
+  // meets the body.
   return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-  ${haloLayer}
-  <g>${bodyMarkup}</g>
-  ${headGroup(headMarkup)}
+  <g filter="url(#${haloId})">
+    <g>${bodyMarkup}</g>
+    ${headGroup(headMarkup)}
+  </g>
 </g>`;
 }
 
@@ -339,17 +313,32 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   const cam = panel.camera;
   const camScale = w / cam.width;
   const clipId = `clip-${panel.panelIndex}`;
-  const halo = options.halo ?? options.backdrops !== undefined;
+  const haloId = `halo-${panel.panelIndex}`;
 
   const backdropArt = options.backdrops?.[panel.backdrop];
   const characterLayer = panel.characters
-    .map((c) => renderCharacter(c, options, groundY, characterHeight, halo))
+    .map((c) => renderCharacter(c, options, groundY, characterHeight, haloId))
     .join('\n');
 
   const parts: string[] = [];
 
+  // The §6.1 halo: dilate a character's assembled silhouette and flood it white
+  // behind the art, so the figure keeps a clean white aura against a busy
+  // backdrop. Applied to the whole head+body group, so the aura is uniform and
+  // seamless (baking it per-part leaves a ring at the neck). The radius is in
+  // sprite pixels — matching the ~4px dilation of the original Comic Chat aura —
+  // and rides the character's scale, so the halo thickens on close-ups just as
+  // the original bitmap aura did.
   parts.push(
-    `<defs><clipPath id="${clipId}"><rect x="3" y="3" width="${w - 6}" height="${h - 6}"/></clipPath></defs>`,
+    `<defs>` +
+      `<clipPath id="${clipId}"><rect x="3" y="3" width="${w - 6}" height="${h - 6}"/></clipPath>` +
+      `<filter id="${haloId}" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">` +
+      `<feMorphology in="SourceAlpha" operator="dilate" radius="${HALO_RADIUS}" result="d"/>` +
+      `<feFlood flood-color="#ffffff" result="w"/>` +
+      `<feComposite in="w" in2="d" operator="in" result="halo"/>` +
+      `<feMerge><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge>` +
+      `</filter>` +
+      `</defs>`,
   );
   parts.push(
     `<rect x="1.5" y="1.5" width="${w - 3}" height="${h - 3}" fill="${options.background ?? '#fdfdf8'}" stroke="#111" stroke-width="3"/>`,
