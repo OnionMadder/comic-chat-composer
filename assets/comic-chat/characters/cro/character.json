@@ -169,14 +169,14 @@
       {
         "src": "body-wave-0.png",
         "headAttach": {
-          "x": 80,
-          "y": 88
+          "x": 76,
+          "y": 85
         },
         "bounds": {
           "x": 0,
           "y": 0,
-          "width": 204,
-          "height": 390
+          "width": 197,
+          "height": 384
         }
       }
     ]

@@ -5,78 +5,78 @@
     "neu": {
       "src": "head-neu.png",
       "attach": {
-        "x": 89,
-        "y": 145
+        "x": 84,
+        "y": 141
       },
       "tailAnchor": {
-        "x": 97,
-        "y": 103
+        "x": 92,
+        "y": 99
       }
     },
     "hap": {
       "src": "head-hap.png",
       "attach": {
-        "x": 94,
-        "y": 133
+        "x": 91,
+        "y": 129
       },
       "tailAnchor": {
-        "x": 104,
-        "y": 91
+        "x": 101,
+        "y": 87
       }
     },
     "laf": {
       "src": "head-laf.png",
       "attach": {
-        "x": 109,
-        "y": 142
+        "x": 105,
+        "y": 139
       },
       "tailAnchor": {
-        "x": 127,
-        "y": 98
+        "x": 123,
+        "y": 95
       }
     },
     "coy": {
       "src": "head-coy.png",
       "attach": {
-        "x": 90,
-        "y": 145
+        "x": 87,
+        "y": 140
       },
       "tailAnchor": {
-        "x": 104,
-        "y": 100
+        "x": 101,
+        "y": 95
       }
     },
     "sad": {
       "src": "head-sad.png",
       "attach": {
-        "x": 95,
-        "y": 125
+        "x": 90,
+        "y": 122
       },
       "tailAnchor": {
-        "x": 111,
-        "y": 87
+        "x": 106,
+        "y": 84
       }
     },
     "ang": {
       "src": "head-ang.png",
       "attach": {
-        "x": 98,
-        "y": 142
+        "x": 95,
+        "y": 139
       },
       "tailAnchor": {
-        "x": 111,
-        "y": 94
+        "x": 108,
+        "y": 91
       }
     },
     "sho": {
       "src": "head-sho.png",
       "attach": {
-        "x": 118,
-        "y": 148
+        "x": 115,
+        "y": 145
       },
       "tailAnchor": {
-        "x": 138,
-        "y": 106
+        "x": 135,
+        "y": 103
       }
     }
   },
@@ -195,7 +195,7 @@
     ]
   },
   "framing": {
-    "shoulderFraction": 0.318,
-    "kneeFraction": 0.809
+    "shoulderFraction": 0.312,
+    "kneeFraction": 0.807
   }
 }

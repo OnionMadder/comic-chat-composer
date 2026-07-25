@@ -29,9 +29,13 @@ import sys
 import io
 
 try:
-    from PIL import Image, ImageFilter
+    from PIL import Image
+    import numpy as np
 except ImportError:
-    sys.exit("This tool needs Pillow:  pip install Pillow")
+    sys.exit("This tool needs Pillow and numpy:  pip install Pillow numpy")
+
+# Luminance below this is treated as ink (the black linework).
+INK_THRESHOLD = 110
 
 # Emotion/gesture index -> name, from avatar.h's emStrings / EM_* enum.
 EMOTION = {
@@ -136,31 +140,73 @@ def bmp_at(data, off):
     return Image.open(io.BytesIO(data[off:off + size]))
 
 
+def _dilate4(b):
+    o = b.copy()
+    o[1:, :] |= b[:-1, :]
+    o[:-1, :] |= b[1:, :]
+    o[:, 1:] |= b[:, :-1]
+    o[:, :-1] |= b[:, 1:]
+    return o
+
+
+def _trim_to_ink(art_rgb, aura_l, cap=12):
+    """
+    Trim a dilated aura silhouette back onto the ink outline.
+
+    Comic Chat's aura mask is dilated a few pixels past the linework to draw the
+    §6.1 halo, and the amount varies by character — so a fixed erosion leaves a
+    ring on some and clips thin features on others. Instead, flood inward from
+    the aura's boundary through *light* (non-ink) pixels, stopping at the ink:
+    everything the flood reaches is the exterior fringe and is dropped, while the
+    ink and any light region enclosed by it (a white shirt, an apron) is kept.
+    The flood is capped so a gap in an outline can only leak a few pixels.
+    """
+    lum = np.asarray(art_rgb.convert("L"))
+    aura = np.asarray(aura_l) < 128  # dark in the mask = opaque shape
+    light = lum >= INK_THRESHOLD
+    travel = aura & light  # light pixels inside the aura the flood can cross
+
+    outside = ~aura
+    boundary = np.zeros_like(aura)
+    boundary[1:, :] |= outside[:-1, :]
+    boundary[:-1, :] |= outside[1:, :]
+    boundary[:, 1:] |= outside[:, :-1]
+    boundary[:, :-1] |= outside[:, 1:]
+    boundary[0, :] = boundary[-1, :] = boundary[:, 0] = boundary[:, -1] = True
+
+    region = travel & boundary
+    for _ in range(cap):
+        nxt = _dilate4(region) & travel
+        if nxt.sum() == region.sum():
+            break
+        region = nxt
+
+    keep = aura & ~region
+    return Image.fromarray(np.where(keep, 255, 0).astype("uint8"), "L")
+
+
 def sprite_rgba(data, fg, tr, au):
     """
-    Foreground art keyed to a silhouette (dark = opaque shape).
+    Foreground art keyed to a silhouette.
 
-    Heads carry an exact transparency mask (`tr`), which hugs the ink. Torsos
-    leave `tr` empty and only have the aura (`au`) silhouette, which Comic Chat
-    dilated by a few pixels to draw the §6.1 halo — used directly it leaves a fat
-    white ring around the figure that doesn't match the clean heads. So when we
-    fall back to the aura we erode it back to the ink edge, giving every sprite a
-    consistent tight edge. (A halo, if wanted, is better drawn uniformly behind
-    the whole assembled character than baked unevenly into each part.)
+    Heads carry an exact transparency mask (`tr`), which already hugs the ink.
+    Torsos leave `tr` empty and only have the dilated aura (`au`); that is
+    trimmed back onto the ink by {@link _trim_to_ink} so every sprite has a
+    consistent tight edge with no white halo ring. (A uniform halo, if wanted
+    later, belongs behind the whole assembled character, not baked per-part.)
     """
     art = bmp_at(data, fg)
     if art is None:
         return None
     art = art.convert("RGB")
     exact = bmp_at(data, tr)
-    mask = exact or bmp_at(data, au)
-    if mask is None:
-        return art.convert("RGBA")
-    mask = mask.convert("L").resize(art.size)
-    alpha = mask.point(lambda v: 255 if v < 128 else 0)
-    if exact is None:
-        # Aura-derived: shrink the dilated silhouette back onto the ink.
-        alpha = alpha.filter(ImageFilter.MinFilter(5))
+    if exact is not None:
+        alpha = exact.convert("L").resize(art.size).point(lambda v: 255 if v < 128 else 0)
+    else:
+        au_img = bmp_at(data, au)
+        if au_img is None:
+            return art.convert("RGBA")
+        alpha = _trim_to_ink(art, au_img.convert("L").resize(art.size))
     out = art.convert("RGBA")
     out.putalpha(alpha)
     return out
