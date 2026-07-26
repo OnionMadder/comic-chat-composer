@@ -1,0 +1,656 @@
+[
+  {
+    "panelIndex": 0,
+    "zoom": "establishing",
+    "camera": {
+      "x": -228.75816993464048,
+      "y": -323.8431372549019,
+      "width": 857.516339869281,
+      "height": 643.1372549019608,
+      "scale": 0.46646341463414637
+    },
+    "characters": [
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [],
+    "backdrop": "room"
+  },
+  {
+    "panelIndex": 1,
+    "zoom": "establishing",
+    "camera": {
+      "x": -228.75816993464048,
+      "y": -323.8431372549019,
+      "width": 857.516339869281,
+      "height": 643.1372549019608,
+      "scale": 0.46646341463414637
+    },
+    "characters": [
+      {
+        "author": "bob",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [],
+    "backdrop": "field"
+  },
+  {
+    "panelIndex": 2,
+    "zoom": "medium",
+    "camera": {
+      "x": 21.014492753623244,
+      "y": -93.66304347826082,
+      "width": 357.97101449275357,
+      "height": 268.4782608695652,
+      "scale": 1.1174089068825912
+    },
+    "characters": [
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 133.33333333333334,
+        "facing": "right",
+        "gesture": "wave",
+        "expression": "happy"
+      },
+      {
+        "author": "bob",
+        "characterId": "nib",
+        "x": 266.6666666666667,
+        "facing": "left",
+        "gesture": "wave",
+        "expression": "laughing"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "alice",
+        "kind": "speech",
+        "text": "HI BOB! :-)",
+        "lines": [
+          "HI BOB!",
+          ":-)"
+        ],
+        "x": 114.98690740385405,
+        "y": 7.5,
+        "width": 77.51999999999998,
+        "height": 48,
+        "tail": {
+          "fromX": 128.7467268509635,
+          "fromY": 55.5,
+          "toX": 133.33333333333334,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 0,
+        "continued": false
+      },
+      {
+        "speaker": "bob",
+        "kind": "speech",
+        "text": "HEY ALICE, LOL YOU ARE BACK",
+        "lines": [
+          "HEY ALICE, LOL YOU ARE BACK"
+        ],
+        "x": 133.33333333333334,
+        "y": 55.5,
+        "width": 266.66666666666663,
+        "height": 33,
+        "tail": {
+          "fromX": 318.8222842393692,
+          "fromY": 88.5,
+          "toX": 266.6666666666667,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 1,
+        "continued": false
+      }
+    ],
+    "backdrop": "field"
+  },
+  {
+    "panelIndex": 3,
+    "zoom": "medium",
+    "camera": {
+      "x": 65.1555555555556,
+      "y": -57.24666666666661,
+      "width": 269.6888888888888,
+      "height": 202.26666666666662,
+      "scale": 1.4831905075807519
+    },
+    "characters": [
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "alice",
+        "kind": "narration",
+        "text": "waves cheerfully",
+        "lines": [
+          "waves cheerfully"
+        ],
+        "x": 160.09593499328196,
+        "y": 7.5,
+        "width": 125.50799999999998,
+        "height": 33,
+        "tail": null,
+        "readingOrder": 0,
+        "continued": false
+      }
+    ],
+    "backdrop": "field"
+  },
+  {
+    "panelIndex": 4,
+    "zoom": "medium",
+    "camera": {
+      "x": 21.014492753623244,
+      "y": -93.66304347826082,
+      "width": 357.97101449275357,
+      "height": 268.4782608695652,
+      "scale": 1.1174089068825912
+    },
+    "characters": [
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 133.33333333333334,
+        "facing": "right",
+        "gesture": "point-self",
+        "expression": "shouting"
+      },
+      {
+        "author": "bob",
+        "characterId": "nib",
+        "x": 266.6666666666667,
+        "facing": "left",
+        "gesture": "point-self",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "alice",
+        "kind": "speech",
+        "text": "I MISSED YOU!!!",
+        "lines": [
+          "I MISSED YOU!!!"
+        ],
+        "x": 78.06413828724283,
+        "y": 7.5,
+        "width": 106.90799999999999,
+        "height": 33,
+        "tail": {
+          "fromX": 121.6710637799531,
+          "fromY": 40.5,
+          "toX": 133.33333333333334,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 0,
+        "continued": false
+      },
+      {
+        "speaker": "bob",
+        "kind": "speech",
+        "text": "IMHO YOU SHOULD VISIT MORE OFTEN",
+        "lines": [
+          "IMHO YOU SHOULD VISIT MORE OFTEN"
+        ],
+        "x": 137.24499461906268,
+        "y": 40.5,
+        "width": 260.9189821534603,
+        "height": 33,
+        "tail": {
+          "fromX": 191.08343056340382,
+          "fromY": 73.5,
+          "toX": 266.6666666666667,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 1,
+        "continued": false
+      }
+    ],
+    "backdrop": "field"
+  },
+  {
+    "panelIndex": 5,
+    "zoom": "medium",
+    "camera": {
+      "x": 65.1555555555556,
+      "y": -57.24666666666661,
+      "width": 269.6888888888888,
+      "height": 202.26666666666662,
+      "scale": 1.4831905075807519
+    },
+    "characters": [
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "wave",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "alice",
+        "kind": "speech",
+        "text": "BRB MAKING TEA",
+        "lines": [
+          "BRB MAKING TEA"
+        ],
+        "x": 89.11125645108615,
+        "y": 7.5,
+        "width": 114.34799999999998,
+        "height": 33,
+        "tail": {
+          "fromX": 111.1761854931712,
+          "fromY": 40.5,
+          "toX": 200,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 0,
+        "continued": false
+      }
+    ],
+    "backdrop": "field"
+  },
+  {
+    "panelIndex": 6,
+    "zoom": "establishing",
+    "camera": {
+      "x": -228.75816993464048,
+      "y": -323.8431372549019,
+      "width": 857.516339869281,
+      "height": 643.1372549019608,
+      "scale": 0.46646341463414637
+    },
+    "characters": [
+      {
+        "author": "cara",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [],
+    "backdrop": "room"
+  },
+  {
+    "panelIndex": 7,
+    "zoom": "wide",
+    "camera": {
+      "x": -15.217391304347842,
+      "y": -123.55434782608694,
+      "width": 430.4347826086957,
+      "height": 322.82608695652175,
+      "scale": 0.9292929292929293
+    },
+    "characters": [
+      {
+        "author": "cara",
+        "characterId": "nib",
+        "x": 100,
+        "facing": "right",
+        "gesture": "point-other",
+        "expression": "sad"
+      },
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "happy"
+      },
+      {
+        "author": "bob",
+        "characterId": "nib",
+        "x": 300,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "cara",
+        "kind": "speech",
+        "text": "DID YOU TWO START WITHOUT ME? :-(",
+        "lines": [
+          "DID YOU TWO START WITHOUT ME?",
+          ":-("
+        ],
+        "x": 77.08922538440675,
+        "y": 7.5,
+        "width": 227.45521506893454,
+        "height": 48,
+        "tail": {
+          "fromX": 111.25,
+          "fromY": 55.5,
+          "toX": 100,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 0,
+        "continued": false
+      },
+      {
+        "speaker": "alice",
+        "kind": "speech",
+        "text": "NEVER :-)",
+        "lines": [
+          "NEVER",
+          ":-)"
+        ],
+        "x": 178.13710536714643,
+        "y": 55.5,
+        "width": 73.79999999999998,
+        "height": 48,
+        "tail": {
+          "fromX": 196.29008933977627,
+          "fromY": 103.5,
+          "toX": 200,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 1,
+        "continued": false
+      },
+      {
+        "speaker": "bob",
+        "kind": "whisper",
+        "text": "WE WERE ONLY WARMING UP",
+        "lines": [
+          "WE WERE ONLY",
+          "WARMING UP"
+        ],
+        "x": 202.34108399731954,
+        "y": 103.5,
+        "width": 120.85345227317325,
+        "height": 48,
+        "tail": {
+          "fromX": 295.48350280952275,
+          "fromY": 151.5,
+          "toX": 300,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 2,
+        "continued": false
+      }
+    ],
+    "backdrop": "room"
+  },
+  {
+    "panelIndex": 8,
+    "zoom": "wide",
+    "camera": {
+      "x": -36.95652173913041,
+      "y": -141.48913043478257,
+      "width": 473.9130434782608,
+      "height": 355.4347826086956,
+      "scale": 0.8440366972477065
+    },
+    "characters": [
+      {
+        "author": "cara",
+        "characterId": "nib",
+        "x": 160,
+        "facing": "right",
+        "gesture": "point-self",
+        "expression": "neutral"
+      },
+      {
+        "author": "dan",
+        "characterId": "nib",
+        "x": 80,
+        "facing": "right",
+        "gesture": "point-other",
+        "expression": "shouting"
+      },
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 240,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      },
+      {
+        "author": "bob",
+        "characterId": "nib",
+        "x": 320,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "cara",
+        "kind": "thought",
+        "text": "I WONDER IF THEY MEAN IT",
+        "lines": [
+          "I WONDER IF THEY MEAN IT"
+        ],
+        "x": 68.30774571746588,
+        "y": 7.5,
+        "width": 173.49599999999998,
+        "height": 33,
+        "tail": {
+          "fromX": 201.32449672383268,
+          "fromY": 40.5,
+          "toX": 160,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 0,
+        "continued": false
+      },
+      {
+        "speaker": "dan",
+        "kind": "speech",
+        "text": "YOU ARE ALL TERRIBLE",
+        "lines": [
+          "YOU ARE ALL TERRIBLE"
+        ],
+        "x": 3.62669325118885,
+        "y": 40.5,
+        "width": 151.92,
+        "height": 33,
+        "tail": {
+          "fromX": 117.04185457242652,
+          "fromY": 73.5,
+          "toX": 80,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 1,
+        "continued": false
+      }
+    ],
+    "backdrop": "room"
+  },
+  {
+    "panelIndex": 9,
+    "zoom": "medium",
+    "camera": {
+      "x": 65.1555555555556,
+      "y": -57.24666666666661,
+      "width": 269.6888888888888,
+      "height": 202.26666666666662,
+      "scale": 1.4831905075807519
+    },
+    "characters": [
+      {
+        "author": "evan",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "evan",
+        "kind": "speech",
+        "text": "LET ME TELL YOU A VERY LONG STORY ABOUT THE TIME WE ALL WENT TO THE LAKE AND THE BOAT SANK AND WE HAD TO SWIM BACK WHILE THE DUCKS WATCHED US WITH GREAT JUDGEMENT AND NOT A LITTLE CONTEMPT IN THEIR SMALL ROUND EYES, AND THEN IT STARTED TO RAIN, AND THE ONE UMBRELLA WE HAD BROUGHT TURNED INSIDE OUT IN THE WIND, AND SOMEHOW THIS WAS STILL A BETTER AFTERNOON THAN THE MEETING WE HAD SKIPPED TO BE THERE, WHICH REALLY TELLS YOU EVERYTHING YOU NEED TO KNOW ABOUT THAT PARTICULAR QUARTER AND THE...",
+        "lines": [
+          "LET ME TELL YOU A VERY LONG STORY ABOUT THE TIME WE ALL",
+          "WENT TO THE LAKE AND THE BOAT SANK AND WE HAD TO SWIM",
+          "BACK WHILE THE DUCKS WATCHED US WITH GREAT JUDGEMENT",
+          "AND NOT A LITTLE CONTEMPT IN THEIR SMALL ROUND EYES, AND",
+          "THEN IT STARTED TO RAIN, AND THE ONE UMBRELLA WE HAD",
+          "BROUGHT TURNED INSIDE OUT IN THE WIND, AND SOMEHOW THIS",
+          "WAS STILL A BETTER AFTERNOON THAN THE MEETING WE HAD",
+          "SKIPPED TO BE THERE, WHICH REALLY TELLS YOU EVERYTHING",
+          "YOU NEED TO KNOW ABOUT THAT PARTICULAR QUARTER AND THE..."
+        ],
+        "x": 0,
+        "y": 7.5,
+        "width": 400,
+        "height": 153,
+        "tail": {
+          "fromX": 186.01960393402538,
+          "fromY": 160.5,
+          "toX": 200,
+          "toY": 168,
+          "curve": "ccw"
+        },
+        "readingOrder": 0,
+        "continued": true
+      }
+    ],
+    "backdrop": "room"
+  },
+  {
+    "panelIndex": 10,
+    "zoom": "wide",
+    "camera": {
+      "x": -15.217391304347842,
+      "y": -123.55434782608694,
+      "width": 430.4347826086957,
+      "height": 322.82608695652175,
+      "scale": 0.9292929292929293
+    },
+    "characters": [
+      {
+        "author": "evan",
+        "characterId": "nib",
+        "x": 100,
+        "facing": "right",
+        "gesture": "neutral",
+        "expression": "neutral"
+      },
+      {
+        "author": "fran",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "wave",
+        "expression": "neutral"
+      },
+      {
+        "author": "alice",
+        "characterId": "nib",
+        "x": 300,
+        "facing": "left",
+        "gesture": "neutral",
+        "expression": "neutral"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "evan",
+        "kind": "speech",
+        "text": "...PEOPLE RUNNING IT",
+        "lines": [
+          "...PEOPLE RUNNING IT"
+        ],
+        "x": 74.88155798055232,
+        "y": 7.5,
+        "width": 140.76,
+        "height": 33,
+        "tail": {
+          "fromX": 86.2114304862011,
+          "fromY": 40.5,
+          "toX": 100,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 0,
+        "continued": true
+      },
+      {
+        "speaker": "fran",
+        "kind": "speech",
+        "text": "HELLO EVERYONE, ARE YOU READY TO GO?",
+        "lines": [
+          "HELLO EVERYONE, ARE YOU READY TO GO?"
+        ],
+        "x": 100,
+        "y": 40.5,
+        "width": 300,
+        "height": 33,
+        "tail": {
+          "fromX": 213.41584500559895,
+          "fromY": 73.5,
+          "toX": 200,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 1,
+        "continued": false
+      },
+      {
+        "speaker": "alice",
+        "kind": "speech",
+        "text": "YES!",
+        "lines": [
+          "YES!"
+        ],
+        "x": 263.7358570919931,
+        "y": 73.5,
+        "width": 44.04000000000002,
+        "height": 33,
+        "tail": {
+          "fromX": 295.1041970706638,
+          "fromY": 106.5,
+          "toX": 300,
+          "toY": 165,
+          "curve": "ccw"
+        },
+        "readingOrder": 2,
+        "continued": false
+      }
+    ],
+    "backdrop": "room"
+  }
+]
