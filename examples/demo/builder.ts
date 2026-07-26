@@ -143,10 +143,24 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
   const rowEl = (id: number): HTMLElement | null =>
     rowsEl.querySelector<HTMLElement>(`.brow[data-id="${id}"]`);
 
-  /** A fresh row, rotating the default character so a new line isn't a copy of the last. */
-  function makeRow(): BuilderRow {
+  /**
+   * A fresh blank row. Its speaker follows the flow of the conversation: reply
+   * to whoever `afterRow` addressed, else alternate to the other person in
+   * scene, else rotate through the cast so a new line isn't a copy of the last.
+   */
+  function makeRow(afterRow?: BuilderRow): BuilderRow {
     const ids = deps.characterIds;
-    const characterId = ids[rows.length % ids.length] ?? ids[0] ?? '';
+    let characterId: string;
+    if (afterRow?.addresseeId) {
+      characterId = afterRow.addresseeId;
+    } else if (afterRow) {
+      const others = [...new Set(rows.map((r) => r.characterId))].filter(
+        (id) => id && id !== afterRow.characterId,
+      );
+      characterId = others[0] ?? afterRow.characterId;
+    } else {
+      characterId = ids[rows.length % ids.length] ?? ids[0] ?? '';
+    }
     return {
       id: nextId++,
       characterId,
@@ -157,6 +171,14 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
       addresseeId: '',
       kind: 'say',
     };
+  }
+
+  /** Move keyboard focus to a row's text field (optionally to the end of its text). */
+  function focusRow(id: number, toEnd = false): void {
+    const input = rowEl(id)?.querySelector<HTMLInputElement>('.line');
+    if (!input) return;
+    input.focus();
+    if (toEnd) input.setSelectionRange(input.value.length, input.value.length);
   }
 
   /** Notify the host of a user edit (unless we're mid-load) and let it recompose. */
@@ -334,13 +356,18 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
 
   // ---- Row mutations -----------------------------------------------------
 
-  function addRow(): void {
-    const row = makeRow();
-    rows.push(row);
+  /** Insert a blank line after `afterId` (or append when null), select and focus it. */
+  function insertRowAfter(afterId: number | null): void {
+    const afterIndex = afterId == null ? rows.length - 1 : rows.findIndex((r) => r.id === afterId);
+    const row = makeRow(afterIndex >= 0 ? rows[afterIndex] : undefined);
+    rows.splice(afterIndex + 1, 0, row);
     renderRows();
     setActive(row.id);
+    focusRow(row.id);
     edited();
   }
+
+  const addRow = (): void => insertRowAfter(null);
 
   function removeRow(id: number): void {
     const i = rows.findIndex((r) => r.id === id);
@@ -375,6 +402,28 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
     if (!row) return;
     row.text = t.value;
     edited();
+  });
+
+  // Chat-like keys in a line's text field: Enter starts the next line, Backspace
+  // on an empty line deletes it and jumps back — so authoring flows like typing.
+  rowsEl.addEventListener('keydown', (ev) => {
+    const t = ev.target as HTMLElement;
+    if (!(t instanceof HTMLInputElement) || t.dataset.f !== 'text') return;
+    const row = rowFromEvent(t);
+    if (!row) return;
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      insertRowAfter(row.id);
+    } else if (ev.key === 'Backspace' && t.value === '' && rows.length > 1) {
+      ev.preventDefault();
+      const i = rows.findIndex((r) => r.id === row.id);
+      const neighbour = rows[i - 1] ?? rows[i + 1];
+      removeRow(row.id);
+      if (neighbour) {
+        setActive(neighbour.id);
+        focusRow(neighbour.id, true);
+      }
+    }
   });
 
   rowsEl.addEventListener('change', (ev) => {

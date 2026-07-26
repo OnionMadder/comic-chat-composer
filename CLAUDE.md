@@ -121,7 +121,9 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
 **Done:**
 1. **Row-based builder** — character dropdown, text field, "to →" addressee, and
    a delivery select (say / whisper / think / action). Add / remove /
-   drag-to-reorder. Each row shows a live emotion·gesture badge.
+   drag-to-reorder. Each row shows a live emotion·gesture badge. Chat-like
+   authoring: Enter starts the next line (picking the reply/alternating speaker
+   and focusing it), Backspace on an empty line deletes it and jumps back.
 2. **The emotion wheel** — 8 emotions on the perimeter (happy, laughing, coy,
    shouting, angry, sad, scared, bored), neutral at center, intensity = radius,
    click/drag. Maps to `expressionOverride`; `intensity` is captured on the row
