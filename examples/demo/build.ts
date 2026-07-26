@@ -154,9 +154,10 @@ const html = `<!doctype html>
   .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border-sharp),transparent)}
   #status{font-family:var(--sans);color:var(--dim);font-size:14px;letter-spacing:0;text-transform:none}
   #cast{display:flex;flex-wrap:wrap;gap:10px}
-  .chip{display:inline-flex;align-items:center;gap:9px;padding:6px 8px 6px 15px;border:1px solid var(--border-sharp);border-radius:999px;background:var(--tile);transition:var(--t)}
+  .chip{display:inline-flex;align-items:center;gap:9px;padding:6px 8px 6px 12px;border:1px solid var(--border-sharp);border-radius:999px;background:var(--tile);transition:var(--t)}
   .chip:hover{border-color:var(--cyan);box-shadow:var(--glow-cyan)}
   .chip.is-manual{border-color:var(--pink);box-shadow:var(--glow-pink)}
+  .chip .sw{width:11px;height:11px;border-radius:50%;background:var(--c,var(--dim));flex:0 0 auto;box-shadow:0 0 6px var(--c)}
   .chip .who{font-weight:700;font-size:15px;color:var(--text)}
   .chip .arr{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
   .chip select{height:32px;border:none;background:transparent;box-shadow:none;padding:0 24px 0 9px;width:auto;color:var(--cyan);font-size:15px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%2326ffe6' stroke-width='2'%3E%3Cpath d='M1 3l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;font-weight:700;cursor:pointer}
@@ -167,7 +168,77 @@ const html = `<!doctype html>
   .frame svg{display:block;width:100%;height:auto}
   figcaption{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:13px;color:var(--dim)}
   .pn{display:inline-grid;place-items:center;width:21px;height:21px;border-radius:5px;background:var(--pink);color:#000;font-size:12px;font-weight:700}
+
+  /* Tabs: Builder / Script */
+  .tabs{display:flex;gap:5px}
+  .tab{font-family:var(--display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+    padding:6px 13px;border:1px solid var(--border-soft);border-radius:6px;background:transparent;color:var(--dim);cursor:pointer;transition:var(--t)}
+  .tab:hover{color:var(--cyan)}
+  .tab.is-active{color:var(--cyan);border-color:var(--cyan);box-shadow:var(--glow-cyan)}
+
+  /* Builder layout: rows on the left, the shared emote console on the right */
+  .builder{display:grid;grid-template-columns:1fr 250px;gap:16px;align-items:start}
+
+  /* The Comic-Chat "member list" — who is in the scene, each in their colour */
+  .members{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px;
+    padding:9px 11px;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--tile)}
+  .members-cap{font-family:var(--display);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-right:2px}
+  .members-empty{font-family:var(--sans);font-size:13px;color:var(--dim)}
+  .member{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border-radius:999px;cursor:pointer;transition:var(--t);
+    font:700 13px var(--sans);color:var(--text);background:rgba(0,0,0,.4);border:1px solid var(--c)}
+  .member:hover{box-shadow:0 0 8px var(--c)}
+  .member .sw{width:11px;height:11px;border-radius:50%;background:var(--c);flex:0 0 auto;box-shadow:0 0 6px var(--c)}
+  .member .ct{font-family:var(--mono);font-size:11px;color:var(--c);opacity:.85}
+
+  .rows{margin-bottom:9px}
+  .brow{display:flex;gap:7px;align-items:center;padding:7px 8px;margin-bottom:7px;
+    border:1px solid var(--border-soft);border-left:3px solid var(--c,var(--border-soft));border-radius:var(--radius);background:var(--tile);transition:border-color var(--t),box-shadow var(--t)}
+  .brow:hover{border-color:var(--border-sharp)}
+  .brow.is-active{border-color:var(--cyan);box-shadow:var(--glow-cyan)}
+  .brow.dragging{opacity:.45}
+  .brow .grip{color:var(--dim);cursor:grab;font-size:15px;line-height:1;flex:0 0 auto}
+  .brow .rsw{width:9px;height:9px;border-radius:50%;background:var(--c,var(--dim));flex:0 0 auto;box-shadow:0 0 5px var(--c)}
+  .brow select,.brow input{height:32px;font:13px var(--sans)}
+  .brow .who{width:auto;max-width:130px;flex:0 0 auto}
+  .brow .to,.brow .kind{width:auto;max-width:118px;flex:0 0 auto}
+  .brow .line{flex:1 1 90px;min-width:80px;border:1px solid var(--border-sharp);border-radius:6px;background:#000;color:var(--text);padding:0 10px}
+  .brow .badge{font-family:var(--display);font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--violet);
+    border:1px solid var(--border-soft);border-radius:999px;padding:3px 9px;white-space:nowrap;flex:0 0 auto}
+  .brow .rm{width:26px;height:26px;flex:0 0 auto;border:none;background:transparent;color:var(--dim);font-size:14px;line-height:1;cursor:pointer;border-radius:6px;padding:0}
+  .brow .rm:hover{color:var(--pink);background:rgba(255,43,179,.12)}
+  .add-row{width:100%;justify-content:center;border-style:dashed}
+
+  /* The emote console: preview + wheel + gestures */
+  .console{position:sticky;top:14px;display:flex;flex-direction:column}
+  .console-cap{font-family:var(--display);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--pink);margin:0 0 7px}
+  .console-cap:not(:first-child){margin-top:15px}
+  .preview{background:#fdfdf8;border:1px solid var(--border-sharp);border-radius:var(--radius);overflow:hidden;aspect-ratio:4/3;display:grid;place-items:center}
+  .preview svg{width:100%;height:100%;display:block}
+  .preview-empty{color:#888;font-size:12.5px;padding:16px;text-align:center;font-family:var(--sans)}
+  .wheel{width:100%;max-width:250px;margin:0 auto;touch-action:none;-webkit-user-select:none;user-select:none}
+  .wheel-svg{width:100%;height:auto;display:block;cursor:pointer}
+  .wheel-svg.is-off{opacity:.4;pointer-events:none}
+  .wheel-rim{fill:rgba(20,0,30,.55);stroke:var(--border-sharp);stroke-width:1.5}
+  .wheel-spoke{stroke:var(--border-soft);stroke-width:1}
+  .wheel-needle{stroke:var(--pink);stroke-width:2.5;stroke-linecap:round}
+  .wheel-tip{fill:var(--pink)}
+  .wheel-node{fill:#000;stroke:var(--border-sharp);stroke-width:1.5;transition:fill .12s}
+  .wheel-node.is-on{fill:var(--cyan);stroke:var(--cyan)}
+  .wheel-label{fill:var(--dim);font:700 10px var(--display);text-transform:uppercase;letter-spacing:.4px}
+  .wheel-label.is-on{fill:var(--cyan)}
+  .wheel-center{fill:#000;stroke:var(--border-sharp);stroke-width:1.5}
+  .wheel-center.is-on{fill:var(--violet);stroke:var(--violet)}
+  .wheel-clabel{fill:var(--dim);font:700 9px var(--display);text-transform:uppercase;letter-spacing:.4px;pointer-events:none}
+  .wheel-clabel.is-on{fill:#fff}
+  .gestures{display:flex;flex-wrap:wrap;gap:6px}
+  .gest{font-family:var(--display);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    padding:6px 9px;border-radius:6px;border:1px solid var(--border-sharp);background:#000;color:var(--dim);cursor:pointer;transition:var(--t)}
+  .gest:hover{border-color:var(--cyan);color:var(--cyan)}
+  .gest.is-on{background:var(--cyan);color:#000;border-color:var(--cyan)}
+  .gest:disabled{opacity:.4;cursor:default}
+
   @media (max-width:820px){.workspace{grid-template-columns:1fr}}
+  @media (max-width:680px){.builder{grid-template-columns:1fr}.console{position:static}}
 </style>
 
 <div class="wrap">
@@ -178,20 +249,45 @@ const html = `<!doctype html>
 
   <div class="workspace">
     <div class="card">
-      <div class="hd"><span class="t">Script</span><button id="example" class="linkbtn">Surprise me &#127922;</button></div>
+      <div class="hd">
+        <div class="tabs" role="tablist">
+          <button id="tab-builder" class="tab is-active" role="tab">Builder</button>
+          <button id="tab-script" class="tab" role="tab">Script</button>
+        </div>
+        <button id="example" class="linkbtn">Surprise me &#127922;</button>
+      </div>
       <div class="bd">
-        <textarea id="log" spellcheck="false" aria-label="Chat log">${DEFAULT_LOG}</textarea>
-        <details class="help">
-          <summary>Line format &amp; directions</summary>
-          <div class="help-body">
-            <p><code>alice: hello</code> &nbsp; <code>alice -&gt; bob: hello</code> (to someone) &nbsp; <code>* alice waves</code> (action)</p>
-            <p>Direct a line with a hint &mdash; <code>alice (angry): no way</code>:</p>
-            ${hintLine('emotions', HINT_WORDS.expressions)}
-            ${hintLine('gestures', HINT_WORDS.gestures)}
-            ${hintLine('balloon', HINT_WORDS.kinds)}
-            <p style="margin:9px 0 0;color:var(--dim)">Emoticons, <code>LOL</code>/<code>IMHO</code> and ALL-CAPS are still detected automatically when you don't give a hint.</p>
+        <div id="builder-pane">
+          <div class="builder">
+            <div class="builder-rows">
+              <div id="members" class="members"></div>
+              <div id="rows" class="rows"></div>
+              <button id="add-row" class="btn add-row">&#43; Add line</button>
+            </div>
+            <div class="console">
+              <div class="console-cap">Preview</div>
+              <div id="preview" class="preview"></div>
+              <div class="console-cap">Emotion</div>
+              <div id="wheel" class="wheel"></div>
+              <div class="console-cap">Gesture</div>
+              <div id="gestures" class="gestures"></div>
+            </div>
           </div>
-        </details>
+        </div>
+        <div id="script-pane" hidden>
+          <textarea id="log" spellcheck="false" aria-label="Chat log">${DEFAULT_LOG}</textarea>
+          <details class="help">
+            <summary>Line format &amp; directions</summary>
+            <div class="help-body">
+              <p><code>alice: hello</code> &nbsp; <code>alice -&gt; bob: hello</code> (to someone) &nbsp; <code>* alice waves</code> (action)</p>
+              <p>Direct a line with a hint &mdash; <code>alice (angry): no way</code>:</p>
+              ${hintLine('emotions', HINT_WORDS.expressions)}
+              ${hintLine('gestures', HINT_WORDS.gestures)}
+              ${hintLine('balloon', HINT_WORDS.kinds)}
+              <p style="margin:9px 0 0;color:var(--dim)">Emoticons, <code>LOL</code>/<code>IMHO</code> and ALL-CAPS are still detected automatically when you don't give a hint.</p>
+            </div>
+          </details>
+        </div>
       </div>
     </div>
 
@@ -209,7 +305,7 @@ const html = `<!doctype html>
     </div></div>
   </div>
 
-  <div class="section-label">Cast</div>
+  <div class="section-label" id="cast-label">Cast</div>
   <div id="cast"></div>
   <div class="section-label">Comic <span id="status"></span></div>
   <div id="out"></div>

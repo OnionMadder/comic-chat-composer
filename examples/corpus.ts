@@ -122,4 +122,123 @@ roan (angry): let me FINISH
 lark: sorry, continue
 roan (coy): ...I forgot what it was
 lark (laugh): incredible`,
+
+  `pax: one coffee, black as my monday
+oona (happy): rough morning?
+pax (bored): rough decade
+oona -> pax: I drew a little heart in the foam
+pax: the heart is judging me
+oona (laugh): the heart believes in you`,
+
+  `bram -> cleo: don't panic, but there's a spider
+cleo (scared): WHERE
+bram (point-other): behind you. enormous
+cleo: kill it kill it kill it
+bram (coy): I've named him Steve
+cleo (angry): BRAM`,
+
+  `dash: today we go for a personal record
+esme (bored): you said that about the couch
+dash (point-self): I contain multitudes
+esme: you contain snacks
+dash (happy): the snacks ARE the multitudes
+esme (laugh): can't argue with that`,
+
+  `flint: the dame walked in at midnight
+gwen (bored): flint, it's a tuesday standup
+flint -> gwen: she had trouble in her eyes
+gwen: that's just carol from accounting
+flint (think): what is carol hiding
+gwen (laugh): carol is hiding spreadsheets`,
+
+  `huck -> isla: I think the fern hates me
+isla (laugh): it's a plant
+huck (sad): it droops when I walk past
+isla: are you watering it
+huck (coy): ...emotionally
+isla (shout): water it with WATER, huck`,
+
+  `jonas: hey, did you feed the lizard
+kira: I think you have the wrong number
+jonas (scared): oh no. who is this
+kira (coy): the real question is who feeds the lizard now
+jonas -> kira: please. his name is Kevin
+kira (laugh): Kevin eats tonight. I got you`,
+
+  `milo: you enter the cave. what do you do
+nova (happy): I befriend the dragon
+milo (bored): it's a bear
+nova: I befriend the bear
+milo -> nova: the bear is hostile
+nova (shrug): I befriend it aggressively`,
+
+  `otis -> pearl: houston, we have a problem
+pearl (bored): otis, you're in the break room
+otis: the coffee machine is offline
+pearl (laugh): okay that IS a problem
+otis (sad): I have been awake for one hour
+pearl: godspeed, otis`,
+
+  `quinn: I've chosen my song
+remy (scared): not the nine minute one
+quinn (happy): the nine minute one
+remy -> quinn: we talked about this
+quinn (point-self): the crowd needs me
+remy (laugh): the crowd is us and one bartender`,
+
+  `suki -> tovah: have you tried turning it off and on
+tovah (angry): I have turned it off and on FORTY times
+suki: and the forty-first?
+tovah: ...
+tovah (coy): it works now
+suki (laugh): computers can smell fear`,
+
+  `ulf: your tree dropped leaves on my lawn again
+vera (bored): it's autumn, ulf
+ulf (angry): control your tree
+vera -> ulf: I'll have a word with it
+ulf: thank you
+vera (laugh): the tree says no`,
+
+  `wes: so. tell me about yourself
+xanthe (coy): I'm mysterious
+wes (happy): I love mysterious
+xanthe: I once ate an entire cake in a parking lot
+wes -> xanthe: marry me
+xanthe (laugh): that escalated`,
+
+  `yuki -> zane: from the top, and stay in time
+zane (bored): I'm always in time
+yuki: you sped up the whole bridge
+zane (coy): I call it passion
+yuki (shout): I call it WRONG
+zane (laugh): passionately wrong`,
+
+  `bex: sit. good boy. now stay
+* rufus immediately does not stay
+bex (sad): rufus, we practiced this
+bex -> rufus: I believe in you
+* rufus eats a treat off the floor
+bex (laugh): okay, that one's on me`,
+
+  `greer: is that... no way
+toby (wave): greer! over here!
+greer (happy): TOBY
+toby -> greer: it's been what, ten years
+greer (smile): you still wear that terrible hat
+toby (coy): it's vintage now`,
+
+  `della: I texted him back already
+sim (think): too soon? that feels too soon
+della (scared): oh no, was it too soon
+sim -> della: what did you send
+della: seven exclamation points
+sim (laugh): he knows you're alive, that's the main thing`,
+
+  `indie: I'm making dinner, nobody help
+opal (scared): the last time you made dinner
+indie (point-self): I have grown as a chef
+opal -> indie: the smoke alarm is going off
+indie: that's the seasoning
+opal (laugh): the seasoning is FIRE, indie`,
 ];
