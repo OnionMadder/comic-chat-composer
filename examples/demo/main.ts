@@ -63,10 +63,11 @@ function renderCast(authors: readonly string[], castOf: Map<string, string>): vo
         (id) =>
           `<option value="${id}"${id === current ? ' selected' : ''}>${escapeHtml(manifests[id]!.name)}</option>`,
       ).join('');
-      const manual = castOverrides.has(a) ? ' data-manual="1"' : '';
+      const manual = castOverrides.has(a) ? ' is-manual' : '';
       return (
-        `<label class="chip"${manual}><span class="who">${escapeHtml(a)}</span>` +
-        `<select data-author="${escapeHtml(a)}">${options}</select></label>`
+        `<div class="chip${manual}"><span class="who">${escapeHtml(a)}</span>` +
+        `<span class="arr">plays</span>` +
+        `<select data-author="${escapeHtml(a)}" aria-label="Character for ${escapeHtml(a)}">${options}</select></div>`
       );
     })
     .join('');
@@ -128,12 +129,15 @@ function run(): void {
     out.innerHTML = panels
       .map((p) => {
         const svg = renderPanelToSvg(p, opts);
-        const label = `panel ${p.panelIndex} · ${p.zoom} ×${p.camera.scale.toFixed(2)} · ${p.backdrop}`;
-        return `<figure><div class="frame">${svg}</div><figcaption>${label}</figcaption></figure>`;
+        const caption = `${p.zoom} · ×${p.camera.scale.toFixed(2)} · ${p.backdrop}`;
+        return (
+          `<figure class="panel"><div class="frame">${svg}</div>` +
+          `<figcaption><span class="pn">${p.panelIndex}</span>${caption}</figcaption></figure>`
+        );
       })
       .join('');
 
-    status.textContent = `${events.length} events → ${panels.length} panels · ${authors.length} in the cast`;
+    status.textContent = `${panels.length} panels from ${events.length} lines`;
   } catch (error) {
     currentPanels = [];
     out.innerHTML = '';
@@ -210,6 +214,15 @@ $('reseed').addEventListener('click', () => {
   ($('seed') as HTMLInputElement).value = String(Math.floor(Math.random() * 100000));
   run();
 });
+
+// "Load example" restores the script the page shipped with.
+const EXAMPLE_LOG = ($('log') as HTMLTextAreaElement).value;
+$('example').addEventListener('click', () => {
+  ($('log') as HTMLTextAreaElement).value = EXAMPLE_LOG;
+  castOverrides.clear();
+  run();
+});
+
 $('dl-svg').addEventListener('click', downloadSvg);
 $('dl-png').addEventListener('click', downloadPng);
 
