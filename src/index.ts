@@ -48,7 +48,7 @@ export {
   type ApproximateMetricsOptions,
 } from './text.ts';
 
-export { createRandom, randomBetween, type Random } from './rng.ts';
+export { createRandom, randomBetween, seededIndex, type Random } from './rng.ts';
 
 export {
   validateCharacterManifest,

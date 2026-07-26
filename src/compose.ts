@@ -30,7 +30,7 @@ import {
 } from './manifest.ts';
 import { placeCharacters, type Placement } from './placement.ts';
 import { inferPose, type Pose } from './pose.ts';
-import { createRandom, type Random } from './rng.ts';
+import { createRandom, seededIndex, type Random } from './rng.ts';
 import { createApproximateMetrics, type FontMetrics } from './text.ts';
 import { isPresenceEvent } from './types.ts';
 import type {
@@ -162,14 +162,15 @@ function zoomLabel(scale: number, establishing: boolean): Zoom {
  * The cast's `backdropPreferences` steer the choice: a backdrop ranked `r`
  * (0-based, most-preferred first) in a character's list scores `listLength - r`,
  * summed across the cast, so a backdrop everyone reads well against wins. Ties,
- * and the no-preference case, fall to the seeded RNG — so with no preferences it
- * is simply a seeded pick among the offered backdrops.
+ * and the no-preference case, fall to a seed-keyed pick among the top scorers —
+ * {@link seededIndex}, not the PRNG stream, so the scenes spread evenly across
+ * the small sequential seeds people type rather than clustering.
  */
 function chooseSceneBackdrop(
   characterIds: readonly string[],
   backdrops: readonly string[],
   characterAssets: Record<string, CharacterManifest> | undefined,
-  rand: Random,
+  seed: number,
 ): string {
   if (backdrops.length === 0) return 'default';
   if (backdrops.length === 1) return backdrops[0]!;
@@ -185,7 +186,7 @@ function chooseSceneBackdrop(
 
   const best = Math.max(...score.values());
   const top = backdrops.filter((b) => score.get(b) === best);
-  return top[Math.floor(rand() * top.length)]!;
+  return top[seededIndex(seed, top.length)]!;
 }
 
 /**
@@ -209,7 +210,8 @@ function chooseSceneBackdrop(
 export function compose(input: ComposeInput): Panel[] {
   const rules = resolveRules(input.rules);
   const metrics = input.metrics ?? createApproximateMetrics();
-  const rand: Random = createRandom(input.seed ?? 42);
+  const seed = input.seed ?? 42;
+  const rand: Random = createRandom(seed);
 
   const balloonRegion = {
     top: metrics.lineHeight * 0.5,
@@ -235,7 +237,7 @@ export function compose(input: ComposeInput): Panel[] {
     Object.values(input.cast).map((entry) => entry.characterId),
     input.backdrops,
     input.characterAssets,
-    rand,
+    seed,
   );
 
   const groundY = rules.panelHeight;
