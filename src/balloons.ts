@@ -164,9 +164,22 @@ function findWidth(
 
   const area = singleLine * metrics.lineHeight * (4 / 3);
   const byArea = allowableHeight > 0 ? area / allowableHeight : panelWidth;
-  const minWidth = Math.max(widestWordWidth(text, metrics), byArea) + padding * 2;
+  let minWidth = Math.min(panelWidth, Math.max(widestWordWidth(text, metrics), byArea) + padding * 2);
 
-  return randomBetween(rand, Math.min(minWidth, panelWidth), panelWidth);
+  // The area estimate can under-shoot when wrapping is ragged, which would let
+  // the random draw pick a body width whose balloon overflows the region — and
+  // since the body can't then widen past the draw, the text ends up dropped.
+  // A wider body always wraps to fewer (never more) lines, so widen the floor
+  // until the text genuinely fits the height. If even the full panel width
+  // overflows, the balloon can't fit here at all and the caller splits it.
+  while (
+    minWidth < panelWidth &&
+    typeset(text, minWidth, metrics, padding).height > allowableHeight
+  ) {
+    minWidth = Math.min(panelWidth, minWidth + metrics.lineHeight);
+  }
+
+  return randomBetween(rand, minWidth, panelWidth);
 }
 
 interface Body {

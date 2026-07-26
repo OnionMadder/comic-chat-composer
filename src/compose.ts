@@ -306,7 +306,8 @@ export function compose(input: ComposeInput): Panel[] {
     const xOf = new Map(placements.map((p) => [p.author, p.x]));
     const requests: BalloonRequest[] = candidate.utterances.map((u) => ({
       speaker: u.author,
-      text: u.kind === 'narration' ? u.text : u.text.toUpperCase(),
+      // Already upper-cased at build time (§5.5), so layout and render agree.
+      text: u.text,
       kind: u.kind,
       speakerX: xOf.get(u.author) ?? rules.panelWidth / 2,
       continued: u.continued,
@@ -468,10 +469,17 @@ export function compose(input: ComposeInput): Panel[] {
     });
     neutralVariantOf.set(msg.author, pose.neutralVariant);
 
+    const kind = msg.kind ?? (msg.type === 'action' ? 'narration' : 'speech');
+    // Comic Chat displays balloon text in all caps regardless of how it was
+    // typed (§5.5). Apply that here — *after* inference, which needs the
+    // original casing to detect ALL-CAPS shouting — so that text splitting,
+    // balloon layout and rendering all measure the same (wider) capitals.
+    // Deferring the upper-casing to render time made the splitter under-count
+    // lines and silently drop oversized messages.
     return {
       author: msg.author,
-      text,
-      kind: msg.kind ?? (msg.type === 'action' ? 'narration' : 'speech'),
+      text: kind === 'narration' ? text : text.toUpperCase(),
+      kind,
       pose,
       addressees,
       continued,
