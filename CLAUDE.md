@@ -103,52 +103,45 @@ cast control → one-room-per-conversation with an even scene spread → a
 golden-master safety net (which caught and fixed a dropped-message bug) →
 cross-checked `maxAllowable` against the C++ (a real min→max fix) → a redesigned
 demo → the Onion neon "onionized" house style → a conversation corpus the seed
-selects from → a low-vision readability pass.
+selects from → a low-vision readability pass → the **form-based conversation
+builder** (row editor + the tactile emotion wheel + live character preview +
+gesture buttons, Builder/Script tabs) → color-coded cast with a Comic-Chat
+"in scene" member list → the corpus roughly doubled (33 conversations).
 
-## TODO — next: a Comic-Chat-style conversation builder
+## The conversation builder — built, and what's left
 
-The demo currently authors conversations as a **text script** in a textarea.
-Onion wants a **modern, super-easy form-based builder** that also **evokes the
-real Microsoft Comic Chat interface** (see the reference screenshot: member
-list, character-preview pane, and the emotion wheel). Keep the text-script mode
-too (power users / paste), but lead with the builder.
+The Comic-Chat-style form builder now leads the demo (Builder tab default; the
+text-script textarea lives under a Script tab for power users / paste). It's all
+`examples/demo/` — `builder.ts` owns the UI and hands the host
+`{ events, authors, cast }`; `main.ts` calls the same `compose` +
+`renderPanelToSvg` path either way. The chosen character *is* the speaker
+identity, so the cast map is built directly (no `parseLog` round-trip needed to
+compose; `builder.toScript()` still emits `name (hint): text` for the Script tab).
 
-1. **Row-based conversation builder.** One row per line, form-style:
-   - a **character dropdown** (who's speaking) — pulls from the cast,
-   - a **text field** for the line,
-   - an **emote control** (see the wheel below),
-   - optional **addressee** ("to →") and **balloon kind** (say / whisper /
-     think / action).
-   - Add / remove / reorder (drag) rows. Adding a row shouldn't require learning
-     the `name (hint): text` syntax — the builder *produces* that under the hood
-     and feeds the same `parseLog`/composer path.
-2. **The emotion wheel.** Recreate Comic Chat's actual wheel: the 8 emotions on
-   a perimeter (happy, laughing, coy, shouting, angry, sad, scared, bored) with
-   **neutral at center** and **intensity = radius**. Click/drag to set a line's
-   emotion. This is iconic — make it a real, tactile control, not a dropdown.
-   Maps to `expressionOverride` (+ intensity if we thread it through).
-3. **"The little Comic Chat head guy" — character preview.** Comic Chat shows
-   the selected character's figure/head reacting live (the wolf in the ref
-   shot). Integrate a **live preview** of the chosen character in the chosen
-   emotion/gesture (reuse the renderer's head/figure resolution). Show it beside
-   the builder and/or in the emote wheel's center.
-4. **Comic-Chat window styling, modernized.** Evoke the classic layout — a
-   member/cast list panel, the character preview, the emote wheel — but in the
-   Onion neon aesthetic (already established in `demo/build.ts`: Chakra Petch
-   display + readable sans body, deep-black + pink/cyan/violet, glow). Don't
-   copy the Win95 chrome literally; channel it.
-5. **Gesture control too** (wave / point-self / point-other / shrug / smile) —
-   maps to `gestureOverride`. Could be a small set of buttons next to the wheel.
-6. Nice-to-haves: bigger corpus (some seeds currently repeat a conversation);
-   per-character neon cast-pill colors (the brand has amber/lime/violet buckets
-   we didn't wire in); optional intensity plumbed from wheel radius into the
-   composer/renderer (the manifest/inference don't consume intensity yet).
+**Done:**
+1. **Row-based builder** — character dropdown, text field, "to →" addressee, and
+   a delivery select (say / whisper / think / action). Add / remove /
+   drag-to-reorder. Each row shows a live emotion·gesture badge.
+2. **The emotion wheel** — 8 emotions on the perimeter (happy, laughing, coy,
+   shouting, angry, sad, scared, bored), neutral at center, intensity = radius,
+   click/drag. Maps to `expressionOverride`; `intensity` is captured on the row
+   but not yet consumed (see below).
+3. **Live character preview** — the selected character reacting in the chosen
+   look, via a synthetic one-character identity-camera panel through
+   `renderPanelToSvg` (same sprite/halo resolution as a real panel).
+4. **Gesture buttons** (neutral / wave / point-self / point-other / smile /
+   shrug) → `gestureOverride`.
+5. **Comic-Chat member list + color-coded cast** — an "in scene" strip of the
+   distinct speakers, each in a stable neon color (pink/cyan/violet/amber/lime/
+   blue, from `colorOf` in `main.ts`); the same color tints the row accents, the
+   preview border, and the Script-tab cast chips. Clicking a member selects
+   their first line.
 
-**Where things plug in:** the builder is pure `examples/demo/` work — emit the
-same event/hint shape `parseLog` already produces (or build `ChatEvent[]`
-directly and skip parsing), then call `compose` + `renderPanelToSvg` exactly as
-`main.ts` does now. Emotion/gesture map to `expressionOverride`/`gestureOverride`
-on `MessageEvent`. The head preview reuses `headForExpression`/`figureFor` +
-`renderPanelToSvg`'s character path. No library (`src/`) changes needed for the
-core builder — unless we decide to thread emote **intensity** through, which
-would touch `pose.ts`/inference and the manifest.
+**Still open:**
+- **Deeper Comic-Chat window chrome** — the member list is the big piece; the
+  framing could go further if wanted (without copying Win95 literally).
+- **Intensity plumbing** — thread the wheel's `intensity` (already on each row)
+  from `expressionOverride` into inference/rendering. This is the one item that
+  needs `src/` changes (`pose.ts`/inference + the manifest), and has little
+  visible payoff until the asset set has per-intensity sprites — deferred.
+- Some seeds still repeat (33 conversations, finite list); add more to taste.
