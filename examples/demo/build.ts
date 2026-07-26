@@ -74,11 +74,38 @@ const sceneOptions =
     .map((id) => `<option value="${id}">${titleCase(id)}</option>`)
     .join('');
 
+// --- Public site metadata -------------------------------------------------
+// Fill these in for the hosted build: they drive the footer links and the
+// canonical / Open Graph meta. Placeholders until the site + repo URLs exist.
+const SITE_URL = 'https://onionmadder.com/comic-chat-composer/';
+const REPO_URL = 'https://github.com/OnionMadder/comic-chat-composer';
+const PAGE_DESC =
+  'Turn a chat log into a comic strip — an independent, open-source ' +
+  "reimplementation of Microsoft Comic Chat's panel-composition algorithm " +
+  '(Kurlander, Skelly and Salesin, SIGGRAPH ’96). Not affiliated with Microsoft.';
+
+// A speech-bubble favicon as an inline data URI, so the page stays self-contained.
+const favicon =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E" +
+  "%3Crect width='32' height='32' rx='7' fill='%23050505'/%3E" +
+  "%3Cpath d='M7 8h18v12H13l-5 5v-5H7z' fill='none' stroke='%2326ffe6' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E";
+
 const html = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Comic Chat Composer</title>
+<meta name="description" content="${PAGE_DESC}">
+<meta name="theme-color" content="#050505">
+<link rel="icon" href="${favicon}">
+<link rel="canonical" href="${SITE_URL}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Comic Chat Composer">
+<meta property="og:description" content="${PAGE_DESC}">
+<meta property="og:url" content="${SITE_URL}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Comic Chat Composer">
+<meta name="twitter:description" content="${PAGE_DESC}">
 <style>
   ${fontFace}
   :root{
@@ -237,6 +264,13 @@ const html = `<!doctype html>
   .gest.is-on{background:var(--cyan);color:#000;border-color:var(--cyan)}
   .gest:disabled{opacity:.4;cursor:default}
 
+  .site-foot{margin-top:52px;padding-top:22px;border-top:1px solid var(--border-soft);max-width:820px;color:var(--dim);font-size:13px;line-height:1.75}
+  .site-foot p{margin:0 0 8px}
+  .site-foot strong{color:var(--text);font-family:var(--display);letter-spacing:.5px}
+  .site-foot a{color:var(--cyan);text-decoration:none}
+  .site-foot a:hover{text-shadow:var(--glow-cyan)}
+  .foot-links{margin-top:12px;font-family:var(--display);text-transform:uppercase;letter-spacing:1px;font-size:11.5px}
+
   @media (max-width:820px){.workspace{grid-template-columns:1fr}}
   @media (max-width:680px){.builder{grid-template-columns:1fr}.console{position:static}}
 </style>
@@ -309,6 +343,15 @@ const html = `<!doctype html>
   <div id="cast"></div>
   <div class="section-label">Comic <span id="status"></span></div>
   <div id="out"></div>
+
+  <footer class="site-foot">
+    <p><strong>Comic Chat Composer</strong> &mdash; an independent, open-source reimplementation of the
+    <a href="https://kurlander.net/DJ/Pubs/SIGGRAPH96.pdf" target="_blank" rel="noopener">Microsoft Comic Chat</a>
+    panel-composition algorithm (Kurlander, Skelly &amp; Salesin, SIGGRAPH&nbsp;&rsquo;96). Built by Onion Madder.</p>
+    <p>Not affiliated with, sponsored by, or endorsed by Microsoft. The bundled Comic Chat character and
+    backdrop art is Microsoft&rsquo;s own, MIT-licensed and redistributed with attribution.</p>
+    <p class="foot-links"><a href="${REPO_URL}" target="_blank" rel="noopener">Source &amp; credits on GitHub</a> &middot; MIT License</p>
+  </footer>
 </div>
 
 <script>${js}</script>

@@ -84,15 +84,22 @@ and **9** v2.5 backdrops (`NOTICE.md` has attribution — MS art is MIT).
   test`.
 - **The composer never touches pixels.** Anchors/geometry only; renderers own
   drawing. Keep it that way.
-- **Demo is one self-contained file.** No external requests (fonts/sprites/
-  backdrops all inlined). Verify after building: only the SVG xmlns URL should
-  appear. It's ~2.2 MB.
+- **Demo is one self-contained file.** No external *asset requests* — fonts,
+  sprites, and backdrops are all inlined, so it works from `file://` and needs
+  no network. Verify after building that there are no external `src`/`href`
+  refs to scripts, stylesheets, images, or fonts. Intentional outbound *links*
+  and meta (the footer's GitHub/paper links, `canonical`, Open Graph) are fine —
+  they load nothing. The page is ~2.2 MB. The public-site URLs (`SITE_URL`,
+  `REPO_URL` in `demo/build.ts`) are placeholders until the site/repo exist.
 
 ## Deploying the demo (NearlyFreeSpeech.NET via WinSCP)
 
-`npm run demo`, then drag `examples/demo/index.html` into WinSCP over the copy
-in `/home/public/comic/`, **confirm the overwrite**, and hard-refresh
-(Ctrl+Shift+R). Files need 644 / dirs 755 if a 403 appears.
+The site lives at <https://onionmadder.com/comic-chat-composer/>. `npm run demo`,
+then drag `examples/demo/index.html` into WinSCP over the copy in
+`/home/public/comic-chat-composer/`, **confirm the overwrite**, and hard-refresh
+(Ctrl+Shift+R). Files need 644 / dirs 755 if a 403 appears. The public URL is
+baked into the page's `canonical`/Open Graph meta via `SITE_URL` in
+`demo/build.ts` — keep the two in sync if the path ever moves.
 
 ## What's built (the arc so far)
 

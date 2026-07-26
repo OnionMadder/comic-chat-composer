@@ -13,6 +13,14 @@
   ],
   "license": "MIT",
   "author": "Onion Madder",
+  "homepage": "https://onionmadder.com/comic-chat-composer/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OnionMadder/comic-chat-composer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OnionMadder/comic-chat-composer/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"
