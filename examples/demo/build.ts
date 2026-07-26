@@ -14,6 +14,8 @@ import { dirname, join } from 'node:path';
 import * as esbuild from 'esbuild';
 import { loadCharacters, loadBackdrops } from '../load-assets.ts';
 import { HINT_WORDS } from '../parse-log.ts';
+import { CONVERSATIONS } from '../corpus.ts';
+import { seededIndex } from '../../src/rng.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..', 'assets', 'comic-chat');
@@ -54,15 +56,10 @@ const bundle = await esbuild.build({
 
 const js = bundle.outputFiles[0]!.text;
 
-const DEFAULT_LOG = `alice: Hi Bob!
-bob -> alice (laugh): Hey Alice, you're back
-* alice waves cheerfully
-alice -> bob (happy): I missed you
-bob -> alice: IMHO you should visit more often
-cara (think): are they always like this?
-cara -> alice (angry): Did you two start without me?!
-alice -> cara (coy): never :-)
-bob (whisper): we totally did`;
+// The initial script matches the conversation the demo's JS loads for seed 1234,
+// so there's no swap-flash on load.
+const DEFAULT_SEED = 1234;
+const DEFAULT_LOG = CONVERSATIONS[seededIndex(DEFAULT_SEED, CONVERSATIONS.length)]!;
 
 const hintLine = (label: string, words: string[]): string =>
   `<div class="hint-row"><span class="hint-label">${label}</span>` +
@@ -85,87 +82,91 @@ const html = `<!doctype html>
 <style>
   ${fontFace}
   :root{
-    --bg-deep:#050505; --panel:rgba(10,0,15,.85); --tile:rgba(20,0,30,.6); --tile-hover:rgba(30,0,50,.85);
-    --pink:#ff2bb3; --cyan:#26ffe6; --amber:#ffbf00; --violet:#a95eff; --lime:#5fc944;
-    --text:#e6e3ec; --dim:#948ca1;
-    --border-sharp:rgba(169,94,255,.45); --border-soft:rgba(169,94,255,.18);
-    --glow-cyan:0 0 6px rgba(38,255,230,.45); --glow-pink:0 0 6px rgba(255,43,179,.45);
-    --shadow-card:0 2px 14px rgba(0,0,0,.5); --shadow-hover:0 6px 22px rgba(38,255,230,.18);
-    --focus:0 0 0 2px var(--bg-deep),0 0 0 4px var(--cyan);
+    --bg-deep:#050505; --panel:rgba(10,0,15,.85); --tile:rgba(20,0,30,.6);
+    --pink:#ff2bb3; --cyan:#26ffe6; --violet:#a95eff;
+    --text:#f2f0f6; --dim:#c3bdd2;
+    --border-sharp:rgba(169,94,255,.5); --border-soft:rgba(169,94,255,.22);
+    --glow-cyan:0 0 7px rgba(38,255,230,.5); --glow-pink:0 0 7px rgba(255,43,179,.5);
+    --shadow-card:0 2px 14px rgba(0,0,0,.5); --shadow-hover:0 6px 22px rgba(38,255,230,.2);
     --radius:8px; --t:.2s ease;
+    /* Chakra Petch is the brand display face; body copy uses a plain readable
+       sans so long text and the script stay legible (low-vision friendly). */
+    --display:'Chakra Petch',system-ui,sans-serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"JetBrains Mono","IBM Plex Mono",Consolas,monospace;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg-deep);color:var(--text);
-    font:15px/1.55 'Chakra Petch',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;
+    font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;
     background-image:radial-gradient(1200px 600px at 15% -10%,rgba(169,94,255,.10),transparent 60%),radial-gradient(1000px 500px at 100% 0%,rgba(38,255,230,.06),transparent 55%);}
   ::selection{background:var(--pink);color:#000}
   .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 70px}
   header.top{display:flex;align-items:center;gap:14px;margin:4px 0 26px}
-  .logo{width:44px;height:44px;flex:0 0 auto;border-radius:10px;display:grid;place-items:center;
+  .logo{width:46px;height:46px;flex:0 0 auto;border-radius:10px;display:grid;place-items:center;
     color:var(--cyan);border:1px solid var(--cyan);background:rgba(38,255,230,.06);box-shadow:var(--glow-cyan)}
-  .logo svg{width:24px;height:24px}
-  .brand h1{font-size:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin:0;line-height:1.05;
-    color:var(--pink);text-shadow:0 0 12px rgba(255,43,179,.35)}
-  .brand p{margin:3px 0 0;color:var(--dim);font-size:13px;letter-spacing:.3px}
+  .logo svg{width:25px;height:25px}
+  .brand h1{font-family:var(--display);font-size:26px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin:0;line-height:1.05;
+    color:var(--pink);text-shadow:0 0 12px rgba(255,43,179,.4)}
+  .brand p{margin:4px 0 0;color:var(--dim);font-size:15px}
   .workspace{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
   .card{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);box-shadow:var(--shadow-card);backdrop-filter:blur(6px)}
-  .card>.hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-soft)}
-  .card>.hd .t{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--cyan)}
+  .card>.hd{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border-soft)}
+  .card>.hd .t{font-family:var(--display);font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:1.5px;color:var(--cyan)}
   .card>.bd{padding:16px}
-  .linkbtn{background:none;border:0;color:var(--pink);font:inherit;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;cursor:pointer;padding:0}
+  .linkbtn{font-family:var(--display);background:none;border:0;color:var(--pink);font-size:13px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;padding:0}
   .linkbtn:hover{text-shadow:var(--glow-pink)}
-  textarea{width:100%;height:230px;resize:vertical;border:1px solid var(--border-sharp);border-radius:var(--radius);
-    padding:12px 13px;background:#000;color:var(--text);font:13px/1.7 ui-monospace,"JetBrains Mono","IBM Plex Mono",Consolas,monospace}
+  textarea{width:100%;height:250px;resize:vertical;border:1px solid var(--border-sharp);border-radius:var(--radius);
+    padding:13px 14px;background:#000;color:var(--text);font:15px/1.85 var(--mono)}
   textarea:focus,select:focus,input:focus{outline:none;box-shadow:var(--glow-cyan);border-color:var(--cyan)}
   .help{margin-top:12px}
-  .help summary{cursor:pointer;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:1.5px;list-style:none}
+  .help summary{font-family:var(--display);cursor:pointer;color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:1px;list-style:none}
   .help summary:hover{color:var(--cyan)}
   .help summary::-webkit-details-marker{display:none}
   .help summary::before{content:"\\203A";display:inline-block;margin-right:6px;color:var(--cyan);transition:transform .15s}
   .help[open] summary::before{transform:rotate(90deg)}
-  .help-body{margin-top:11px;padding:13px;border:1px dashed var(--border-soft);border-radius:var(--radius);background:var(--tile);font-size:13px}
-  .help-body p{margin:0 0 9px}
-  .hint-row{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:5px 0}
-  .hint-label{color:var(--dim);min-width:80px;font-size:10.5px;text-transform:uppercase;letter-spacing:1px}
-  code{background:rgba(38,255,230,.08);color:var(--cyan);border:1px solid rgba(38,255,230,.2);padding:1px 6px;border-radius:5px;font:12px ui-monospace,"JetBrains Mono",monospace}
-  .setting{margin-bottom:15px}
-  .setting>label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:5px}
-  select,input[type=number]{width:100%;height:38px;border:1px solid var(--border-sharp);border-radius:var(--radius);background:#000;color:var(--text);padding:0 11px;font:inherit;font-size:14px}
-  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%2326ffe6' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;cursor:pointer}
+  .help-body{margin-top:11px;padding:14px;border:1px dashed var(--border-soft);border-radius:var(--radius);background:var(--tile);font-size:14.5px;line-height:1.7}
+  .help-body p{margin:0 0 10px}
+  .hint-row{display:flex;flex-wrap:wrap;gap:7px;align-items:baseline;margin:6px 0}
+  .hint-label{color:var(--dim);min-width:84px;font-size:12.5px;text-transform:uppercase;letter-spacing:.5px}
+  code{background:rgba(38,255,230,.08);color:var(--cyan);border:1px solid rgba(38,255,230,.2);padding:2px 7px;border-radius:5px;font:13.5px var(--mono)}
+  .setting{margin-bottom:16px}
+  .setting>label{font-family:var(--display);display:block;font-size:12.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:6px}
+  select,input[type=number]{width:100%;height:42px;border:1px solid var(--border-sharp);border-radius:var(--radius);background:#000;color:var(--text);padding:0 12px;font:15px var(--sans)}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%2326ffe6' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:32px;cursor:pointer}
   .seedrow{display:flex;gap:8px}
   .seedrow input{flex:1}
-  .btn{height:38px;padding:0 14px;border-radius:var(--radius);border:1px solid var(--cyan);background:transparent;color:var(--cyan);
-    font:inherit;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:1.5px;cursor:pointer;
+  .btn{font-family:var(--display);height:42px;padding:0 15px;border-radius:var(--radius);border:1px solid var(--cyan);background:transparent;color:var(--cyan);
+    font-weight:700;font-size:13.5px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;
     display:inline-flex;align-items:center;gap:6px;justify-content:center;transition:var(--t)}
   .btn:hover{background:var(--cyan);color:#000;box-shadow:var(--glow-cyan)}
-  .btn.icon{flex:0 0 auto;width:38px;padding:0;font-size:16px}
+  .btn.icon{flex:0 0 auto;width:42px;padding:0;font-size:18px}
   .btn.primary{border-color:var(--pink);color:var(--pink)}
   .btn.primary:hover{background:var(--pink);color:#000;box-shadow:var(--glow-pink)}
-  .toggle{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
-  .toggle input{appearance:none;width:34px;height:20px;border-radius:20px;background:#000;border:1px solid var(--border-sharp);position:relative;cursor:pointer;transition:var(--t);flex:0 0 auto}
+  .toggle{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--dim)}
+  .toggle input{appearance:none;width:38px;height:22px;border-radius:22px;background:#000;border:1px solid var(--border-sharp);position:relative;cursor:pointer;transition:var(--t);flex:0 0 auto}
   .toggle input:checked{background:rgba(38,255,230,.2);border-color:var(--cyan);box-shadow:var(--glow-cyan)}
-  .toggle input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:var(--t)}
-  .toggle input:checked::after{left:15px;background:var(--cyan)}
-  .divider{height:1px;background:var(--border-soft);margin:16px 0}
+  .toggle input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--dim);transition:var(--t)}
+  .toggle input:checked::after{left:17px;background:var(--cyan)}
+  .divider{height:1px;background:var(--border-soft);margin:18px 0}
   .exports{display:flex;gap:8px}
   .exports .btn{flex:1}
-  .section-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--pink);margin:28px 0 12px;display:flex;align-items:center;gap:10px}
+  .section-label{font-family:var(--display);font-size:14px;text-transform:uppercase;letter-spacing:1.5px;color:var(--pink);margin:30px 0 13px;display:flex;align-items:center;gap:11px}
   .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border-sharp),transparent)}
-  #status{color:var(--dim);font-size:11px;letter-spacing:.5px}
-  #cast{display:flex;flex-wrap:wrap;gap:9px}
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:5px 7px 5px 13px;border:1px solid var(--border-sharp);border-radius:999px;background:var(--tile);transition:var(--t)}
+  #status{font-family:var(--sans);color:var(--dim);font-size:14px;letter-spacing:0;text-transform:none}
+  #cast{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{display:inline-flex;align-items:center;gap:9px;padding:6px 8px 6px 15px;border:1px solid var(--border-sharp);border-radius:999px;background:var(--tile);transition:var(--t)}
   .chip:hover{border-color:var(--cyan);box-shadow:var(--glow-cyan)}
   .chip.is-manual{border-color:var(--pink);box-shadow:var(--glow-pink)}
-  .chip .who{font-weight:700;font-size:13px;color:var(--text)}
-  .chip .arr{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px}
-  .chip select{height:30px;border:none;background:transparent;box-shadow:none;padding:0 22px 0 8px;width:auto;color:var(--cyan);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%2326ffe6' stroke-width='2'%3E%3Cpath d='M1 3l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;font-weight:700;cursor:pointer}
-  #out{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:18px}
+  .chip .who{font-weight:700;font-size:15px;color:var(--text)}
+  .chip .arr{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  .chip select{height:32px;border:none;background:transparent;box-shadow:none;padding:0 24px 0 9px;width:auto;color:var(--cyan);font-size:15px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%2326ffe6' stroke-width='2'%3E%3Cpath d='M1 3l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;font-weight:700;cursor:pointer}
+  #out{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}
   figure.panel{margin:0}
   .frame{background:#000;border:1px solid var(--border-sharp);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-card);transition:var(--t)}
   figure.panel:hover .frame{transform:translateY(-3px);border-color:var(--cyan);box-shadow:var(--shadow-hover)}
   .frame svg{display:block;width:100%;height:auto}
-  figcaption{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
-  .pn{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4px;background:var(--pink);color:#000;font-size:10px;font-weight:700}
+  figcaption{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:13px;color:var(--dim)}
+  .pn{display:inline-grid;place-items:center;width:21px;height:21px;border-radius:5px;background:var(--pink);color:#000;font-size:12px;font-weight:700}
   @media (max-width:820px){.workspace{grid-template-columns:1fr}}
 </style>
 
@@ -177,7 +178,7 @@ const html = `<!doctype html>
 
   <div class="workspace">
     <div class="card">
-      <div class="hd"><span class="t">Script</span><button id="example" class="linkbtn">Load example</button></div>
+      <div class="hd"><span class="t">Script</span><button id="example" class="linkbtn">Surprise me &#127922;</button></div>
       <div class="bd">
         <textarea id="log" spellcheck="false" aria-label="Chat log">${DEFAULT_LOG}</textarea>
         <details class="help">
@@ -196,9 +197,9 @@ const html = `<!doctype html>
 
     <div class="card"><div class="bd">
       <div class="setting"><label>Scene</label><select id="scene">${sceneOptions}</select></div>
-      <div class="setting"><label>Seed</label>
+      <div class="setting"><label>Seed &mdash; each one is a new chat</label>
         <div class="seedrow"><input id="seed" type="number" value="1234">
-          <button id="reseed" class="btn icon" title="Randomise cast &amp; seed" aria-label="Randomise cast and seed">&#127922;</button>
+          <button id="reseed" class="btn icon" title="Surprise me &mdash; new chat, cast &amp; scene" aria-label="Surprise me with a new chat">&#127922;</button>
         </div>
       </div>
       <label class="toggle"><input id="debug" type="checkbox"> Show layout guides</label>

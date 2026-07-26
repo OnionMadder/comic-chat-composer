@@ -8,7 +8,9 @@
 
 import { compose } from '../../src/compose.ts';
 import { isExpressive, type CharacterManifest } from '../../src/manifest.ts';
+import { seededIndex } from '../../src/rng.ts';
 import type { Panel } from '../../src/types.ts';
+import { CONVERSATIONS } from '../corpus.ts';
 import { parseLog } from '../parse-log.ts';
 import { renderPanelToSvg, type RenderOptions } from '../render-svg.ts';
 import { renderStripSvg } from '../strip.ts';
@@ -195,8 +197,40 @@ function downloadPng(): void {
   img.src = svgUrl;
 }
 
-for (const id of ['log', 'seed', 'debug', 'scene']) {
-  $(id).addEventListener('input', run);
+// A seed selects a whole comic: a conversation from the corpus, plus the cast
+// and scene that follow from it. Once the user edits the script it becomes
+// "authored" and the seed only re-frames their own text (scene, cast, layout)
+// instead of overwriting it.
+let authored = false;
+const conversationFor = (seed: number): string =>
+  CONVERSATIONS[seededIndex(seed, CONVERSATIONS.length)]!;
+
+/** Roll a brand-new random comic: fresh conversation, cast, and scene. */
+function surprise(): void {
+  authored = false;
+  castOverrides.clear();
+  const seed = Math.floor(Math.random() * 100000);
+  ($('seed') as HTMLInputElement).value = String(seed);
+  ($('log') as HTMLTextAreaElement).value = conversationFor(seed);
+  run();
+}
+
+// Editing the script makes it the user's own — the seed stops replacing it.
+$('log').addEventListener('input', () => {
+  authored = true;
+  run();
+});
+
+// Changing the seed re-rolls the conversation too (until it's been authored).
+$('seed').addEventListener('input', () => {
+  if (!authored) {
+    const seed = Number(($('seed') as HTMLInputElement).value) || 0;
+    ($('log') as HTMLTextAreaElement).value = conversationFor(seed);
+  }
+  run();
+});
+
+for (const id of ['debug', 'scene']) {
   $(id).addEventListener('change', run);
 }
 
@@ -209,20 +243,8 @@ $('cast').addEventListener('change', (event) => {
   }
 });
 
-$('reseed').addEventListener('click', () => {
-  castOverrides.clear(); // a fresh shuffle drops any manual casting
-  ($('seed') as HTMLInputElement).value = String(Math.floor(Math.random() * 100000));
-  run();
-});
-
-// "Load example" restores the script the page shipped with.
-const EXAMPLE_LOG = ($('log') as HTMLTextAreaElement).value;
-$('example').addEventListener('click', () => {
-  ($('log') as HTMLTextAreaElement).value = EXAMPLE_LOG;
-  castOverrides.clear();
-  run();
-});
-
+$('reseed').addEventListener('click', surprise);
+$('example').addEventListener('click', surprise);
 $('dl-svg').addEventListener('click', downloadSvg);
 $('dl-png').addEventListener('click', downloadPng);
 
