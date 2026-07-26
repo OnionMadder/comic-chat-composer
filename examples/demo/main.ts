@@ -109,11 +109,16 @@ function run(): void {
       authors.map((a) => [a, { characterId: castOf.get(a)! }]),
     );
 
+    // Scene: a specific backdrop pins the room; "Auto" lets the seed pick one.
+    // Either way the whole conversation stays in that one place.
+    const scene = ($('scene') as HTMLSelectElement).value;
+    const sceneBackdrops = scene ? [scene] : Object.keys(backdrops);
+
     const panels = compose({
       events,
       cast,
       characterAssets: manifests,
-      backdrops: Object.keys(backdrops),
+      backdrops: sceneBackdrops,
       seed,
       rules: { panelWidth: PANEL_W, panelHeight: PANEL_H },
     });
@@ -186,7 +191,7 @@ function downloadPng(): void {
   img.src = svgUrl;
 }
 
-for (const id of ['log', 'seed', 'debug']) {
+for (const id of ['log', 'seed', 'debug', 'scene']) {
   $(id).addEventListener('input', run);
   $(id).addEventListener('change', run);
 }

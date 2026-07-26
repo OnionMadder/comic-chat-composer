@@ -153,37 +153,30 @@ function zoomLabel(scale: number, establishing: boolean): Zoom {
 }
 
 /**
- * Pick the backdrop for a new scene. Establishing shots choose a fresh backdrop
- * and the conversation that follows inherits it, so the establishing shot
- * actually establishes the place the scene happens in.
+ * Pick the single backdrop a whole conversation plays out in. The cast stays in
+ * one place for the length of the composition — every panel, establishing shots
+ * included, shows the same setting — so a comic reads as one continuous scene
+ * rather than teleporting between rooms. It is chosen once from the seeded RNG,
+ * which makes each seed a consistent scene.
  *
- * The present cast's `backdropPreferences` steer the choice: a backdrop ranked
- * `r` (0-based, most-preferred first) in a character's list scores
- * `listLength - r`, summed across the characters in the panel, so a backdrop
- * everyone reads well against wins. The previous backdrop is excluded when
- * there is an alternative, so consecutive scenes vary. Ties are broken with the
- * seeded RNG. With no manifests, or none expressing a preference, this reduces
- * to non-repeating rotation.
+ * The cast's `backdropPreferences` steer the choice: a backdrop ranked `r`
+ * (0-based, most-preferred first) in a character's list scores `listLength - r`,
+ * summed across the cast, so a backdrop everyone reads well against wins. Ties,
+ * and the no-preference case, fall to the seeded RNG — so with no preferences it
+ * is simply a seeded pick among the offered backdrops.
  */
-function chooseBackdrop(
-  characters: readonly PanelCharacter[],
+function chooseSceneBackdrop(
+  characterIds: readonly string[],
   backdrops: readonly string[],
-  previous: string | null,
   characterAssets: Record<string, CharacterManifest> | undefined,
   rand: Random,
 ): string {
   if (backdrops.length === 0) return 'default';
   if (backdrops.length === 1) return backdrops[0]!;
 
-  // Don't repeat the previous backdrop when there's somewhere else to go.
-  const candidates =
-    previous !== null && backdrops.includes(previous)
-      ? backdrops.filter((b) => b !== previous)
-      : [...backdrops];
-
-  const score = new Map<string, number>(candidates.map((b) => [b, 0]));
-  for (const c of characters) {
-    const prefs = characterAssets?.[c.characterId]?.backdropPreferences;
+  const score = new Map<string, number>(backdrops.map((b) => [b, 0]));
+  for (const cid of characterIds) {
+    const prefs = characterAssets?.[cid]?.backdropPreferences;
     if (!prefs) continue;
     prefs.forEach((id, rank) => {
       if (score.has(id)) score.set(id, score.get(id)! + (prefs.length - rank));
@@ -191,7 +184,7 @@ function chooseBackdrop(
   }
 
   const best = Math.max(...score.values());
-  const top = candidates.filter((b) => score.get(b) === best);
+  const top = backdrops.filter((b) => score.get(b) === best);
   return top[Math.floor(rand() * top.length)]!;
 }
 
@@ -235,8 +228,15 @@ export function compose(input: ComposeInput): Panel[] {
   const knownParticipants = new Set<string>();
   let previousPositions = new Map<string, number>();
   let panelsSinceEstablishing = 0;
-  let currentBackdrop: string | null = null;
   let state = emptyPanelState();
+
+  // One backdrop for the whole conversation — the cast stays in one place.
+  const sceneBackdrop = chooseSceneBackdrop(
+    Object.values(input.cast).map((entry) => entry.characterId),
+    input.backdrops,
+    input.characterAssets,
+    rand,
+  );
 
   const groundY = rules.panelHeight;
   const characterHeight = rules.panelHeight * rules.characterHeightFraction;
@@ -369,26 +369,13 @@ export function compose(input: ComposeInput): Panel[] {
     const camera = buildCamera(characters, state.forceEstablishing);
     const zoom = zoomLabel(camera.scale, state.forceEstablishing);
 
-    // A new scene (establishing shot) picks a fresh backdrop; conversation
-    // panels inherit it, so establishing and scene agree. The very first panel
-    // also needs one even if it isn't an establishing shot.
-    if (state.forceEstablishing || currentBackdrop === null) {
-      currentBackdrop = chooseBackdrop(
-        characters,
-        input.backdrops,
-        currentBackdrop,
-        input.characterAssets,
-        rand,
-      );
-    }
-
     panels.push({
       panelIndex: panels.length,
       zoom,
       camera,
       characters,
       balloons,
-      backdrop: currentBackdrop,
+      backdrop: sceneBackdrop,
     });
 
     previousPositions = new Map(placements.map((p) => [p.author, p.x]));

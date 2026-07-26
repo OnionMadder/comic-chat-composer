@@ -62,6 +62,14 @@ const hintLine = (label: string, words: string[]): string =>
   words.map((w) => `<code>${w}</code>`).join(' ') +
   `</div>`;
 
+const titleCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+const sceneOptions =
+  `<option value="">Auto (from seed)</option>` +
+  Object.keys(backdrops)
+    .sort()
+    .map((id) => `<option value="${id}">${titleCase(id)}</option>`)
+    .join('');
+
 const html = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -99,7 +107,7 @@ const html = `<!doctype html>
   .side { display: flex; flex-direction: column; gap: 12px; font-size: 13px; flex: 0 0 200px; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field > span { color: var(--muted); font-size: 12px; }
-  input[type=number] { width: 100%; padding: 7px 8px; border: 1px solid var(--field-border); border-radius: 7px; background: var(--field); color: var(--fg); }
+  input[type=number], .side select { width: 100%; padding: 7px 8px; border: 1px solid var(--field-border); border-radius: 7px; background: var(--field); color: var(--fg); font: inherit; }
   .row { display: flex; gap: 8px; align-items: center; }
   button {
     padding: 7px 12px; border-radius: 7px; border: 1px solid var(--field-border);
@@ -159,6 +167,7 @@ const html = `<!doctype html>
     </details>
   </div>
   <div class="side">
+    <label class="field"><span>Scene</span><select id="scene">${sceneOptions}</select></label>
     <label class="field"><span>Seed</span><input id="seed" type="number" value="1234"></label>
     <button id="reseed">Randomise cast &amp; seed</button>
     <label class="check"><input id="debug" type="checkbox"> Show layout guides</label>

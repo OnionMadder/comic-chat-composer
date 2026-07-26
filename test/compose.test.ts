@@ -181,23 +181,23 @@ describe('compose', () => {
     );
   });
 
-  it('cycles backdrops across establishing shots', () => {
+  it('keeps one backdrop for the whole conversation', () => {
     const panels = run(SAMPLE);
-    const establishing = panels.filter((p) => p.zoom === 'establishing');
-    assert.ok(establishing.length >= 2);
-    assert.notEqual(establishing[0]!.backdrop, establishing[1]!.backdrop);
+    assert.ok(panels.length >= 2);
+    // The cast stays in one place: every panel — establishing shots included —
+    // shows the same setting, so the comic reads as one continuous scene.
+    const scene = panels[0]!.backdrop;
+    assert.ok(backdrops.includes(scene));
+    assert.ok(panels.every((p) => p.backdrop === scene), 'backdrop is constant');
   });
 
-  it('lets the establishing shot and the scene share a backdrop', () => {
-    const panels = run(SAMPLE);
-    // The first conversational panel inherits the backdrop of the establishing
-    // shot that opened its scene, rather than jumping to a different place.
-    const firstEstablishing = panels.find((p) => p.zoom === 'establishing')!;
-    const firstConversation = panels.find((p) => p.zoom !== 'establishing')!;
-    // Both belong to the opening scene; the conversation keeps a stable backdrop.
-    const conversational = panels.filter((p) => p.zoom !== 'establishing');
-    assert.ok(conversational.every((p) => p.backdrop === firstConversation.backdrop));
-    assert.ok(backdrops.includes(firstEstablishing.backdrop));
+  it('gives different seeds different scenes', () => {
+    // Each seed is its own conversation in its own room; across seeds the room
+    // varies (not every pair need differ, but the choice must depend on seed).
+    const scenes = new Set(
+      Array.from({ length: 12 }, (_, s) => run(SAMPLE, { seed: s })[0]!.backdrop),
+    );
+    assert.ok(scenes.size >= 2, 'the scene should vary with the seed');
   });
 
   it('honours a character’s backdropPreferences', () => {
@@ -227,7 +227,7 @@ describe('compose', () => {
       backdrops,
       seed: 1,
     });
-    // With no previous backdrop to exclude, the top preference wins outright.
+    // The cast's top-ranked backdrop wins the single scene pick.
     assert.equal(panels[0]!.backdrop, 'field');
   });
 

@@ -43,7 +43,7 @@
       }
     ],
     "balloons": [],
-    "backdrop": "field"
+    "backdrop": "room"
   },
   {
     "panelIndex": 2,
@@ -82,16 +82,16 @@
           "HI BOB!",
           ":-)"
         ],
-        "x": 114.98690740385405,
+        "x": 131.82201136217765,
         "y": 7.5,
         "width": 77.51999999999998,
         "height": 48,
         "tail": {
-          "fromX": 128.7467268509635,
+          "fromX": 142.32201136217765,
           "fromY": 55.5,
           "toX": 133.33333333333334,
           "toY": 165,
-          "curve": "ccw"
+          "curve": "cw"
         },
         "readingOrder": 0,
         "continued": false
@@ -103,12 +103,12 @@
         "lines": [
           "HEY ALICE, LOL YOU ARE BACK"
         ],
-        "x": 133.33333333333334,
+        "x": 145.82201136217765,
         "y": 55.5,
-        "width": 266.66666666666663,
+        "width": 254.17798863782235,
         "height": 33,
         "tail": {
-          "fromX": 318.8222842393692,
+          "fromX": 350.80687103134267,
           "fromY": 88.5,
           "toX": 266.6666666666667,
           "toY": 165,
@@ -118,7 +118,7 @@
         "continued": false
       }
     ],
-    "backdrop": "field"
+    "backdrop": "room"
   },
   {
     "panelIndex": 3,
@@ -148,16 +148,16 @@
         "lines": [
           "waves cheerfully"
         ],
-        "x": 160.09593499328196,
+        "x": 119.31065539046564,
         "y": 7.5,
-        "width": 125.50799999999998,
+        "width": 125.50799999999997,
         "height": 33,
         "tail": null,
         "readingOrder": 0,
         "continued": false
       }
     ],
-    "backdrop": "field"
+    "backdrop": "room"
   },
   {
     "panelIndex": 4,
@@ -195,16 +195,16 @@
         "lines": [
           "I MISSED YOU!!!"
         ],
-        "x": 78.06413828724283,
+        "x": 104.76249038412175,
         "y": 7.5,
         "width": 106.90799999999999,
         "height": 33,
         "tail": {
-          "fromX": 121.6710637799531,
+          "fromX": 156.70691803071682,
           "fromY": 40.5,
           "toX": 133.33333333333334,
           "toY": 165,
-          "curve": "ccw"
+          "curve": "cw"
         },
         "readingOrder": 0,
         "continued": false
@@ -214,24 +214,28 @@
         "kind": "speech",
         "text": "IMHO YOU SHOULD VISIT MORE OFTEN",
         "lines": [
-          "IMHO YOU SHOULD VISIT MORE OFTEN"
+          "IMHO YOU",
+          "SHOULD",
+          "VISIT",
+          "MORE",
+          "OFTEN"
         ],
-        "x": 137.24499461906268,
-        "y": 40.5,
-        "width": 260.9189821534603,
-        "height": 33,
+        "x": 244.93479542069716,
+        "y": 7.5,
+        "width": 74.05649110773581,
+        "height": 93,
         "tail": {
-          "fromX": 191.08343056340382,
-          "fromY": 73.5,
+          "fromX": 285.226860443704,
+          "fromY": 100.5,
           "toX": 266.6666666666667,
           "toY": 165,
-          "curve": "ccw"
+          "curve": "cw"
         },
         "readingOrder": 1,
         "continued": false
       }
     ],
-    "backdrop": "field"
+    "backdrop": "room"
   },
   {
     "panelIndex": 5,
@@ -261,12 +265,12 @@
         "lines": [
           "BRB MAKING TEA"
         ],
-        "x": 89.11125645108615,
+        "x": 102.07803514027597,
         "y": 7.5,
         "width": 114.34799999999998,
         "height": 33,
         "tail": {
-          "fromX": 111.1761854931712,
+          "fromX": 184.63273996084274,
           "fromY": 40.5,
           "toX": 200,
           "toY": 165,
@@ -276,7 +280,7 @@
         "continued": false
       }
     ],
-    "backdrop": "field"
+    "backdrop": "room"
   },
   {
     "panelIndex": 6,
@@ -303,6 +307,51 @@
   },
   {
     "panelIndex": 7,
+    "zoom": "medium",
+    "camera": {
+      "x": 65.1555555555556,
+      "y": -57.24666666666661,
+      "width": 269.6888888888888,
+      "height": 202.26666666666662,
+      "scale": 1.4831905075807519
+    },
+    "characters": [
+      {
+        "author": "cara",
+        "characterId": "nib",
+        "x": 200,
+        "facing": "left",
+        "gesture": "point-other",
+        "expression": "sad"
+      }
+    ],
+    "balloons": [
+      {
+        "speaker": "cara",
+        "kind": "speech",
+        "text": "DID YOU TWO START WITHOUT ME? :-(",
+        "lines": [
+          "DID YOU TWO START WITHOUT ME? :-("
+        ],
+        "x": 2.563145268196892,
+        "y": 7.5,
+        "width": 371.69090184365314,
+        "height": 33,
+        "tail": {
+          "fromX": 293.5805995755626,
+          "fromY": 40.5,
+          "toX": 200,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 0,
+        "continued": false
+      }
+    ],
+    "backdrop": "room"
+  },
+  {
+    "panelIndex": 8,
     "zoom": "wide",
     "camera": {
       "x": -15.217391304347842,
@@ -313,20 +362,20 @@
     },
     "characters": [
       {
-        "author": "cara",
+        "author": "alice",
         "characterId": "nib",
         "x": 100,
         "facing": "right",
-        "gesture": "point-other",
-        "expression": "sad"
+        "gesture": "neutral",
+        "expression": "happy"
       },
       {
-        "author": "alice",
+        "author": "cara",
         "characterId": "nib",
         "x": 200,
         "facing": "left",
-        "gesture": "neutral",
-        "expression": "happy"
+        "gesture": "point-self",
+        "expression": "neutral"
       },
       {
         "author": "bob",
@@ -339,28 +388,6 @@
     ],
     "balloons": [
       {
-        "speaker": "cara",
-        "kind": "speech",
-        "text": "DID YOU TWO START WITHOUT ME? :-(",
-        "lines": [
-          "DID YOU TWO START WITHOUT ME?",
-          ":-("
-        ],
-        "x": 77.08922538440675,
-        "y": 7.5,
-        "width": 227.45521506893454,
-        "height": 48,
-        "tail": {
-          "fromX": 111.25,
-          "fromY": 55.5,
-          "toX": 100,
-          "toY": 165,
-          "curve": "cw"
-        },
-        "readingOrder": 0,
-        "continued": false
-      },
-      {
         "speaker": "alice",
         "kind": "speech",
         "text": "NEVER :-)",
@@ -368,18 +395,18 @@
           "NEVER",
           ":-)"
         ],
-        "x": 178.13710536714643,
-        "y": 55.5,
+        "x": 52.52609877656215,
+        "y": 7.5,
         "width": 73.79999999999998,
         "height": 48,
         "tail": {
-          "fromX": 196.29008933977627,
-          "fromY": 103.5,
-          "toX": 200,
+          "fromX": 88.53326530230228,
+          "fromY": 55.5,
+          "toX": 100,
           "toY": 165,
           "curve": "ccw"
         },
-        "readingOrder": 1,
+        "readingOrder": 0,
         "continued": false
       },
       {
@@ -387,17 +414,37 @@
         "kind": "whisper",
         "text": "WE WERE ONLY WARMING UP",
         "lines": [
-          "WE WERE ONLY",
-          "WARMING UP"
+          "WE WERE ONLY WARMING UP"
         ],
-        "x": 202.34108399731954,
-        "y": 103.5,
-        "width": 120.85345227317325,
-        "height": 48,
+        "x": 100,
+        "y": 55.5,
+        "width": 300,
+        "height": 33,
         "tail": {
-          "fromX": 295.48350280952275,
-          "fromY": 151.5,
+          "fromX": 331.0758410204173,
+          "fromY": 88.5,
           "toX": 300,
+          "toY": 165,
+          "curve": "cw"
+        },
+        "readingOrder": 1,
+        "continued": false
+      },
+      {
+        "speaker": "cara",
+        "kind": "thought",
+        "text": "I WONDER IF THEY MEAN IT",
+        "lines": [
+          "I WONDER IF THEY MEAN IT"
+        ],
+        "x": 123.69198318789529,
+        "y": 88.5,
+        "width": 173.49599999999998,
+        "height": 33,
+        "tail": {
+          "fromX": 139.68154674506377,
+          "fromY": 121.5,
+          "toX": 200,
           "toY": 165,
           "curve": "ccw"
         },
@@ -408,7 +455,7 @@
     "backdrop": "room"
   },
   {
-    "panelIndex": 8,
+    "panelIndex": 9,
     "zoom": "wide",
     "camera": {
       "x": -36.95652173913041,
@@ -418,14 +465,6 @@
       "scale": 0.8440366972477065
     },
     "characters": [
-      {
-        "author": "cara",
-        "characterId": "nib",
-        "x": 160,
-        "facing": "right",
-        "gesture": "point-self",
-        "expression": "neutral"
-      },
       {
         "author": "dan",
         "characterId": "nib",
@@ -437,13 +476,21 @@
       {
         "author": "alice",
         "characterId": "nib",
+        "x": 160,
+        "facing": "right",
+        "gesture": "neutral",
+        "expression": "neutral"
+      },
+      {
+        "author": "bob",
+        "characterId": "nib",
         "x": 240,
         "facing": "left",
         "gesture": "neutral",
         "expression": "neutral"
       },
       {
-        "author": "bob",
+        "author": "cara",
         "characterId": "nib",
         "x": 320,
         "facing": "left",
@@ -453,52 +500,31 @@
     ],
     "balloons": [
       {
-        "speaker": "cara",
-        "kind": "thought",
-        "text": "I WONDER IF THEY MEAN IT",
-        "lines": [
-          "I WONDER IF THEY MEAN IT"
-        ],
-        "x": 68.30774571746588,
-        "y": 7.5,
-        "width": 173.49599999999998,
-        "height": 33,
-        "tail": {
-          "fromX": 201.32449672383268,
-          "fromY": 40.5,
-          "toX": 160,
-          "toY": 165,
-          "curve": "cw"
-        },
-        "readingOrder": 0,
-        "continued": false
-      },
-      {
         "speaker": "dan",
         "kind": "speech",
         "text": "YOU ARE ALL TERRIBLE",
         "lines": [
           "YOU ARE ALL TERRIBLE"
         ],
-        "x": 3.62669325118885,
-        "y": 40.5,
+        "x": 34.15387285873294,
+        "y": 7.5,
         "width": 151.92,
         "height": 33,
         "tail": {
-          "fromX": 117.04185457242652,
-          "fromY": 73.5,
+          "fromX": 103.26362040814013,
+          "fromY": 40.5,
           "toX": 80,
           "toY": 165,
           "curve": "cw"
         },
-        "readingOrder": 1,
+        "readingOrder": 0,
         "continued": false
       }
     ],
     "backdrop": "room"
   },
   {
-    "panelIndex": 9,
+    "panelIndex": 10,
     "zoom": "medium",
     "camera": {
       "x": 65.1555555555556,
@@ -538,11 +564,11 @@
         "width": 400,
         "height": 153,
         "tail": {
-          "fromX": 186.01960393402538,
+          "fromX": 279.3913236987051,
           "fromY": 160.5,
           "toX": 200,
           "toY": 168,
-          "curve": "ccw"
+          "curve": "cw"
         },
         "readingOrder": 0,
         "continued": true
@@ -551,7 +577,7 @@
     "backdrop": "room"
   },
   {
-    "panelIndex": 10,
+    "panelIndex": 11,
     "zoom": "wide",
     "camera": {
       "x": -15.217391304347842,
@@ -594,12 +620,12 @@
         "lines": [
           "...PEOPLE RUNNING IT"
         ],
-        "x": 74.88155798055232,
+        "x": 21.360987541265786,
         "y": 7.5,
         "width": 140.76,
         "height": 33,
         "tail": {
-          "fromX": 86.2114304862011,
+          "fromX": 52.03592433992774,
           "fromY": 40.5,
           "toX": 100,
           "toY": 165,
@@ -613,15 +639,16 @@
         "kind": "speech",
         "text": "HELLO EVERYONE, ARE YOU READY TO GO?",
         "lines": [
-          "HELLO EVERYONE, ARE YOU READY TO GO?"
+          "HELLO EVERYONE, ARE YOU",
+          "READY TO GO?"
         ],
-        "x": 100,
-        "y": 40.5,
-        "width": 300,
-        "height": 33,
+        "x": 170.63946743430108,
+        "y": 7.5,
+        "width": 205.66506715492346,
+        "height": 48,
         "tail": {
-          "fromX": 213.41584500559895,
-          "fromY": 73.5,
+          "fromX": 244.6143624856257,
+          "fromY": 55.5,
           "toX": 200,
           "toY": 165,
           "curve": "cw"
@@ -636,16 +663,16 @@
         "lines": [
           "YES!"
         ],
-        "x": 263.7358570919931,
-        "y": 73.5,
+        "x": 290.49021412068976,
+        "y": 55.5,
         "width": 44.04000000000002,
         "height": 33,
         "tail": {
-          "fromX": 295.1041970706638,
-          "fromY": 106.5,
+          "fromX": 316.69215606685725,
+          "fromY": 88.5,
           "toX": 300,
           "toY": 165,
-          "curve": "ccw"
+          "curve": "cw"
         },
         "readingOrder": 2,
         "continued": false
