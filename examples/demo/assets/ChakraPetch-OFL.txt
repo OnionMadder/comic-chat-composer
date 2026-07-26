@@ -1,0 +1,15 @@
+Chakra Petch
+============
+
+Designed by Cadson Demak. Licensed under the SIL Open Font License, Version 1.1.
+
+The demo page embeds ChakraPetch-Regular.ttf (as a data URI) to match the
+Onion Madder house style without an external request. Chakra Petch is free to
+use, embed, and redistribute under the OFL; the full license text is available
+with the font upstream:
+
+    https://fonts.google.com/specimen/Chakra+Petch
+    https://openfontlicense.org/
+
+This font is used only for the demo UI. The composer library itself
+(src/, the published package) has no font dependency.
