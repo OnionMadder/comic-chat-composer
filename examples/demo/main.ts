@@ -37,6 +37,40 @@ const PANEL_W = 400;
 const PANEL_H = 300;
 
 const $ = (id: string) => document.getElementById(id)!;
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// Manual character choices, keyed by participant. Empty means "auto-assign".
+const castOverrides = new Map<string, string>();
+
+/** Resolve each participant to a character: a manual override, else auto-cast. */
+function resolveCast(authors: readonly string[], seed: number): Map<string, string> {
+  const roster = authors.length <= EXPRESSIVE.length ? EXPRESSIVE : POOL;
+  const castOf = new Map<string, string>();
+  authors.forEach((a, i) => {
+    const override = castOverrides.get(a);
+    castOf.set(a, override && manifests[override] ? override : roster[(i + seed) % roster.length]!);
+  });
+  return castOf;
+}
+
+/** Draw a picker chip per participant so the cast can be reassigned by hand. */
+function renderCast(authors: readonly string[], castOf: Map<string, string>): void {
+  $('cast').innerHTML = authors
+    .map((a) => {
+      const current = castOf.get(a)!;
+      const options = ALL.map(
+        (id) =>
+          `<option value="${id}"${id === current ? ' selected' : ''}>${escapeHtml(manifests[id]!.name)}</option>`,
+      ).join('');
+      const manual = castOverrides.has(a) ? ' data-manual="1"' : '';
+      return (
+        `<label class="chip"${manual}><span class="who">${escapeHtml(a)}</span>` +
+        `<select data-author="${escapeHtml(a)}">${options}</select></label>`
+      );
+    })
+    .join('');
+}
 
 /** Render options are the same for on-screen panels and the downloadable strip. */
 function renderOptions(debug: boolean): RenderOptions {
@@ -69,14 +103,8 @@ function run(): void {
       return;
     }
 
-    // Give each participant a distinct character, cycling the pool by
-    // first-appearance order (seed-shifted so "Randomise" reshuffles casting).
-    // Draw only from the expressive roster while the cast fits in it, so a
-    // small chat never lands two frozen single-pose avatars; fall back to the
-    // full pool only for a cast larger than the expressive roster.
-    const roster = authors.length <= EXPRESSIVE.length ? EXPRESSIVE : POOL;
-    const castOf = new Map<string, string>();
-    authors.forEach((a, i) => castOf.set(a, roster[(i + seed) % roster.length]!));
+    const castOf = resolveCast(authors, seed);
+    renderCast(authors, castOf);
     const cast = Object.fromEntries(
       authors.map((a) => [a, { characterId: castOf.get(a)! }]),
     );
@@ -100,12 +128,11 @@ function run(): void {
       })
       .join('');
 
-    const castList = authors.map((a) => `${a}=${manifests[castOf.get(a)!]!.name}`).join(', ');
-    status.textContent =
-      `${events.length} events → ${panels.length} panels · ${castList}`;
+    status.textContent = `${events.length} events → ${panels.length} panels · ${authors.length} in the cast`;
   } catch (error) {
     currentPanels = [];
     out.innerHTML = '';
+    $('cast').innerHTML = '';
     status.textContent = `Error: ${(error as Error).message}`;
   }
 }
@@ -163,7 +190,18 @@ for (const id of ['log', 'seed', 'debug']) {
   $(id).addEventListener('input', run);
   $(id).addEventListener('change', run);
 }
+
+// Reassigning a participant's character from its picker chip.
+$('cast').addEventListener('change', (event) => {
+  const target = event.target as HTMLElement;
+  if (target instanceof HTMLSelectElement && target.dataset.author) {
+    castOverrides.set(target.dataset.author, target.value);
+    run();
+  }
+});
+
 $('reseed').addEventListener('click', () => {
+  castOverrides.clear(); // a fresh shuffle drops any manual casting
   ($('seed') as HTMLInputElement).value = String(Math.floor(Math.random() * 100000));
   run();
 });

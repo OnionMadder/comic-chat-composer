@@ -37,6 +37,37 @@ describe('parseLog', () => {
     assert.equal(msg.text, 'waves cheerfully');
   });
 
+  it('parses an expression hint', () => {
+    const msg = parseLog('alice (angry): no way').events.filter(isMessageEvent)[0]!;
+    assert.equal(msg.expressionOverride, 'angry');
+    assert.equal(msg.text, 'no way');
+  });
+
+  it('parses a gesture hint with an alias and spaces', () => {
+    const msg = parseLog('alice (point self): mine').events.filter(isMessageEvent)[0]!;
+    assert.equal(msg.gestureOverride, 'point-self');
+  });
+
+  it('parses whisper and thought kinds', () => {
+    assert.equal(parseLog('a (whisper): psst').events.filter(isMessageEvent)[0]!.kind, 'whisper');
+    assert.equal(parseLog('a (think): hmm').events.filter(isMessageEvent)[0]!.kind, 'thought');
+  });
+
+  it('combines an addressee with multiple hints', () => {
+    const msg = parseLog('alice -> bob (sad, wave): bye').events.filter(isMessageEvent).at(-1)!;
+    assert.deepEqual(msg.addressees, ['bob']);
+    assert.equal(msg.expressionOverride, 'sad');
+    assert.equal(msg.gestureOverride, 'wave');
+    assert.equal(msg.text, 'bye');
+  });
+
+  it('ignores unknown hint words', () => {
+    const msg = parseLog('alice (banana): hi').events.filter(isMessageEvent)[0]!;
+    assert.equal(msg.expressionOverride, undefined);
+    assert.equal(msg.gestureOverride, undefined);
+    assert.equal(msg.text, 'hi');
+  });
+
   it('preserves first-appearance order and skips blank lines', () => {
     const { authors } = parseLog('bob: hi\n\n\nalice: hey\nbob: again');
     assert.deepEqual(authors, ['bob', 'alice']);
