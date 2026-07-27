@@ -66,6 +66,17 @@ function isAllCaps(text: string): boolean {
   return letters.length >= 3 && text === text.toUpperCase();
 }
 
+/**
+ * True when the text reads as *shouted* — the same emphatic signals that make
+ * {@link inferPose} pick the `shouting` expression (all-caps, or three or more
+ * exclamation marks). The composer uses this to auto-select a shout balloon for
+ * a message that was clearly yelled but given no explicit balloon kind.
+ */
+export function isShoutText(text: string): boolean {
+  const trimmed = text.trim();
+  return isAllCaps(trimmed) || /!{3,}/.test(trimmed);
+}
+
 export interface InferPoseOptions {
   expressionOverride?: Expression;
   gestureOverride?: Gesture;

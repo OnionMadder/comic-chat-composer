@@ -42,6 +42,14 @@ The greedy solver is also the paper's: place character 1 (1 slot × 2 facings), 
 
 ---
 
+## §5.1 — Balloon kinds
+
+**Followed.** Speech, thought, whisper and narration are the paper's kinds; the layout treats them uniformly (a narration box carries no tail, a thought balloon's tail is a separate oval chain at render time).
+
+**Diverged — implemented `shout`.** The paper lists a shouting balloon as "yet to be implemented" in the original Comic Chat, so there is no reference behaviour to follow. Here `shout` lays out identically to `speech` and differs only in rendering (a jagged starburst outline in the reference SVG renderer). The composer also **auto-selects** it: a message with no explicit `kind` whose text reads as shouted — the same ALL-CAPS-or-`!!!` signals that make §4.1 pick the `shouting` expression (`isShoutText` in `src/pose.ts`) — becomes a shout balloon. An explicit `kind` (whisper/thought/…) always wins, and actions still narrate.
+
+---
+
 ## §5.2 — Balloon layout
 
 The most detailed algorithm in the paper, and the core of this library. `PlaceBalloons`, `MaxAllowable` and `ReduceChannel` are ported structurally, with the following notes. Both helpers are pinned against a port of the original C++ (`balloon.cpp`'s `QueryRoute`/`SetRoute`, via remsky/comic-chat-web) in [`test/balloons-crosscheck.test.ts`](../test/balloons-crosscheck.test.ts) — see the [implementation comparison](#appendix-comparison-with-other-reimplementations) below.

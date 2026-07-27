@@ -190,7 +190,7 @@
     "balloons": [
       {
         "speaker": "alice",
-        "kind": "speech",
+        "kind": "shout",
         "text": "I MISSED YOU!!!",
         "lines": [
           "I MISSED YOU!!!"
@@ -501,7 +501,7 @@
     "balloons": [
       {
         "speaker": "dan",
-        "kind": "speech",
+        "kind": "shout",
         "text": "YOU ARE ALL TERRIBLE",
         "lines": [
           "YOU ARE ALL TERRIBLE"

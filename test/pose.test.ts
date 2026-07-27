@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { inferPose } from '../src/pose.ts';
+import { inferPose, isShoutText } from '../src/pose.ts';
 
 describe('inferPose', () => {
   it('reads emoticons as expressions', () => {
@@ -53,5 +53,20 @@ describe('inferPose', () => {
   it('holds the neutral variant steady when a gesture does fire', () => {
     const pose = inferPose('Hi there', { previousNeutralVariant: 2, neutralPoseCount: 3 });
     assert.equal(pose.neutralVariant, 2);
+  });
+});
+
+describe('isShoutText', () => {
+  it('matches the same emphatic signals as the shouting expression', () => {
+    assert.equal(isShoutText('MOO'), true); // all-caps
+    assert.equal(isShoutText('get over here!!!'), true); // emphatic punctuation
+    assert.equal(isShoutText('  THEO  '), true); // trims first
+  });
+
+  it('leaves ordinary and short-caps text alone', () => {
+    assert.equal(isShoutText('hey there'), false);
+    assert.equal(isShoutText('ok!'), false); // one bang, two letters
+    assert.equal(isShoutText('OK'), false); // fewer than 3 letters
+    assert.equal(isShoutText('Stop it.'), false);
   });
 });

@@ -29,7 +29,7 @@ import {
   type CharacterManifest,
 } from './manifest.ts';
 import { placeCharacters, type Placement } from './placement.ts';
-import { inferPose, type Pose } from './pose.ts';
+import { inferPose, isShoutText, type Pose } from './pose.ts';
 import { createRandom, seededIndex, type Random } from './rng.ts';
 import { createApproximateMetrics, type FontMetrics } from './text.ts';
 import { isPresenceEvent } from './types.ts';
@@ -458,7 +458,12 @@ export function compose(input: ComposeInput): Panel[] {
     });
     neutralVariantOf.set(msg.author, pose.neutralVariant);
 
-    const kind = msg.kind ?? (msg.type === 'action' ? 'narration' : 'speech');
+    // Explicit kind wins; actions narrate; an unmarked message that reads as
+    // shouted (ALL-CAPS or `!!!`) auto-promotes to a shout balloon (§5.1);
+    // everything else is plain speech.
+    const kind: BalloonKind =
+      msg.kind ??
+      (msg.type === 'action' ? 'narration' : isShoutText(msg.text) ? 'shout' : 'speech');
     // Comic Chat displays balloon text in all caps regardless of how it was
     // typed (§5.5). Apply that here — *after* inference, which needs the
     // original casing to detect ALL-CAPS shouting — so that text splitting,

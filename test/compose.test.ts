@@ -33,6 +33,25 @@ describe('compose', () => {
     panels.forEach((p, i) => assert.equal(p.panelIndex, i, 'panel indices are sequential'));
   });
 
+  it('auto-promotes a yelled message to a shout balloon', () => {
+    const balloons = run(SAMPLE).flatMap((p) => p.balloons);
+    // "I MISSED YOU!!!" is emphatic — it should shout.
+    assert.equal(balloons.find((b) => b.text.includes('MISSED YOU'))?.kind, 'shout');
+    // A calm line stays plain speech.
+    assert.equal(balloons.find((b) => b.text.includes('SHOULD VISIT'))?.kind, 'speech');
+  });
+
+  it('lets an explicit balloon kind override auto-shout', () => {
+    const events: ChatEvent[] = [
+      { type: 'join', author: 'alice', at: 0 },
+      { type: 'message', author: 'alice', text: 'STOP RIGHT THERE', at: 1, kind: 'whisper' },
+    ];
+    const b = run(events)
+      .flatMap((p) => p.balloons)
+      .find((x) => x.text.includes('STOP'));
+    assert.equal(b?.kind, 'whisper');
+  });
+
   it('opens with an establishing shot for each join', () => {
     const panels = run(SAMPLE);
     assert.equal(panels[0]!.zoom, 'establishing');

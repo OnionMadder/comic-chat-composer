@@ -12,9 +12,11 @@ export type Facing = 'left' | 'right';
 /**
  * Balloon varieties described in §5.1.
  *
- * `shout` is described in the paper as "yet to be implemented" in the original
- * Comic Chat; it is carried through the layout here identically to `speech`,
- * and is expected to differ only at render time (jagged outline).
+ * `shout` is listed in the paper as "yet to be implemented" in the original
+ * Comic Chat. Here it lays out identically to `speech` and differs only in
+ * rendering (a jagged starburst). The composer auto-selects it for a message
+ * whose text reads as shouted (ALL-CAPS or `!!!`) when no explicit kind is
+ * given — the same emphatic signals that drive the `shouting` expression.
  */
 export type BalloonKind = 'speech' | 'thought' | 'whisper' | 'shout' | 'narration';
 
