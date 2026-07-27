@@ -127,7 +127,8 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
 
 **Done:**
 1. **Row-based builder** — character dropdown, text field, "to →" addressee, and
-   a delivery select (say / whisper / think / action). Add / remove /
+   a delivery select (say / whisper / think / shout / action; shout draws the
+   §5.1 jagged starburst balloon). Add / remove /
    drag-to-reorder. Each row shows a live emotion·gesture badge. Chat-like
    authoring: Enter starts the next line (picking the reply/alternating speaker
    and focusing it), Backspace on an empty line deletes it and jumps back.

@@ -113,17 +113,26 @@ function balloonPath(
   });
 }
 
-/** Jagged outline for shout balloons (§5.1). */
+/**
+ * Jagged "starburst" outline for shout balloons (§5.1). The valleys sit on the
+ * balloon box (scale 1) and the spikes radiate *outward* past it, so the burst
+ * reads unmistakably as a shout while never cutting into the text, which lives
+ * inside the box. Fewer, larger spikes read better than a finely serrated edge.
+ */
 function shoutPath(b: PanelBalloon): string {
   const { x, y, width: w, height: h } = b;
   const cx = x + w / 2;
   const cy = y + h / 2;
-  const spikes = Math.max(12, Math.round(w / 14));
+  const spikes = Math.min(16, Math.max(9, Math.round(w / 22)));
+  const outer = 1.18; // spike tips, beyond the box
+  const inner = 1.0; // valleys, on the box edge
   const pts: string[] = [];
   for (let i = 0; i < spikes * 2; i++) {
     const t = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
-    const scale = i % 2 === 0 ? 1 : 0.82;
-    pts.push(`${cx + Math.cos(t) * (w / 2) * scale} ${cy + Math.sin(t) * (h / 2) * scale}`);
+    const scale = i % 2 === 0 ? outer : inner;
+    pts.push(
+      `${(cx + Math.cos(t) * (w / 2) * scale).toFixed(1)} ${(cy + Math.sin(t) * (h / 2) * scale).toFixed(1)}`,
+    );
   }
   return `M ${pts.join(' L ')} Z`;
 }

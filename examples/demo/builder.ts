@@ -24,7 +24,7 @@ import type {
 } from '../../src/types.ts';
 
 /** How a line is delivered — folds the message/action split and balloon kind into one control. */
-export type LineKind = 'say' | 'whisper' | 'think' | 'action';
+export type LineKind = 'say' | 'whisper' | 'think' | 'shout' | 'action';
 
 /** One authored line. `characterId` doubles as the speaker's identity. */
 export interface BuilderRow {
@@ -96,6 +96,7 @@ const KINDS: readonly { key: LineKind; label: string }[] = [
   { key: 'say', label: 'Say' },
   { key: 'whisper', label: 'Whisper' },
   { key: 'think', label: 'Think' },
+  { key: 'shout', label: 'Shout' },
   { key: 'action', label: 'Action' },
 ];
 
@@ -587,6 +588,7 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
       if (row.gesture !== 'neutral') ev.gestureOverride = row.gesture;
       if (row.kind === 'whisper') ev.kind = 'whisper';
       else if (row.kind === 'think') ev.kind = 'thought';
+      else if (row.kind === 'shout') ev.kind = 'shout';
       if (row.addresseeId && row.addresseeId !== id) ev.addressees = [row.addresseeId];
       events.push(ev);
     }
@@ -621,6 +623,7 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
       if (row.gesture !== 'neutral') hints.push(row.gesture);
       if (row.kind === 'whisper') hints.push('whisper');
       else if (row.kind === 'think') hints.push('think');
+      else if (row.kind === 'shout') hints.push('shout');
       const to = row.addresseeId && row.addresseeId !== id ? ` -> ${row.addresseeId}` : '';
       const hint = hints.length ? ` (${hints.join(', ')})` : '';
       lines.push(`${id}${to}${hint}: ${text}`);

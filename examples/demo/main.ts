@@ -260,6 +260,7 @@ function rowsFromConversation(convo: string, seed: number): BuilderRow[] {
     if (ev.type === 'action') kind = 'action';
     else if (ev.kind === 'whisper') kind = 'whisper';
     else if (ev.kind === 'thought') kind = 'think';
+    else if (ev.kind === 'shout') kind = 'shout';
     const addr = ev.addressees?.[0];
     rows.push({
       id: 0, // reassigned by builder.load
