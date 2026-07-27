@@ -49,6 +49,26 @@ export type Gesture =
 /** Camera framing for a panel (§4.4). */
 export type Zoom = 'establishing' | 'wide' | 'medium' | 'close';
 
+/**
+ * How the scene-setting establishing shot on a participant's first appearance
+ * (§4.4) is handled. This is where composing a finished comic diverges from
+ * Comic Chat's live stream: streaming had to make a join its own dialogue-free
+ * panel (no line existed yet); a composer sees the whole log and can do better.
+ *
+ * - `fold` (default): the opening establishing shot *carries* the first line of
+ *   dialogue — a wide shot that also speaks, the way comics actually open. No
+ *   empty panels.
+ * - `per-join`: the paper-faithful behaviour — a standalone, dialogue-free
+ *   establishing panel for each join.
+ * - `off`: no join establishing shots at all; straight into the dialogue.
+ *
+ * The periodic mid-conversation establishing reminder (every
+ * {@link Rules.panelsBetweenEstablishingShots} panels) follows the same policy:
+ * it folds into the next line under `fold`, stands alone under `per-join`, and
+ * is suppressed under `off`.
+ */
+export type EstablishingShots = 'fold' | 'per-join' | 'off';
+
 /** A message spoken (or acted) by a participant. */
 export interface MessageEvent {
   type: 'message' | 'action';
@@ -132,6 +152,12 @@ export interface Rules {
   soloPanelProbability: number;
   /** Panels between periodic establishing shots. Paper: ~15. */
   panelsBetweenEstablishingShots: number;
+  /**
+   * How establishing shots are rendered when composing a comic. Defaults to
+   * `fold` (the opening shot carries the first line) rather than the paper's
+   * standalone empty panel — see {@link EstablishingShots}.
+   */
+  establishingShots: EstablishingShots;
   /** Panel dimensions in abstract layout units (treat as px). */
   panelWidth: number;
   panelHeight: number;

@@ -63,6 +63,10 @@ export const DEFAULT_RULES: Rules = {
   maxCharactersPerPanel: 5,
   soloPanelProbability: 0.15,
   panelsBetweenEstablishingShots: 15,
+  // Comic-friendly by default: the opening establishing shot carries the first
+  // line rather than standing empty (§4.4). Set 'per-join' for the paper-literal
+  // behaviour, or 'off' to skip join establishing shots entirely.
+  establishingShots: 'fold',
   panelWidth: 400,
   panelHeight: 300,
   balloonRegionFraction: 0.55,
@@ -336,9 +340,17 @@ export function compose(input: ComposeInput): Panel[] {
   };
 
   const flush = (): void => {
-    if (state.utterances.length === 0 && !state.forceEstablishing) {
-      state = emptyPanelState();
-      return;
+    if (state.utterances.length === 0) {
+      // An empty panel is only ever emitted as a standalone establishing shot,
+      // and only under the paper-faithful 'per-join' policy. Under 'fold' the
+      // establishing frame waits for a line (so it's never blank); under 'off'
+      // there are no establishing shots. In those cases, drop the empty state.
+      const emitStandaloneEstablishing =
+        state.forceEstablishing && rules.establishingShots === 'per-join';
+      if (!emitStandaloneEstablishing) {
+        state = emptyPanelState();
+        return;
+      }
     }
 
     const laid = tryLayout(state);
@@ -417,6 +429,11 @@ export function compose(input: ComposeInput): Panel[] {
   const requiresBreakBefore = (u: PendingUtterance): boolean => {
     if (state.utterances.length === 0) return false;
     if (state.solo) return true;
+
+    // A folded establishing shot carries exactly one line — its opening beat —
+    // then hands off to normal paneling. (Under 'per-join' the establishing
+    // panel is already flushed empty, so this never fires there.)
+    if (state.forceEstablishing) return true;
 
     // One balloon per character per panel.
     if (state.utterances.some((p) => p.author === u.author && p.kind !== 'narration')) {
@@ -534,21 +551,31 @@ export function compose(input: ComposeInput): Panel[] {
       }
       flush();
       knownParticipants.add(event.author);
-      state.order.push(event.author);
-      state.forceEstablishing = true;
-      flush();
+      if (rules.establishingShots !== 'off') {
+        // Open an establishing frame. Under 'per-join' it flushes now as a
+        // standalone (dialogue-free) panel; under 'fold' it stays pending so
+        // the joiner's first line composes into it (see requiresBreakBefore and
+        // the empty-panel handling in flush).
+        state.order.push(event.author);
+        state.forceEstablishing = true;
+        if (rules.establishingShots === 'per-join') flush();
+      }
       continue;
     }
 
     knownParticipants.add(event.author);
     pushUtterance(buildUtterance(event, event.text, false));
 
-    // Periodic establishing shot as a reminder of the setting (§4.4).
-    if (panelsSinceEstablishing >= rules.panelsBetweenEstablishingShots) {
+    // Periodic establishing shot as a reminder of the setting (§4.4), following
+    // the same fold/per-join/off policy as join shots.
+    if (
+      rules.establishingShots !== 'off' &&
+      panelsSinceEstablishing >= rules.panelsBetweenEstablishingShots
+    ) {
       flush();
       state.order = [...knownParticipants].slice(0, rules.maxCharactersPerPanel);
       state.forceEstablishing = true;
-      flush();
+      if (rules.establishingShots === 'per-join') flush();
     }
   }
 

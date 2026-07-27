@@ -42,6 +42,22 @@ The greedy solver is also the paper's: place character 1 (1 slot × 2 facings), 
 
 ---
 
+## §4.4 — Establishing shots
+
+**Followed.** A wide, pulled-back shot orients the reader at the start and periodically thereafter (`rules.panelsBetweenEstablishingShots`, paper default ~15). The camera math is §6.2's.
+
+**Diverged — establishing shots fold into the first line by default.** This is the clearest place the *composing* task departs from the *streaming* one. Comic Chat rendered a live stream: a `join` arrived as its own event with no text, so it could only become a standalone, dialogue-free panel. A composer sees the whole conversation at once and can open the way comics actually do — a wide shot that *also carries* the first line.
+
+So `rules.establishingShots` is a policy knob (`src/types.ts`), defaulting to `fold`:
+
+- **`fold`** (default) — the establishing frame attaches to the next line; the opening panel is a wide shot with dialogue, never blank. A folded establishing panel holds exactly that one opening line, then normal paneling resumes.
+- **`per-join`** — the paper-literal behaviour: a standalone, empty establishing panel per join (and per periodic reminder).
+- **`off`** — no establishing shots, join or periodic.
+
+The scoring, placement, balloon routing and camera framing are untouched — only the establishing *cadence* changes, which is a presentation policy, not part of the paper's algorithms.
+
+---
+
 ## §5.1 — Balloon kinds
 
 **Followed.** Speech, thought, whisper and narration are the paper's kinds; the layout treats them uniformly (a narration box carries no tail, a thought balloon's tail is a separate oval chain at render time).

@@ -34,8 +34,8 @@ npm run demo      # build the self-contained examples/demo/index.html
 - `compose.ts` — the orchestrator. Event stream → `Panel[]`. Owns gesture/
   expression inference dispatch, balloon-kind selection (incl. auto-shout for
   yelled lines), character-inclusion + panel-break rules, the solo-panel roll,
-  periodic establishing shots, one-scene-per-conversation backdrop choice, and
-  assembling each panel.
+  establishing-shot policy (`rules.establishingShots`: `fold` default / `per-join`
+  / `off`), one-scene-per-conversation backdrop choice, and assembling each panel.
 - `placement.ts` — §4.3 greedy character placement + the Facing/Neighbors
   scoring function (who stands where, facing whom).
 - `balloons.ts` — §5.2 routing-channel balloon layout (`PlaceBalloons`,

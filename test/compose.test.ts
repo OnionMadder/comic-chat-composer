@@ -52,10 +52,33 @@ describe('compose', () => {
     assert.equal(b?.kind, 'whisper');
   });
 
-  it('opens with an establishing shot for each join', () => {
+  it('folds the opening establishing shot into the first line (default)', () => {
     const panels = run(SAMPLE);
+    // The comic still opens on an establishing shot, but it carries dialogue —
+    // no blank scene-setting panels.
     assert.equal(panels[0]!.zoom, 'establishing');
+    const establishing = panels.filter((p) => p.zoom === 'establishing');
+    assert.ok(establishing.length > 0);
+    assert.ok(
+      establishing.every((p) => p.balloons.length > 0),
+      'a folded establishing panel is never blank',
+    );
+  });
+
+  it('emits standalone empty establishing panels under per-join', () => {
+    const panels = run(SAMPLE, { rules: { establishingShots: 'per-join' } });
+    assert.equal(panels[0]!.zoom, 'establishing');
+    assert.equal(panels[0]!.balloons.length, 0, 'per-join establishing is dialogue-free');
     assert.equal(panels[1]!.zoom, 'establishing');
+  });
+
+  it('skips establishing shots entirely under off', () => {
+    const panels = run(SAMPLE, { rules: { establishingShots: 'off' } });
+    assert.ok(
+      panels.every((p) => p.zoom !== 'establishing'),
+      'no establishing panels when off',
+    );
+    assert.ok(panels[0]!.balloons.length > 0, 'opens straight into dialogue');
   });
 
   it('gives every panel a valid camera', () => {
@@ -267,8 +290,10 @@ describe('compose', () => {
   it('ignores leave events without emitting a panel', () => {
     const panels = run([
       { type: 'join', author: 'alice', at: 0 },
-      { type: 'leave', author: 'alice', at: 1 },
+      { type: 'message', author: 'alice', text: 'hello', at: 1 },
+      { type: 'leave', author: 'alice', at: 2 },
     ]);
-    assert.equal(panels.length, 1, 'only the join produces a panel');
+    // The line composes one (establishing, folded) panel; the leave adds nothing.
+    assert.equal(panels.length, 1, 'only the message produces a panel');
   });
 });
