@@ -44,7 +44,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "example": "node --experimental-strip-types examples/basic-chat.ts",
-    "demo": "node --experimental-strip-types examples/demo/build.ts"
+    "demo": "node --experimental-strip-types examples/demo/build.ts",
+    "deploy:stage": "npm run demo && node --experimental-strip-types examples/demo/stage.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

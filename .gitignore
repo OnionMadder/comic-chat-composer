@@ -7,3 +7,6 @@ npm-debug.log*
 .env
 .env.*
 coverage/
+
+# Local, machine-specific staging target for `npm run deploy:stage`
+examples/demo/.stage-dir
