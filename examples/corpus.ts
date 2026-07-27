@@ -241,4 +241,119 @@ indie (point-self): I have grown as a chef
 opal -> indie: the smoke alarm is going off
 indie: that's the seasoning
 opal (laugh): the seasoning is FIRE, indie`,
+
+  // Group chats (3–4 people) — the classic multi-person IRC/groupchat energy:
+  // one chaotic person, one done-with-it person, and cross-talk.
+
+  `kip: so who actually did the slides
+dara: I thought OVI did the slides
+ovi -> kip: you literally said you had it
+pip: I un-muted this chat for exactly this
+kip (coy): I have the vision handled
+dara (shout): IT'S DUE IN AN HOUR
+pip (think): can you un-join a family
+ovi (happy): we're presenting the vision`,
+
+  `sana: prod is down
+reef (bored): did you try turning it off and on
+sana -> reef: reef, it's a datacenter
+nyx: who deployed on a friday
+reef (coy): define "deployed"
+sana (shout): REEF
+nyx (shrug): I'm updating my resume`,
+
+  `obi: you enter the tavern, the barkeep eyes you
+vale (happy): I seduce the barkeep
+pia: we JUST walked in
+obi -> vale: roll for charisma
+vale: natural one
+pia (laugh): the barkeep is deeply unimpressed
+obi (bored): also, the barkeep was a coat rack`,
+
+  `wynn: dinner is at six, nobody be late
+rho: can't, I have plans
+lex -> rho: what plans
+rho (coy): plans
+wynn (angry): RHO
+lex: I too would love to hear these plans
+rho (think): is "a nap" a plan`,
+
+  `sib: okay, who ate my clearly labeled leftovers
+taj (whisper): not it
+uma (whisper): not it
+* taj slowly hides a fork
+sib -> taj: your fork is IN the container
+uma (laugh): planted, taj? really?
+taj (shrug): the leftovers ghost strikes again`,
+
+  `quill: everyone remember the plan
+fenn: which one, there were four
+quill (point-self): MY plan, the elegant one
+gale -> quill: the one with the ferrets
+quill (coy): the ferrets are load-bearing
+fenn (think): why are there always ferrets
+gale (laugh): there are always ferrets`,
+
+  `ziggy: practice moved to my garage
+cass: your garage smells like old decisions
+dex -> ziggy: is the drummer actually coming
+ziggy (bored): the drummer is always "coming"
+cass (laugh): the drummer is folklore
+dex (shout): I AM RIGHT HERE
+ziggy (coy): prove it, count us in`,
+
+  `orla: telemetry is nominal
+teo: define nominal
+orla -> teo: everything's fine, teo
+hugo (scared): then why is the fine light blinking
+orla: that's the snack machine
+teo (laugh): copy, snack anomaly
+hugo (happy): I will investigate personally`,
+
+  `dot: HAPPY BIRTHDAY!!! see everyone at seven
+sy: ...who is this
+dot (scared): wait, is this not the surprise chat
+ines -> dot: I'm the surprise. hi.
+sy (laugh): incredible work, dot
+dot: everyone act natural
+ines (coy): a bit late for that`,
+
+  `rook: everyone stack on me
+jinx: you are standing in the fire
+rook (bored): it's a cozy fire
+vee -> rook: you are the TANK, rook
+rook: I am a vibes tank
+jinx (shout): HEAL THE VIBES TANK
+vee (laugh): healing is on cooldown, godspeed`,
+
+  `gil: someone's cans were at the curb a day early
+bev (bored): call the president, gil
+gil (angry): I AM the president
+hank -> gil: then police your own cans
+gil (coy): my cans are merely aspirational
+bev (laugh): motion to impeach the cans`,
+
+  `edd: okay, let's review chapter one
+nol: edd, there are twelve chapters
+edd (scared): there are twelve chapters
+suri -> edd: it is currently midnight
+edd (think): if we never sleep, the exam can't arrive
+nol (laugh): that is not how time works
+suri: it's a little how finals work`,
+
+  `bree: the clue just says "look up"
+cort: I am looking up, it's a ceiling
+del -> bree: read it one more time
+bree (coy): "look up"... like, online?
+cort (shout): IT'S TAPED TO THE FAN
+del (laugh): who hides a key on a FAN
+bree (happy): a genius, a monster`,
+
+  `nan: I'll bring the main dish
+ozzy: I've got the drinks
+pru -> nan: what IS the main dish, though
+nan (coy): a surprise
+ozzy (scared): the last surprise had raisins
+pru (angry): NAN
+nan (laugh): they were chocolate chips, probably`,
 ];

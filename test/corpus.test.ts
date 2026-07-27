@@ -32,6 +32,11 @@ describe('demo corpus', () => {
     }
   });
 
+  it('includes plenty of multi-participant conversations (3+ speakers)', () => {
+    const multi = CONVERSATIONS.filter((t) => parseLog(t).authors.length >= 3);
+    assert.ok(multi.length >= 10, `only ${multi.length} conversations with 3+ speakers`);
+  });
+
   it('exercises the hint syntax somewhere (whisper/thought + overrides)', () => {
     const kinds = new Set<string>();
     for (const text of CONVERSATIONS) {

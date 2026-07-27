@@ -121,7 +121,8 @@ demo → the Onion neon "onionized" house style → a conversation corpus the se
 selects from → a low-vision readability pass → the **form-based conversation
 builder** (row editor + the tactile emotion wheel + live character preview +
 gesture buttons, Builder/Script tabs) → color-coded cast with a Comic-Chat
-"in scene" member list → the corpus roughly doubled (33 conversations).
+"in scene" member list → the corpus grew to 47 conversations (incl. a batch of
+3–4-person group chats).
 
 ## The conversation builder — built, and what's left
 
@@ -169,4 +170,4 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   from `expressionOverride` into inference/rendering. This is the one item that
   needs `src/` changes (`pose.ts`/inference + the manifest), and has little
   visible payoff until the asset set has per-intensity sprites — deferred.
-- Some seeds still repeat (33 conversations, finite list); add more to taste.
+- Some seeds still repeat (47 conversations, finite list); add more to taste.
