@@ -109,7 +109,7 @@ npm install
 npm run demo
 ```
 
-That writes `examples/demo/index.html` — a **single self-contained file** with the composer, renderer and all sprites inlined. No build step, no server, no external requests. Open it from disk, or drop it on any static host and it just works. Edit the chat log in the page and panels recompose live, and **Download PNG / SVG** saves the whole strip as one image (pick the number of columns first).
+That writes a small set of co-located files to `examples/demo/`: `index.html`, `app.js` (the composer, renderer and every sprite bundled as one ES module), and the hand-edited `style.css`. It makes **no third-party or network requests** — it loads only its own files — but because `app.js` is an ES module it must be **served over http(s)** (any static host works; it won't run from `file://`). Drop it on any static host and it just works. Edit the chat log in the page and panels recompose live, and **Download PNG / SVG** saves the whole strip as one image (pick the number of columns first).
 
 There's also a terminal walkthrough of the layout tree:
 

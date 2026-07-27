@@ -19,7 +19,8 @@ npm test          # node --test over test/*.test.ts (strip-types; no build step)
 npm run typecheck # tsc --noEmit
 npm run build     # tsc -> dist/ (the publishable library; ESM, zero runtime deps)
 npm run example   # examples/basic-chat.ts — prints a composed layout tree
-npm run demo      # build the self-contained examples/demo/index.html
+npm run demo      # build the demo set: examples/demo/{index.html,app.js} (+ style.css)
+npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
 ```
 
 - **Node 22+, ESM, TypeScript strict.** Tests run directly off `.ts` via
@@ -63,8 +64,10 @@ npm run demo      # build the self-contained examples/demo/index.html
 - `corpus.ts` — 16 canned conversations the demo's seed selects from.
 - `strip.ts` — tiles panels into one downloadable strip SVG.
 - `load-assets.ts` — loads manifests + inlines sprite/backdrop markup.
-- `demo/` — the self-contained web demo (`build.ts` inlines everything into one
-  `index.html`; `main.ts` is the browser entry).
+- `demo/` — the web demo. `build.ts` bundles `main.ts` → `app.js` (ESM, sprites
+  inlined via esbuild `define`) and generates `index.html`; `style.css` is a
+  hand-edited source file; `stage.ts` copies the set to the staging dir. Loads
+  only its own files but needs http(s) (ESM). `main.ts` is the browser entry.
 
 **Assets — `assets/comic-chat/`**: all **22** real Comic Chat v1.0 characters
 and **9** v2.5 backdrops (`NOTICE.md` has attribution — MS art is MIT).
@@ -85,22 +88,26 @@ and **9** v2.5 backdrops (`NOTICE.md` has attribution — MS art is MIT).
   test`.
 - **The composer never touches pixels.** Anchors/geometry only; renderers own
   drawing. Keep it that way.
-- **Demo is one self-contained file.** No external *asset requests* — fonts,
-  sprites, and backdrops are all inlined, so it works from `file://` and needs
-  no network. Verify after building that there are no external `src`/`href`
-  refs to scripts, stylesheets, images, or fonts. Intentional outbound *links*
-  and meta (the footer's GitHub/paper links, `canonical`, Open Graph) are fine —
-  they load nothing. The page is ~2.2 MB. The public-site URLs (`SITE_URL`,
-  `REPO_URL` in `demo/build.ts`) are placeholders until the site/repo exist.
+- **Demo is a self-contained *set* of co-located files** — `index.html`
+  (generated shell), `app.js` (ESM bundle with all sprites/backdrops inlined via
+  esbuild `define`), `style.css` (hand-edited source), and the font under
+  `assets/`. **No third-party or network requests** — it loads only its own
+  files. Because `app.js` is an ES module, the page must be **served over
+  http(s)** (Neocities, onionmadder, the dev server) — it will not run from
+  `file://`. `style.css` is the source of truth for styling — edit it directly,
+  not `build.ts`. The public-site URLs live in `SITE_URL`/`REPO_URL` in
+  `demo/build.ts`.
 
 ## Deploying the demo (NearlyFreeSpeech.NET via WinSCP)
 
-The site lives at <https://onionmadder.com/comic-chat-composer/>. `npm run demo`,
-then drag `examples/demo/index.html` into WinSCP over the copy in
-`/home/public/comic-chat-composer/`, **confirm the overwrite**, and hard-refresh
-(Ctrl+Shift+R). Files need 644 / dirs 755 if a 403 appears. The public URL is
-baked into the page's `canonical`/Open Graph meta via `SITE_URL` in
-`demo/build.ts` — keep the two in sync if the path ever moves.
+The site lives at <https://onionmadder.com/comic-chat-composer/>. `npm run
+deploy:stage` builds and copies the whole set (`index.html`, `app.js`,
+`style.css`, `assets/ChakraPetch-Regular.ttf`) into the local staging folder
+(`.stage-dir`, gitignored). Then upload that set via WinSCP to
+`/home/public/comic-chat-composer/` — **all four files**, preserving the
+`assets/` subfolder — **confirm overwrites**, and hard-refresh (Ctrl+Shift+R).
+Files need 644 / dirs 755 if a 403 appears. The public URL is baked into
+`canonical`/Open Graph meta via `SITE_URL` in `demo/build.ts`.
 
 ## What's built (the arc so far)
 

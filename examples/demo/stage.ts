@@ -18,7 +18,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = join(here, 'index.html');
+
+// The deployable set: the generated page + app bundle, the stylesheet, and the
+// brand font it references. Relative paths are preserved under the target.
+const FILES = ['index.html', 'app.js', 'style.css', 'assets/ChakraPetch-Regular.ttf'];
 
 /** Resolve the staging directory from the env var, else the gitignored `.stage-dir`. */
 function resolveTarget(): string | null {
@@ -47,13 +50,15 @@ if (!target) {
   process.exit(1);
 }
 
-if (!existsSync(source)) {
-  console.error(`Build output missing at ${source}. Run \`npm run demo\` first.`);
-  process.exit(1);
+for (const rel of FILES) {
+  const src = join(here, rel);
+  if (!existsSync(src)) {
+    console.error(`Build output missing at ${src}. Run \`npm run demo\` first.`);
+    process.exit(1);
+  }
+  const dest = join(target, rel);
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFileSync(src, dest);
 }
-
-mkdirSync(target, { recursive: true });
-const dest = join(target, 'index.html');
-copyFileSync(source, dest);
-console.log(`staged demo → ${dest}`);
+console.log(`staged ${FILES.length} files → ${target}`);
 console.log('Local staging only — upload to the live host separately (WinSCP).');
