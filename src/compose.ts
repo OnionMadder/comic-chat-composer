@@ -573,9 +573,18 @@ export function compose(input: ComposeInput): Panel[] {
       panelsSinceEstablishing >= rules.panelsBetweenEstablishingShots
     ) {
       flush();
-      state.order = [...knownParticipants].slice(0, rules.maxCharactersPerPanel);
       state.forceEstablishing = true;
-      if (rules.establishingShots === 'per-join') flush();
+      // Count from when the shot is *armed*, not from when it finally emits —
+      // otherwise a folded periodic shot (which emits a panel or two later)
+      // leaves the counter over threshold and re-arms a second one immediately.
+      panelsSinceEstablishing = 0;
+      if (rules.establishingShots === 'per-join') {
+        // A standalone shot re-shows the whole cast. Under 'fold' the next line
+        // populates the order instead, so we don't pre-fill to the cap — doing
+        // so and then folding a line in would overflow maxCharactersPerPanel.
+        state.order = [...knownParticipants].slice(0, rules.maxCharactersPerPanel);
+        flush();
+      }
     }
   }
 

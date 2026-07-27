@@ -72,6 +72,44 @@ describe('compose', () => {
     assert.equal(panels[1]!.zoom, 'establishing');
   });
 
+  it('does not double up establishing shots at periodic boundaries (fold)', () => {
+    // A single-speaker monologue: the only opener is one establishing shot, so
+    // any *adjacent* establishing panels would be the periodic-fold double-fire.
+    const events: ChatEvent[] = [{ type: 'join', author: 'alice', at: 0 }];
+    for (let k = 0; k < 20; k++) {
+      events.push({ type: 'message', author: 'alice', text: `line number ${k}`, at: 1 + k });
+    }
+    const zooms = run(events, { rules: { panelsBetweenEstablishingShots: 4 } }).map((p) => p.zoom);
+    for (let i = 1; i < zooms.length; i++) {
+      assert.ok(
+        !(zooms[i] === 'establishing' && zooms[i - 1] === 'establishing'),
+        `consecutive establishing panels at ${i - 1}-${i}`,
+      );
+    }
+    // Sanity: at least one periodic shot actually fired beyond the opener.
+    assert.ok(zooms.filter((z) => z === 'establishing').length >= 2);
+  });
+
+  it('never exceeds the character cap, even when folding a periodic establishing shot', () => {
+    const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const events: ChatEvent[] = names.map((n, i) => ({ type: 'join' as const, author: n, at: i }));
+    for (let k = 0; k < 40; k++) {
+      const author = names[k % names.length]!;
+      events.push({ type: 'message', author, text: `line ${k}`, at: 100 + k });
+    }
+    const bigCast = Object.fromEntries(names.map((n) => [n, { characterId: 'nib' }]));
+    const panels = compose({
+      events,
+      cast: bigCast,
+      backdrops,
+      seed: 7,
+      rules: { panelsBetweenEstablishingShots: 3, maxCharactersPerPanel: 5 },
+    });
+    for (const p of panels) {
+      assert.ok(p.characters.length <= 5, `panel ${p.panelIndex} has ${p.characters.length} characters`);
+    }
+  });
+
   it('skips establishing shots entirely under off', () => {
     const panels = run(SAMPLE, { rules: { establishingShots: 'off' } });
     assert.ok(
