@@ -62,6 +62,21 @@ const POOLS: Record<string, readonly string[]> = {
   ingredient: ['raisins', 'mystery meat', 'too much cilantro', 'glitter', 'a whole bay leaf'],
   venue: ['garage', 'basement', 'dorm', 'shed', 'attic'],
   smell: ['old decisions', 'damp regret', 'expired hope', 'gym socks', 'burnt toast'],
+  alien: ['the Zorblaxians', 'a very polite armada', 'space customs', 'the void council', 'an angry moon'],
+  shipPart: ['hull', 'warp core', 'life support', 'coffee replicator', 'shield array'],
+  weapon: ['plasma cannons', 'a tractor beam', 'really strong words', 'a bigger ship', 'the good torpedoes'],
+  starport: ['the nebula', 'drydock', 'the summit', 'Mars orbit', 'the space wedding'],
+  task: ['the Q3 deck', 'the migration', 'the rebrand', 'the roadmap', 'the synergy audit'],
+  buzzword: ['circle back', 'leverage synergies', 'move the needle', 'touch base', 'align on optics'],
+  dateThing: ['his mom', 'a printed spreadsheet', 'his pet lizard', 'three phones', 'a slideshow', 'coupons'],
+  call: ['a foul', 'offside', 'a strike', 'traveling', 'a clean hit'],
+  sport: ['hockey', 'soccer', 'basketball', 'cricket', 'curling'],
+  tripThing: ['a beach', 'wifi', 'no relatives', 'free breakfast', 'a hot tub'],
+  budget: ['forty dollars', 'one (1) coupon', 'tree fiddy', 'my remaining hope', 'exposure'],
+  vacaSpot: ['Vegas', 'a haunted B&B', "your cousin's couch", 'a corn maze', 'Mars'],
+  device: ['monitor', 'laptop', 'mouse', 'whole computer', 'stapler'],
+  plusOne: ['your ex', 'the whole office', 'a clown', 'my fantasy team', 'those raccoons'],
+  oddDetail: ['missing garden gnome', 'extra spoon', 'second Tuesday', 'unmarked van', 'dog that knew'],
 };
 
 interface Template {
@@ -217,10 +232,142 @@ const TEMPLATES: readonly Template[] = [
       '{A} (coy): prove it, count us in',
     ],
   },
+  {
+    cast: 3,
+    lines: [
+      "{A}: captain, we're being hailed by {alien}",
+      "{B} (bored): ignore it, we're late for {starport}",
+      '{C} (scared): the {shipPart} is at forty percent',
+      '{A} -> {B}: {B}, they have {weapon}',
+      '{B}: everyone has {weapon}',
+      '{C} (shout): THEY ARE CHARGING {weapon}',
+      '{B} (shrug): reverse the polarity or something',
+    ],
+  },
+  {
+    cast: 4,
+    lines: [
+      '{A}: quick sync on {task}?',
+      "{B}: it's 4:55 on a friday, {A}",
+      "{A} (happy): love that energy, let's {buzzword}",
+      '{C} -> {A}: what does {buzzword} even mean',
+      "{D}: I've been on mute this whole time",
+      "{A} (coy): let's take that offline",
+      '{B} (bored): there is no offline, {A}',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: so the date is going... interestingly',
+      '{B}: define interestingly',
+      '{A} (scared): he brought {dateThing}',
+      '{C} -> {A}: leave. right now.',
+      "{A} (coy): but he's kind of funny",
+      '{B} (shout): HE BROUGHT {dateThing}',
+      '{C} (laugh): text us a code word, {A}',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: that ref is BLIND',
+      '{B}: it was clearly {call}, {A}',
+      '{A} (angry): it was NOT {call}',
+      "{C}: I'm just here for the snacks",
+      "{B} -> {A}: you don't even watch {sport}",
+      '{A} (coy): I watch the vibes of {sport}',
+      '{C} (laugh): the vibes are losing by twenty',
+    ],
+  },
+  {
+    cast: 4,
+    lines: [
+      '{A}: okay, where are we going for the trip',
+      '{B}: somewhere with {tripThing}',
+      '{C} -> {A}: I can only do a budget of {budget}',
+      '{D}: I am just happy to be included',
+      '{A} (coy): what if we went to {vacaSpot}',
+      '{B} (scared): that is WAY over {budget}',
+      '{D} (happy): I will bring snacks either way',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A} (whisper): did you hear that',
+      "{B} (whisper): it's an old house, {A}",
+      '{C}: the thermometer just dropped ten degrees',
+      '{A} -> {C}: is that bad',
+      '{C} (scared): that is historically bad',
+      '{B}: it is probably just {harmless}',
+      "{A} (shout): {harmless} DOESN'T WHISPER MY NAME",
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      "{A}: IT, my {device} won't turn on",
+      '{B}: is it plugged in',
+      '{A} (coy): define plugged in',
+      '{C} -> {A}: {A}, is the cord in the wall',
+      '{A}: ...which wall',
+      '{B} (bored): any wall, {A}',
+      "{C} (laugh): we'll send someone, don't touch anything",
+    ],
+  },
+  {
+    cast: 4,
+    lines: [
+      '{A}: final headcount is due today',
+      '{B}: can we invite {plusOne}',
+      '{A} (angry): {plusOne} is not invited',
+      '{C} -> {A}: what about the seating chart',
+      '{A} (scared): do NOT mention the seating chart',
+      '{D}: I just work here',
+      '{B} (coy): so is that a yes on {plusOne}',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      "{A}: and that's when it gets really strange",
+      '{B}: the strange part was the {oddDetail}?',
+      '{A} (coy): no, the strange part is coming',
+      "{C} -> {A}: it's been three hours, {A}",
+      "{A} (happy): and we're just getting started",
+      '{B} (bored): please get to the point',
+      '{C} (laugh): the point left an hour ago',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: our kids are DESTROYING out there',
+      '{B}: they are losing six to nothing, {A}',
+      '{A} (coy): morally, we are winning',
+      "{C} -> {A}: that's your kid eating grass",
+      '{A} (happy): he is a free spirit',
+      '{B} (laugh): he is eating the grass',
+      "{C}: at least someone's having fun",
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: okay everyone grab a box',
+      '{B}: this one is labeled "misc" and weighs a ton',
+      "{C} -> {A}: what's even IN the misc box",
+      '{A} (coy): misc',
+      "{B} (shout): IT'S ALL BOWLING BALLS",
+      '{C} (laugh): why do you own {bignum} bowling balls',
+      '{A} (shrug): for emergencies',
+    ],
+  },
 ];
 
 /** How often the roll returns a hand-written corpus conversation instead of a generated one. */
-const CURATED_ODDS = 4; // 1 in 4
+const CURATED_ODDS = 7; // ~1 in 7 — enough to surface curated gems without repeating them often
 
 function pick<T>(rng: Random, arr: readonly T[]): T {
   return arr[Math.floor(rng() * arr.length)]!;

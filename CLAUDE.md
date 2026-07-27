@@ -174,5 +174,5 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   from `expressionOverride` into inference/rendering. This is the one item that
   needs `src/` changes (`pose.ts`/inference + the manifest), and has little
   visible payoff until the asset set has per-intensity sprites — deferred.
-- Seeds now procedurally generate (`generate.ts`) — ~792 distinct comics per
-  1000 seeds — so repeats are rare. Add templates/pools to widen further.
+- Seeds now procedurally generate (`generate.ts`, 23 templates) — ~903 distinct
+  comics per 1000 seeds — so repeats are rare. Add templates/pools to widen more.
