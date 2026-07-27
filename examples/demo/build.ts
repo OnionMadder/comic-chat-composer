@@ -177,6 +177,7 @@ const html = `<!doctype html>
   .divider{height:1px;background:var(--border-soft);margin:18px 0}
   .exports{display:flex;gap:8px}
   .exports .btn{flex:1}
+  .share-btn{width:100%;margin-top:8px;justify-content:center}
   .section-label{font-family:var(--display);font-size:14px;text-transform:uppercase;letter-spacing:1.5px;color:var(--pink);margin:30px 0 13px;display:flex;align-items:center;gap:11px}
   .section-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border-sharp),transparent)}
   #status{font-family:var(--sans);color:var(--dim);font-size:14px;letter-spacing:0;text-transform:none}
@@ -336,6 +337,7 @@ const html = `<!doctype html>
       <div class="divider"></div>
       <div class="setting"><label>Save strip &mdash; columns</label><input id="cols" type="number" min="1" max="8" value="3"></div>
       <div class="exports"><button id="dl-png" class="btn primary">Download PNG</button><button id="dl-svg" class="btn">SVG</button></div>
+      <button id="share" class="btn share-btn">&#128279; Copy share link</button>
     </div></div>
   </div>
 

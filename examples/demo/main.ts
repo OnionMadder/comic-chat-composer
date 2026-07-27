@@ -62,13 +62,24 @@ const escapeHtml = (s: string): string =>
 // Only used by the Script tab; the Builder tab casts per row directly.
 const castOverrides = new Map<string, string>();
 
-/** Resolve each participant to a character: a manual override, else auto-cast. */
+/**
+ * Resolve each participant to a character. Precedence: a manual override, then a
+ * participant whose name *is* a character id (so `tux: hi` casts Tux — this is
+ * what lets a Builder-authored script round-trip its exact cast through a share
+ * link), then a seed-based auto-assignment.
+ */
 function resolveCast(authors: readonly string[], seed: number): Map<string, string> {
   const roster = authors.length <= EXPRESSIVE.length ? EXPRESSIVE : POOL;
   const castOf = new Map<string, string>();
   authors.forEach((a, i) => {
     const override = castOverrides.get(a);
-    castOf.set(a, override && manifests[override] ? override : roster[(i + seed) % roster.length]!);
+    const namedCharacter = manifests[a] ? a : undefined;
+    castOf.set(
+      a,
+      (override && manifests[override] ? override : undefined) ??
+        namedCharacter ??
+        roster[(i + seed) % roster.length]!,
+    );
   });
   return castOf;
 }
@@ -372,6 +383,88 @@ function surprise(): void {
   run();
 }
 
+// ---- Shareable permalinks -------------------------------------------------
+
+// The whole comic — its script, seed, and scene — packs into the URL hash, so a
+// composed strip can be bookmarked or shared and reopens exactly. The script is
+// the canonical form (both tabs produce it); casting a participant named after a
+// character (see resolveCast) is what makes it fully self-describing.
+
+interface ShareState {
+  s: string; // the script, in `name (hint): text` form
+  seed: number;
+  scene: string; // backdrop id, or '' for auto
+}
+
+/** UTF-8-safe base64url, so scripts with punctuation/emoji survive the round-trip. */
+function encodeState(state: ShareState): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(state));
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeState(token: string): ShareState | null {
+  try {
+    const bin = atob(token.replace(/-/g, '+').replace(/_/g, '/'));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as Partial<ShareState>;
+    if (typeof parsed.s !== 'string') return null;
+    return {
+      s: parsed.s,
+      seed: Number(parsed.seed) || 0,
+      scene: typeof parsed.scene === 'string' ? parsed.scene : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The current comic as shareable state — script from the active tab, plus seed & scene. */
+function currentShareState(): ShareState {
+  const script =
+    activeTab === 'builder' ? builder.toScript() : ($('log') as HTMLTextAreaElement).value;
+  return { s: script, seed: seedValue(), scene: ($('scene') as HTMLSelectElement).value };
+}
+
+/** Write the current comic into the URL hash and copy the link to the clipboard. */
+async function copyShareLink(): Promise<void> {
+  const btn = $('share') as HTMLButtonElement;
+  if (!btn.dataset.label) btn.dataset.label = btn.textContent ?? 'Copy link';
+  const flash = (msg: string): void => {
+    btn.textContent = msg;
+    setTimeout(() => (btn.textContent = btn.dataset.label!), 1600);
+  };
+  const state = currentShareState();
+  if (!state.s.trim()) {
+    flash('Nothing to share');
+    return;
+  }
+  history.replaceState(null, '', '#c=' + encodeState(state));
+  try {
+    await navigator.clipboard.writeText(location.href);
+    flash('Link copied ✓');
+  } catch {
+    flash('Link in address bar');
+  }
+}
+
+/** If the URL carries a shared comic, load it into both surfaces. Returns true when it did. */
+function loadFromHash(): boolean {
+  const match = /[#&]c=([^&]+)/.exec(location.hash);
+  if (!match) return false;
+  const state = decodeState(match[1]!);
+  if (!state || !state.s.trim()) return false;
+
+  authored = true; // a shared comic is authored — the seed won't overwrite it
+  castOverrides.clear();
+  ($('seed') as HTMLInputElement).value = String(state.seed);
+  ($('scene') as HTMLSelectElement).value = backdrops[state.scene] ? state.scene : '';
+  ($('log') as HTMLTextAreaElement).value = state.s;
+  builder.load(rowsFromConversation(state.s, state.seed));
+  return true;
+}
+
 // ---- Listeners ------------------------------------------------------------
 
 // Editing the script (power-user tab) makes it the user's own.
@@ -405,8 +498,15 @@ $('reseed').addEventListener('click', surprise);
 $('example').addEventListener('click', surprise);
 $('dl-svg').addEventListener('click', downloadSvg);
 $('dl-png').addEventListener('click', downloadPng);
+$('share').addEventListener('click', () => void copyShareLink());
 
-// First paint: seed the builder from the default conversation and compose.
+// Pasting a share link into the address bar (a real hash change, not our own
+// replaceState) opens that comic.
+window.addEventListener('hashchange', () => {
+  if (loadFromHash()) run();
+});
+
+// First paint: a shared comic from the URL if present, else the default corpus pick.
 showCast(false);
-loadConversation(seedValue());
+if (!loadFromHash()) loadConversation(seedValue());
 run();

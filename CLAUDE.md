@@ -145,6 +145,13 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
    blue, from `colorOf` in `main.ts`); the same color tints the row accents, the
    preview border, and the Script-tab cast chips. Clicking a member selects
    their first line.
+6. **Shareable permalinks** — the "Copy share link" button packs the script,
+   seed, and scene into the URL hash (`#c=<base64url JSON>`); opening the link
+   (fresh load or a pasted hash) reproduces the comic exactly. Fidelity relies
+   on `resolveCast` treating a participant whose name *is* a character id as
+   that character — so a Builder-authored comic (author = characterId) keeps its
+   exact cast through `toScript()` → link → `parseLog`. Marks the comic
+   `authored`, so the seed won't overwrite a shared script.
 
 **Still open:**
 - **Deeper Comic-Chat window chrome** — the member list is the big piece; the
