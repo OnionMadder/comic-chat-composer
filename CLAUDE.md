@@ -102,16 +102,26 @@ and **9** v2.5 backdrops (`NOTICE.md` has attribution — MS art is MIT).
   not `build.ts`. The public-site URLs live in `SITE_URL`/`REPO_URL` in
   `demo/build.ts`.
 
-## Deploying the demo (NearlyFreeSpeech.NET via WinSCP)
+## Deploying the demo (two mirrors)
 
-The site lives at <https://onionmadder.com/comic-chat-composer/>. `npm run
-deploy:stage` builds and copies the whole set (`index.html`, `app.js`,
-`style.css`, `assets/ChakraPetch-Regular.ttf`) into the local staging folder
-(`.stage-dir`, gitignored). Then upload that set via WinSCP to
-`/home/public/comic-chat-composer/` — **all four files**, preserving the
-`assets/` subfolder — **confirm overwrites**, and hard-refresh (Ctrl+Shift+R).
-Files need 644 / dirs 755 if a 403 appears. The public URL is baked into
-`canonical`/Open Graph meta via `SITE_URL` in `demo/build.ts`.
+The composer is served from two mirrors: **onionmadder.com** (primary, on
+NearlyFreeSpeech) at <https://onionmadder.com/comic-chat-composer/>, and
+**onionmadder.xyz** (Neocities mirror) at
+<https://onionmadder.xyz/comic-chat-composer/>. The same file set serves both —
+`canonical`/Open Graph point at the primary (.com), which is correct for a
+mirror, so no per-host build is needed. (`SITE_URL` in `demo/build.ts` sets that
+primary URL.)
+
+`npm run deploy:stage` builds and copies the whole set (`index.html`, `app.js`,
+`style.css`, `assets/ChakraPetch-Regular.ttf`) into **every** local staging
+folder listed in `.stage-dir` (gitignored, one folder per line). Then publish
+each — **all four files, preserving `assets/`**, confirming overwrites, then
+hard-refresh (Ctrl+Shift+R):
+
+- **.com** — WinSCP to `/home/public/comic-chat-composer/`. Files need 644 /
+  dirs 755 if a 403 appears.
+- **.xyz** — the Neocities uploader or CLI. Neocities is HTTPS with ES-module
+  support, so the split set runs there unchanged.
 
 ## What's built (the arc so far)
 
