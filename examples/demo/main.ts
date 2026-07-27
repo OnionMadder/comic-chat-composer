@@ -58,6 +58,27 @@ const $ = (id: string) => document.getElementById(id)!;
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// Shown as a small credit under a titled strip export (never on an untitled one).
+const EXPORT_CREDIT = 'onionmadder.com/comic-chat-composer';
+const titleValue = (): string => ($('title') as HTMLInputElement).value.trim();
+const subtitleValue = (): string => ($('subtitle') as HTMLInputElement).value.trim();
+
+/** Echo the title/subtitle above the on-screen comic, so it's visible before export. */
+function renderComicTitle(): void {
+  const t = titleValue();
+  const s = subtitleValue();
+  const el = $('comic-title') as HTMLElement;
+  if (!t && !s) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML =
+    (t ? `<div class="ct-title">${escapeHtml(t)}</div>` : '') +
+    (s ? `<div class="ct-sub">${escapeHtml(s)}</div>` : '');
+}
+
 // Manual character choices, keyed by participant. Empty means "auto-assign".
 // Only used by the Script tab; the Builder tab casts per row directly.
 const castOverrides = new Map<string, string>();
@@ -298,8 +319,11 @@ function setTab(tab: Tab): void {
     if (script) ($('log') as HTMLTextAreaElement).value = script;
   }
   activeTab = tab;
-  $('tab-builder').classList.toggle('is-active', tab === 'builder');
-  $('tab-script').classList.toggle('is-active', tab === 'script');
+  for (const t of ['builder', 'script'] as const) {
+    const el = $('tab-' + t);
+    el.classList.toggle('is-active', tab === t);
+    el.setAttribute('aria-selected', String(tab === t));
+  }
   ($('builder-pane') as HTMLElement).hidden = tab !== 'builder';
   ($('script-pane') as HTMLElement).hidden = tab !== 'script';
   showCast(tab === 'script');
@@ -322,8 +346,16 @@ function download(blob: Blob, filename: string): void {
 function currentStripSvg(): string | null {
   if (currentPanels.length === 0) return null;
   const columns = Number(($('cols') as HTMLInputElement).value) || 3;
-  // Never draw the layout guides into a saved image.
-  return renderStripSvg(currentPanels, renderOptions(false), { columns });
+  const title = titleValue();
+  const subtitle = subtitleValue();
+  // Never draw the layout guides into a saved image. A titled export gets the
+  // credit line; a plain one stays clean.
+  return renderStripSvg(currentPanels, renderOptions(false), {
+    columns,
+    title: title || undefined,
+    subtitle: subtitle || undefined,
+    credit: title || subtitle ? EXPORT_CREDIT : undefined,
+  });
 }
 
 function downloadSvg(): void {
@@ -395,6 +427,8 @@ interface ShareState {
   s: string; // the script, in `name (hint): text` form
   seed: number;
   scene: string; // backdrop id, or '' for auto
+  t?: string; // title
+  st?: string; // subtitle
 }
 
 /** UTF-8-safe base64url, so scripts with punctuation/emoji survive the round-trip. */
@@ -415,6 +449,8 @@ function decodeState(token: string): ShareState | null {
       s: parsed.s,
       seed: Number(parsed.seed) || 0,
       scene: typeof parsed.scene === 'string' ? parsed.scene : '',
+      t: typeof parsed.t === 'string' ? parsed.t : '',
+      st: typeof parsed.st === 'string' ? parsed.st : '',
     };
   } catch {
     return null;
@@ -425,7 +461,13 @@ function decodeState(token: string): ShareState | null {
 function currentShareState(): ShareState {
   const script =
     activeTab === 'builder' ? builder.toScript() : ($('log') as HTMLTextAreaElement).value;
-  return { s: script, seed: seedValue(), scene: ($('scene') as HTMLSelectElement).value };
+  return {
+    s: script,
+    seed: seedValue(),
+    scene: ($('scene') as HTMLSelectElement).value,
+    t: titleValue(),
+    st: subtitleValue(),
+  };
 }
 
 /** Write the current comic into the URL hash and copy the link to the clipboard. */
@@ -461,6 +503,9 @@ function loadFromHash(): boolean {
   castOverrides.clear();
   ($('seed') as HTMLInputElement).value = String(state.seed);
   ($('scene') as HTMLSelectElement).value = backdrops[state.scene] ? state.scene : '';
+  ($('title') as HTMLInputElement).value = state.t ?? '';
+  ($('subtitle') as HTMLInputElement).value = state.st ?? '';
+  renderComicTitle();
   ($('log') as HTMLTextAreaElement).value = state.s;
   builder.load(rowsFromConversation(state.s, state.seed));
   return true;
@@ -482,6 +527,11 @@ $('seed').addEventListener('input', () => {
 
 for (const id of ['debug', 'scene']) {
   $(id).addEventListener('change', run);
+}
+
+// Title/subtitle are export metadata — they don't recompose, just update the echo.
+for (const id of ['title', 'subtitle']) {
+  $(id).addEventListener('input', renderComicTitle);
 }
 
 // Reassigning a participant's character from its picker chip (Script tab).

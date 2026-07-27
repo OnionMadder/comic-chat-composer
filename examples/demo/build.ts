@@ -117,8 +117,8 @@ const html = `<!doctype html>
     <div class="card">
       <div class="hd">
         <div class="tabs" role="tablist">
-          <button id="tab-builder" class="tab is-active" role="tab">Builder</button>
-          <button id="tab-script" class="tab" role="tab">Script</button>
+          <button id="tab-builder" class="tab is-active" role="tab" aria-selected="true">Builder</button>
+          <button id="tab-script" class="tab" role="tab" aria-selected="false">Script</button>
         </div>
         <button id="example" class="linkbtn">Surprise me &#127922;</button>
       </div>
@@ -166,6 +166,8 @@ const html = `<!doctype html>
       </div>
       <label class="toggle"><input id="debug" type="checkbox"> Show layout guides</label>
       <div class="divider"></div>
+      <div class="setting"><label>Title &mdash; shown on exports</label><input id="title" type="text" maxlength="80" placeholder="Name your comic"></div>
+      <div class="setting"><label>Subtitle &mdash; optional byline</label><input id="subtitle" type="text" maxlength="100" placeholder="by you"></div>
       <div class="setting"><label>Save strip &mdash; columns</label><input id="cols" type="number" min="1" max="8" value="3"></div>
       <div class="exports"><button id="dl-png" class="btn primary">Download PNG</button><button id="dl-svg" class="btn">SVG</button></div>
       <button id="share" class="btn share-btn">&#128279; Copy share link</button>
@@ -175,6 +177,7 @@ const html = `<!doctype html>
   <div class="section-label" id="cast-label">Cast</div>
   <div id="cast"></div>
   <div class="section-label">Comic <span id="status"></span></div>
+  <div id="comic-title" class="comic-title" hidden></div>
   <div id="out"></div>
 
   <footer class="site-foot">

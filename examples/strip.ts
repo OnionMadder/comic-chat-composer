@@ -20,7 +20,18 @@ export interface StripLayout {
   padding?: number;
   /** Page background behind the panels. Default a light paper tone. */
   background?: string;
+  /** Optional title, drawn as a header band above the panels (comic lettering). */
+  title?: string;
+  /** Optional subtitle / byline, under the title. */
+  subtitle?: string;
+  /** Optional small credit line, drawn below the panels. */
+  credit?: string;
 }
+
+const COMIC_FONT = "'Comic Sans MS','Comic Neue',cursive";
+
+const escapeXml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
  * Render every panel into one strip SVG.
@@ -45,21 +56,55 @@ export function renderStripSvg(
   const cols = Math.min(columns, panels.length || 1);
   const rows = Math.ceil(panels.length / cols);
 
+  const title = layout.title?.trim();
+  const subtitle = layout.subtitle?.trim();
+  const credit = layout.credit?.trim();
+
+  // Header band (title + subtitle) above the grid; credit line below it.
+  const titleSize = 34;
+  const subtitleSize = 17;
+  const headerH = (title ? titleSize + 12 : 0) + (subtitle ? subtitleSize + 8 : 0) + (title || subtitle ? 10 : 0);
+  const footerH = credit ? 24 : 0;
+
+  const gridTop = padding + headerH;
   const width = padding * 2 + cols * pw + (cols - 1) * gap;
-  const height = padding * 2 + rows * ph + (rows - 1) * gap;
+  const height = gridTop + rows * ph + (rows - 1) * gap + footerH + padding;
+  const cx = width / 2;
 
   const tiles = panels.map((panel, i) => {
     const x = padding + (i % cols) * (pw + gap);
-    const y = padding + Math.floor(i / cols) * (ph + gap);
+    const y = gridTop + Math.floor(i / cols) * (ph + gap);
     // Nest the panel's own <svg>, positioned with x/y.
     const inner = renderPanelToSvg(panel, options).replace('<svg ', `<svg x="${x}" y="${y}" `);
     return inner;
   });
 
+  const header: string[] = [];
+  if (title) {
+    header.push(
+      `<text x="${cx}" y="${padding + titleSize}" text-anchor="middle" font-family="${COMIC_FONT}"` +
+        ` font-size="${titleSize}" font-weight="bold" fill="#111">${escapeXml(title)}</text>`,
+    );
+  }
+  if (subtitle) {
+    const y = padding + (title ? titleSize + 12 : 0) + subtitleSize;
+    header.push(
+      `<text x="${cx}" y="${y}" text-anchor="middle" font-family="${COMIC_FONT}"` +
+        ` font-size="${subtitleSize}" font-style="italic" fill="#555">${escapeXml(subtitle)}</text>`,
+    );
+  }
+  if (credit) {
+    header.push(
+      `<text x="${cx}" y="${height - padding + 4}" text-anchor="middle" font-family="${COMIC_FONT}"` +
+        ` font-size="13" fill="#9a9a9a">${escapeXml(credit)}</text>`,
+    );
+  }
+
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
     `<rect width="${width}" height="${height}" fill="${background}"/>` +
     tiles.join('') +
+    header.join('') +
     `</svg>`
   );
 }
