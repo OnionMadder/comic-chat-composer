@@ -8,7 +8,6 @@
 
 import { compose } from '../../src/compose.ts';
 import { isExpressive, type CharacterManifest } from '../../src/manifest.ts';
-import { seededIndex } from '../../src/rng.ts';
 import {
   isMessageEvent,
   type CastEntry,
@@ -16,7 +15,7 @@ import {
   type Gesture,
   type Panel,
 } from '../../src/types.ts';
-import { CONVERSATIONS } from '../corpus.ts';
+import { generateConversation } from '../generate.ts';
 import { parseLog } from '../parse-log.ts';
 import { renderPanelToSvg, type RenderOptions } from '../render-svg.ts';
 import { renderStripSvg } from '../strip.ts';
@@ -396,8 +395,10 @@ function downloadPng(): void {
 // "authored" and the seed only re-frames their own lines (scene, layout)
 // instead of overwriting them.
 let authored = false;
-const conversationFor = (seed: number): string =>
-  CONVERSATIONS[seededIndex(seed, CONVERSATIONS.length)]!;
+// Each seed procedurally generates a (near-always unique) comic — templates with
+// randomized casts and filler, plus the occasional curated corpus gem. Same seed
+// → same comic. See examples/generate.ts.
+const conversationFor = (seed: number): string => generateConversation(seed);
 
 /** Load a corpus conversation into both authoring surfaces for the given seed. */
 function loadConversation(seed: number): void {

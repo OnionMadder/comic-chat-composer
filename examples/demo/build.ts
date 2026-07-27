@@ -21,8 +21,7 @@ import { dirname, join } from 'node:path';
 import * as esbuild from 'esbuild';
 import { loadCharacters, loadBackdrops } from '../load-assets.ts';
 import { HINT_WORDS } from '../parse-log.ts';
-import { CONVERSATIONS } from '../corpus.ts';
-import { seededIndex } from '../../src/rng.ts';
+import { generateConversation } from '../generate.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..', 'assets', 'comic-chat');
@@ -56,10 +55,10 @@ await esbuild.build({
   },
 });
 
-// The initial <textarea> matches the conversation the app loads for seed 1234,
-// so there's no swap-flash on load.
+// The initial <textarea> matches the conversation the app generates for seed
+// 1234, so there's no swap-flash on load.
 const DEFAULT_SEED = 1234;
-const DEFAULT_LOG = CONVERSATIONS[seededIndex(DEFAULT_SEED, CONVERSATIONS.length)]!;
+const DEFAULT_LOG = generateConversation(DEFAULT_SEED);
 
 const hintLine = (label: string, words: string[]): string =>
   `<div class="hint-row"><span class="hint-label">${label}</span>` +

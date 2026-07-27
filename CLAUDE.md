@@ -61,7 +61,11 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   §6.1 halos (feMorphology aura), backdrops, the camera transform.
 - `parse-log.ts` — plain-text log → events, incl. the `name (hint): text` per-
   line directions. `HINT_WORDS` drives the demo's help text.
-- `corpus.ts` — 16 canned conversations the demo's seed selects from.
+- `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
+- `generate.ts` — procedural conversation generator: mad-libs templates ×
+  name/filler pools, deterministic per seed (`generateConversation`). The demo's
+  seed roll uses this (with the curated corpus surfacing ~1 in 4), so seeds are
+  near-always unique instead of cycling a finite list.
 - `strip.ts` — tiles panels into one downloadable strip SVG.
 - `load-assets.ts` — loads manifests + inlines sprite/backdrop markup.
 - `demo/` — the web demo. `build.ts` bundles `main.ts` → `app.js` (ESM, sprites
@@ -170,4 +174,5 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   from `expressionOverride` into inference/rendering. This is the one item that
   needs `src/` changes (`pose.ts`/inference + the manifest), and has little
   visible payoff until the asset set has per-intensity sprites — deferred.
-- Some seeds still repeat (47 conversations, finite list); add more to taste.
+- Seeds now procedurally generate (`generate.ts`) — ~792 distinct comics per
+  1000 seeds — so repeats are rare. Add templates/pools to widen further.
