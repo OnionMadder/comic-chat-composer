@@ -8,9 +8,11 @@ Rendering is a separate concern (a reference SVG renderer lives in `examples/`).
 
 Owner: **Onion Madder** (Kellye Strickland). Not affiliated with Microsoft.
 
-> **Status:** local git only. **Do not `npm publish` or add a git remote without
-> being asked** — publishing is deliberately deferred. The name
-> `comic-chat-composer` is confirmed free on npm.
+> **Status:** public on GitHub — <https://github.com/OnionMadder/comic-chat-composer>
+> (default branch `main`). **Not on npm**, deliberately — **don't `npm publish`
+> without being asked** (the name is confirmed free). Git workflow: branch off
+> `main`, then merge back and `git push origin main`. The demo is live at both
+> mirrors (see Deploying, below).
 
 ## Commands
 
@@ -136,7 +138,13 @@ selects from → a low-vision readability pass → the **form-based conversation
 builder** (row editor + the tactile emotion wheel + live character preview +
 gesture buttons, Builder/Script tabs) → color-coded cast with a Comic-Chat
 "in scene" member list → the corpus grew to 47 conversations (incl. a batch of
-3–4-person group chats).
+3–4-person group chats) → **shareable permalinks** → **auto-shout** balloons
+(yelled lines get the §5.1 starburst) → the establishing-shot **`fold`** rule
+(the opening shot carries the first line instead of a blank panel) → **title
+cards** on exports → the demo **split into an ES-module set** (`index.html` /
+`app.js` / `style.css`) → a **procedural conversation generator** (`generate.ts`,
+near-infinite unique seeds) → **published to GitHub** and **deployed to two
+mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror).
 
 ## The conversation builder — built, and what's left
 
@@ -170,12 +178,17 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
    preview border, and the Script-tab cast chips. Clicking a member selects
    their first line.
 6. **Shareable permalinks** — the "Copy share link" button packs the script,
-   seed, and scene into the URL hash (`#c=<base64url JSON>`); opening the link
-   (fresh load or a pasted hash) reproduces the comic exactly. Fidelity relies
-   on `resolveCast` treating a participant whose name *is* a character id as
-   that character — so a Builder-authored comic (author = characterId) keeps its
-   exact cast through `toScript()` → link → `parseLog`. Marks the comic
-   `authored`, so the seed won't overwrite a shared script.
+   seed, scene, and title/subtitle into the URL hash (`#c=<base64url JSON>`);
+   opening the link (fresh load or a pasted hash) reproduces the comic exactly.
+   Fidelity relies on `resolveCast` treating a participant whose name *is* a
+   character id as that character — so a Builder-authored comic (author =
+   characterId) keeps its exact cast through `toScript()` → link → `parseLog`.
+   Marks the comic `authored`, so the seed won't overwrite a shared script.
+7. **Title cards on exports** — optional **Title** + **Subtitle** fields render
+   as a header band on the downloaded strip (`renderStripSvg` in `strip.ts`, in
+   comic lettering), with a small `onionmadder.com/comic-chat-composer` credit on
+   any titled export; echoed live above the on-screen comic (`#comic-title`) and
+   carried in the share-link state (`t`/`st`).
 
 **Still open:**
 - **Deeper Comic-Chat window chrome** — the member list is the big piece; the
