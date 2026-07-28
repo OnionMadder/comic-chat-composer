@@ -245,30 +245,29 @@ opal (laugh): the seasoning is FIRE, indie`,
   // Group chats (3–4 people) — the classic multi-person IRC/groupchat energy:
   // one chaotic person, one done-with-it person, and cross-talk.
 
-  `kip: so who actually did the slides
-dara: I thought OVI did the slides
-ovi -> kip: you literally said you had it
-pip: I un-muted this chat for exactly this
-kip (coy): I have the vision handled
-dara (shout): IT'S DUE IN AN HOUR
-pip (think): can you un-join a family
-ovi (happy): we're presenting the vision`,
+  `juno: the dog graduated obedience school
+mika (happy): WE ARE SO PROUD
+tavi -> juno: didn't he eat the diploma
+juno (coy): he was showing initiative
+mika (laugh): valedictorian behavior
+tavi: he is currently barking at a leaf
+juno (smile): my son is protecting us from the leaf`,
 
-  `sana: prod is down
-reef (bored): did you try turning it off and on
-sana -> reef: reef, it's a datacenter
-nyx: who deployed on a friday
-reef (coy): define "deployed"
-sana (shout): REEF
-nyx (shrug): I'm updating my resume`,
+  `nonna (wave): HELLO IS THIS THE FAMILY
+milo: nonna you made it!!
+nonna: WHY AM I SHOUTING
+june -> milo: who gave nonna caps lock
+nonna (happy): I LOVE IT HERE
+milo (laugh): never change, nonna
+june (smile): welcome to the chat, nonna`,
 
-  `obi: you enter the tavern, the barkeep eyes you
-vale (happy): I seduce the barkeep
-pia: we JUST walked in
-obi -> vale: roll for charisma
-vale: natural one
-pia (laugh): the barkeep is deeply unimpressed
-obi (bored): also, the barkeep was a coat rack`,
+  `remy: heads up, mystery shopper on aisle four
+sol (scared): how do you know
+remy: he is taking notes on a tiny pad
+ivy -> sol: act natural, restock something
+sol (whisper): I forgot how arms work
+remy (laugh): he just bought gum and left
+ivy (bored): riveting finale`,
 
   `wynn: dinner is at six, nobody be late
 rho: can't, I have plans
@@ -278,13 +277,14 @@ wynn (angry): RHO
 lex: I too would love to hear these plans
 rho (think): is "a nap" a plan`,
 
-  `sib: okay, who ate my clearly labeled leftovers
-taj (whisper): not it
-uma (whisper): not it
-* taj slowly hides a fork
-sib -> taj: your fork is IN the container
-uma (laugh): planted, taj? really?
-taj (shrug): the leftovers ghost strikes again`,
+  `asha: results are out
+biv: AND???
+asha (coy): well...
+biv -> asha: do not do this to us
+asha (happy): PASSED
+cy (shout): I KNEW IT!!!
+biv (smile): never doubted you for a second
+cy: dinner's on asha, obviously`,
 
   `quill: everyone remember the plan
 fenn: which one, there were four
@@ -294,66 +294,67 @@ quill (coy): the ferrets are load-bearing
 fenn (think): why are there always ferrets
 gale (laugh): there are always ferrets`,
 
-  `ziggy: practice moved to my garage
-cass: your garage smells like old decisions
-dex -> ziggy: is the drummer actually coming
-ziggy (bored): the drummer is always "coming"
-cass (laugh): the drummer is folklore
-dex (shout): I AM RIGHT HERE
-ziggy (coy): prove it, count us in`,
+  `pom: the sourdough starter escaped
+lars (bored): escaped
+pom: it's on the counter now. it moved.
+tess -> pom: starters do not move
+pom (scared): come look at this
+lars (laugh): it has simply doubled, pom
+tess (think): name it before we kill it`,
 
-  `orla: telemetry is nominal
-teo: define nominal
-orla -> teo: everything's fine, teo
-hugo (scared): then why is the fine light blinking
-orla: that's the snack machine
-teo (laugh): copy, snack anomaly
-hugo (happy): I will investigate personally`,
+  `ott: team name suggestions, go
+fife: "the quizzly bears"
+nia: "let's get quizzical"
+ott (bored): we are not doing puns
+fife -> ott: then why have a trivia team
+nia (laugh): he has a point, ott
+ott (shrug): fine. quizzly bears it is`,
 
-  `dot: HAPPY BIRTHDAY!!! see everyone at seven
-sy: ...who is this
-dot (scared): wait, is this not the surprise chat
-ines -> dot: I'm the surprise. hi.
-sy (laugh): incredible work, dot
-dot: everyone act natural
-ines (coy): a bit late for that`,
+  `dov: the snail has cleared the tank wall
+rilla: he's been on that wall for a WEEK
+dov -> rilla: respect the journey
+mo (think): does gary know about the second wall
+rilla (scared): there's a second wall?!
+dov (laugh): there are four, rilla
+mo (smile): godspeed, gary`,
 
-  `rook: everyone stack on me
-jinx: you are standing in the fire
-rook (bored): it's a cozy fire
-vee -> rook: you are the TANK, rook
-rook: I am a vibes tank
-jinx (shout): HEAL THE VIBES TANK
-vee (laugh): healing is on cooldown, godspeed`,
+  `ferd: I'm on level 3 by the blue pillar
+etta: all the pillars are blue, ferd
+ferd (coy): the BLUE blue one
+gus -> ferd: honk your horn
+* ferd honks from somewhere
+etta (laugh): that came from level 5
+ferd (scared): I don't remember a level 5`,
 
-  `gil: someone's cans were at the curb a day early
-bev (bored): call the president, gil
-gil (angry): I AM the president
-hank -> gil: then police your own cans
-gil (coy): my cans are merely aspirational
-bev (laugh): motion to impeach the cans`,
+  `prue: so, thoughts on chapter one
+hollis: loved the vibes
+prue -> hollis: name one character
+hollis (think): the... narrator?
+min (whisper): I watched the movie
+prue (angry): THERE IS NO MOVIE
+min (scared): then what did I watch`,
 
-  `edd: okay, let's review chapter one
-nol: edd, there are twelve chapters
-edd (scared): there are twelve chapters
-suri -> edd: it is currently midnight
-edd (think): if we never sleep, the exam can't arrive
-nol (laugh): that is not how time works
-suri: it's a little how finals work`,
+  `babs: karaoke friday, claim your songs
+dino: I call the eight-minute one
+babs (bored): not the eight-minute one
+ren -> dino (point-other): you flatlined at minute five last time
+dino (point-self): I finish what I start
+babs (laugh): the bar closed around you, dino
+ren (smile): iconic behavior honestly`,
 
-  `bree: the clue just says "look up"
-cort: I am looking up, it's a ceiling
-del -> bree: read it one more time
-bree (coy): "look up"... like, online?
-cort (shout): IT'S TAPED TO THE FAN
-del (laugh): who hides a key on a FAN
-bree (happy): a genius, a monster`,
+  `sorrel: the pigeon is back on the ledge
+fenwick: he brought a friend
+sorrel (scared): they're ORGANIZING
+petra -> sorrel: they are birds
+sorrel: that's what they want you to think
+fenwick (laugh): update, four pigeons now
+petra (bored): I'll get the broom`,
 
-  `nan: I'll bring the main dish
-ozzy: I've got the drinks
-pru -> nan: what IS the main dish, though
-nan (coy): a surprise
-ozzy (scared): the last surprise had raisins
-pru (angry): NAN
-nan (laugh): they were chocolate chips, probably`,
+  `posy: someone's zucchini won best in show
+alba: it was MY zucchini
+posy -> alba: you planted it in MY plot
+alba (coy): the plot is communal
+odie (think): can a zucchini have two moms
+posy (angry): NO
+alba (smile): congratulations to us, posy`,
 ];
