@@ -3,8 +3,8 @@
  *
  * The hand-written {@link CONVERSATIONS} corpus is finite, so seeds repeat. This
  * fills the gap: mad-libs-style templates whose participant names and filler
- * words are drawn from pools by the seeded PRNG. A dozen templates × ~48 names ×
- * themed word pools makes the odds of two seeds colliding vanishingly small,
+ * words are drawn from pools by the seeded PRNG. A few dozen templates (2–4
+ * participants) × ~48 names × themed word pools makes seed collisions rare,
  * while `generateConversation` stays a pure function of the seed (same seed →
  * same comic), the same determinism the whole pipeline relies on.
  *
@@ -38,24 +38,27 @@ const POOLS: Record<string, readonly string[]> = {
   place: ['the tavern', 'the crypt', 'the market', 'the throne room', 'the dungeon'],
   npc: ['the barkeep', 'the guard', 'the wizard', 'the merchant', 'the innkeeper'],
   rashAction: ['seduce', 'challenge', 'befriend', 'rob', 'high-five'],
-  stat: ['charisma', 'strength', 'luck', 'stealth'],
+  stat: ['charisma', 'strength', 'luck', 'stealth', 'perception', 'sleight of hand'],
   mundaneThing: ['a coat rack', 'a lamp', 'a very still statue', 'a broom', 'a mannequin'],
   food: ['my labeled leftovers', 'the last slice', 'my birthday cake', 'the good cheese', 'the office donuts'],
-  evidence: ['fork', 'spoon', 'crumbs', 'wrapper', 'napkin'],
+  evidence: ['fork', 'spoon', 'crumb trail', 'wrapper', 'napkin'],
   creature: ['leftovers ghost', 'office raccoon', 'fridge gremlin', 'building cat', 'snack goblin'],
   greeting: ['HAPPY BIRTHDAY!!!', 'CONGRATS!!!', 'WELCOME HOME!!!', 'SURPRISE!!!', 'BON VOYAGE!!!'],
   time: ['seven', 'noon', 'eight sharp', 'after work', 'half past six'],
-  hazard: ['the fire', 'the poison', 'the lava', 'the bad circle', 'the spikes'],
+  // Bare nouns: the templates supply the article ("standing in the {hazard}",
+  // "a cozy {hazard}"), so pool values must read in both slots.
+  hazard: ['fire', 'poison cloud', 'lava pit', 'danger zone', 'spike trap'],
   role: ['tank', 'healer', 'carry', 'support', 'lookout'],
-  resource: ['healing', 'mana', 'the cooldown', 'the ult', 'my patience'],
-  item: ['trash cans', 'recycling', 'garden gnome', 'lawn flamingo', 'wind chimes'],
+  resource: ['healing', 'mana', 'the healer', 'the ult', 'my patience'],
+  // Consistently plural: the templates use plural agreement ("were out",
+  // "are merely aspirational").
+  item: ['trash cans', 'recycling bins', 'garden gnomes', 'lawn flamingos', 'wind chimes'],
   bignum: ['twelve', 'forty', 'nine hundred', 'too many', 'a concerning number of'],
   lateTime: ['midnight', '3am', 'past our bedtime', 'the witching hour'],
   event: ['exam', 'deadline', 'recital', 'launch', 'wedding'],
   verb: ['blinking', 'screaming', 'smoking', 'beeping', 'glowing'],
   harmless: ['the snack machine', 'the coffee maker', 'a fan', 'Greg', 'the microwave'],
   clue: ['look up', 'turn left', 'count the stars', 'follow the red', 'mind the gap'],
-  clueAction: ['looking up', 'turning left', 'counting', 'following it', 'minding it'],
   ceiling: ['a ceiling', 'a wall', 'a door', 'a rug', 'a very normal floor'],
   spot: ['rug', 'fan', 'cushion', 'plant', 'lampshade'],
   dish: ['main dish', 'salad', 'dessert', 'casserole', 'dip'],
@@ -64,7 +67,8 @@ const POOLS: Record<string, readonly string[]> = {
   smell: ['old decisions', 'damp regret', 'expired hope', 'gym socks', 'burnt toast'],
   alien: ['the Zorblaxians', 'a very polite armada', 'space customs', 'the void council', 'an angry moon'],
   shipPart: ['hull', 'warp core', 'life support', 'coffee replicator', 'shield array'],
-  weapon: ['plasma cannons', 'a tractor beam', 'really strong words', 'a bigger ship', 'the good torpedoes'],
+  // Everything here has to survive "THEY ARE CHARGING {weapon}".
+  weapon: ['plasma cannons', 'a tractor beam', 'the good torpedoes', 'an ion lance', 'a suspiciously large flashlight'],
   starport: ['the nebula', 'drydock', 'the summit', 'Mars orbit', 'the space wedding'],
   task: ['the Q3 deck', 'the migration', 'the rebrand', 'the roadmap', 'the synergy audit'],
   buzzword: ['circle back', 'leverage synergies', 'move the needle', 'touch base', 'align on optics'],
@@ -72,11 +76,17 @@ const POOLS: Record<string, readonly string[]> = {
   call: ['a foul', 'offside', 'a strike', 'traveling', 'a clean hit'],
   sport: ['hockey', 'soccer', 'basketball', 'cricket', 'curling'],
   tripThing: ['a beach', 'wifi', 'no relatives', 'free breakfast', 'a hot tub'],
-  budget: ['forty dollars', 'one (1) coupon', 'tree fiddy', 'my remaining hope', 'exposure'],
+  // Money-ish quantities only: both "a budget of {budget}" and "WAY over
+  // {budget}" have to read.
+  budget: ['forty dollars', 'one (1) coupon', 'tree fiddy', 'twelve bucks', 'a jar of dimes'],
   vacaSpot: ['Vegas', 'a haunted B&B', "your cousin's couch", 'a corn maze', 'Mars'],
   device: ['monitor', 'laptop', 'mouse', 'whole computer', 'stapler'],
-  plusOne: ['your ex', 'the whole office', 'a clown', 'my fantasy team', 'those raccoons'],
+  plusOne: ['your ex', 'the whole office', 'a clown', 'my fantasy team', 'the office raccoon'],
   oddDetail: ['missing garden gnome', 'extra spoon', 'second Tuesday', 'unmarked van', 'dog that knew'],
+  petThing: ['my keys', 'a full glass', 'the remote', 'my phone', 'a lit candle'],
+  treat: ['pancakes', 'dumplings', 'tacos', 'waffles', 'noodles'],
+  gadget: ['toaster', 'robot vacuum', 'smart speaker', 'air fryer', 'doorbell camera'],
+  plant: ['fern', 'cactus', 'basil plant', 'bonsai', 'succulent'],
 };
 
 interface Template {
@@ -132,7 +142,7 @@ const TEMPLATES: readonly Template[] = [
       '{B} (whisper): not it',
       '{C} (whisper): not it',
       '* {B} slowly hides a {evidence}',
-      '{A} -> {B}: your {evidence} is right there',
+      '{A} -> {B} (angry, point-other): your {evidence} is right there',
       '{C} (laugh): planted, {B}? really?',
       '{B} (shrug): the {creature} did it',
     ],
@@ -143,7 +153,7 @@ const TEMPLATES: readonly Template[] = [
       '{A}: {greeting} see everyone at {time}',
       '{B}: ...who is this',
       '{A} (scared): wait, is this not the surprise chat',
-      "{C} -> {A}: I'm the surprise. hi.",
+      "{C} -> {A} (wave): I'm the surprise. hi.",
       '{B} (laugh): incredible work, {A}',
       '{A}: everyone act natural',
       '{C} (coy): a bit late for that',
@@ -153,9 +163,9 @@ const TEMPLATES: readonly Template[] = [
     cast: 3,
     lines: [
       '{A}: everyone stack on me',
-      "{B}: you're standing in {hazard}",
+      "{B}: you're standing in the {hazard}",
       '{A} (bored): it is a cozy {hazard}',
-      '{C} -> {A}: you are the {role}, {A}',
+      '{C} -> {A} (point-other): you are the {role}, {A}',
       '{A}: I am a vibes {role}',
       '{B} (shout): SOMEONE HEAL THE VIBES',
       '{C} (laugh): {resource} is on cooldown, godspeed',
@@ -193,16 +203,16 @@ const TEMPLATES: readonly Template[] = [
       '{C} (scared): then why is the fine light {verb}',
       "{A}: that's {harmless}",
       '{B} (laugh): copy, {harmless} anomaly',
-      '{C} (happy): I will investigate personally',
+      '{C} (happy, point-self): I will investigate personally',
     ],
   },
   {
     cast: 3,
     lines: [
       '{A}: the clue just says "{clue}"',
-      '{B}: I am {clueAction}, it is just {ceiling}',
+      '{B}: I did that, it is just {ceiling}',
       '{C} -> {A}: read it again, slowly',
-      '{A} (coy): "{clue}"... online, maybe?',
+      '{A} (coy): "{clue}"... in a metaphorical sense, maybe?',
       '{B} (shout): it was under the {spot} the whole time',
       '{C} (laugh): who hides a key under a {spot}',
       '{A} (happy): a genius, a monster',
@@ -247,7 +257,7 @@ const TEMPLATES: readonly Template[] = [
   {
     cast: 4,
     lines: [
-      '{A}: quick sync on {task}?',
+      '{A} (wave): quick sync on {task}?',
       "{B}: it's 4:55 on a friday, {A}",
       "{A} (happy): love that energy, let's {buzzword}",
       '{C} -> {A}: what does {buzzword} even mean',
@@ -346,7 +356,7 @@ const TEMPLATES: readonly Template[] = [
       '{A}: our kids are DESTROYING out there',
       '{B}: they are losing six to nothing, {A}',
       '{A} (coy): morally, we are winning',
-      "{C} -> {A}: that's your kid eating grass",
+      "{C} -> {A} (point-other): that's your kid eating grass",
       '{A} (happy): he is a free spirit',
       '{B} (laugh): he is eating the grass',
       "{C}: at least someone's having fun",
@@ -362,6 +372,69 @@ const TEMPLATES: readonly Template[] = [
       "{B} (shout): IT'S ALL BOWLING BALLS",
       '{C} (laugh): why do you own {bignum} bowling balls',
       '{A} (shrug): for emergencies',
+    ],
+  },
+
+  // --- Two-handers. The corpus's tightest jokes are 2-person; give the
+  // generator that register too. ---
+  {
+    cast: 2,
+    lines: [
+      '{A}: your cat is staring at me again',
+      '{B} (laugh): she likes you',
+      '{A}: she has been staring for an hour',
+      '{B} (coy): she REALLY likes you',
+      '{A} (scared): she just knocked {petThing} off the table',
+      '{B} (shrug): affection',
+      '{A} (shout): SHE IS WINDING UP AGAIN',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A} (wave): guess who is back in town',
+      '{B} (happy): NO WAY. for how long',
+      '{A}: two whole weeks',
+      '{B}: cancel everything, we are getting {treat}',
+      '{A} (laugh): it is 9am',
+      '{B}: {treat} do not care what time it is',
+      '{A} (smile): I missed you',
+      '{B} (smile): missed you too. bring an appetite',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A}: hi, I would like to return this {gadget}',
+      '{B}: of course. what seems to be wrong with it',
+      '{A} (coy): it is cursed',
+      '{B} (bored): that is not one of the listed defects',
+      '{A}: at night it starts {verb}',
+      '{B} (scared): it is doing it right now',
+      '{A} (laugh): so... store credit?',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A}: I think my {plant} is dying',
+      '{B}: when did you last water it',
+      '{A} (think): define "last"',
+      '{B} (angry): {A}',
+      '{A} (point-self): I sang to it though',
+      '{B} (laugh): it needs water, not a concert',
+      '{A} (happy): a concert AND water. compromise.',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A}: rate my parallel parking',
+      '{B}: we are {bignum} feet from the curb',
+      '{A} (coy): it is called defensive parking',
+      '{B} -> {A} (point-other): a bus just honked at you',
+      '{A} (shout): THE BUS DOES NOT KNOW MY JOURNEY',
+      '{B} (laugh): the bus knows plenty, {A}',
     ],
   },
 ];
