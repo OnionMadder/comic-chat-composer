@@ -26,6 +26,7 @@ import {
   bodyForGesture,
   characterProportions,
   DEFAULT_FRAMING,
+  isFigureManifest,
   type CharacterManifest,
 } from './manifest.ts';
 import { placeCharacters, type Placement } from './placement.ts';
@@ -146,13 +147,24 @@ function resolveRules(partial: Partial<Rules> | undefined): Rules {
 }
 
 /**
+ * Neutral-pose cycle length assumed when a speaker has no manifest to read
+ * the real count from. Three matches the original art's typical spread.
+ */
+const DEFAULT_NEUTRAL_POSE_COUNT = 3;
+
+/** Camera magnification at or above which a shot reads as a close-up. */
+const CLOSE_SHOT_SCALE = 1.6;
+/** Camera magnification at or above which a shot reads as a medium shot. */
+const MEDIUM_SHOT_SCALE = 1.1;
+
+/**
  * Coarse framing label derived from the camera's magnification (§6.2). The
  * exact geometry lives in `panel.camera`; this is a convenience/compat summary.
  */
 function zoomLabel(scale: number, establishing: boolean): Zoom {
   if (establishing) return 'establishing';
-  if (scale >= 1.6) return 'close';
-  if (scale >= 1.1) return 'medium';
+  if (scale >= CLOSE_SHOT_SCALE) return 'close';
+  if (scale >= MEDIUM_SHOT_SCALE) return 'medium';
   return 'wide';
 }
 
@@ -467,11 +479,21 @@ export function compose(input: ComposeInput): Panel[] {
           isDirectAddress(msg.text, name),
       );
 
+    // Cycle through as many neutral poses as the speaker's art actually has,
+    // so the variant sequence matches the sprites one-to-one. Without a
+    // manifest, assume the common three.
+    const speakerManifest = input.characterAssets?.[input.cast[msg.author]?.characterId ?? ''];
+    const neutralPoseCount = speakerManifest
+      ? isFigureManifest(speakerManifest)
+        ? speakerManifest.figures.filter((f) => f.key === 'neutral').length
+        : (speakerManifest.bodies?.neutral.length ?? DEFAULT_NEUTRAL_POSE_COUNT)
+      : DEFAULT_NEUTRAL_POSE_COUNT;
+
     const pose = inferPose(msg.text, {
       expressionOverride: msg.expressionOverride,
       gestureOverride: msg.gestureOverride,
       previousNeutralVariant: neutralVariantOf.get(msg.author),
-      neutralPoseCount: 3,
+      neutralPoseCount,
     });
     neutralVariantOf.set(msg.author, pose.neutralVariant);
 

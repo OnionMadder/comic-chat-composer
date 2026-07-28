@@ -231,8 +231,9 @@ export function placeCharacters(options: PlaceCharactersOptions): Placement[] {
 const EXHAUSTIVE_MAX = 5;
 
 /**
- * Enumerate every seating and facing, returning the first strictly better
- * configuration found, or `null` if the incumbent is already optimal.
+ * Enumerate every seating and facing, returning the best strictly-better
+ * configuration over the whole space, or `null` if the incumbent is already
+ * optimal.
  */
 function exhaustiveBest(
   incumbent: readonly Placement[],

@@ -243,6 +243,17 @@ describe('compose', () => {
     assert.ok(balloons[0]!.text.endsWith('...'), 'fragments are joined by ellipses');
   });
 
+  it('accepts a single unsplittable giant token rather than dropping it', () => {
+    // One 400-char token can neither wrap nor split into chunks — the
+    // accept-overflow branch must still emit the balloon, oversized as it is.
+    const giant = 'x'.repeat(400);
+    const balloons = run([{ type: 'message', author: 'alice', text: giant, at: 0 }]).flatMap(
+      (p) => p.balloons,
+    );
+    assert.equal(balloons.length, 1, 'the message must not be silently dropped');
+    assert.equal(balloons[0]!.text, giant.toUpperCase());
+  });
+
   it('infers addressees from names in the text', () => {
     const panels = compose({
       events: [

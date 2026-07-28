@@ -5,10 +5,14 @@ import { fileURLToPath } from 'node:url';
 
 import {
   bodyForGesture,
+  characterProportions,
+  figureFor,
   headForExpression,
   isExpressive,
+  isFigureManifest,
   parseCharacterManifest,
   validateCharacterManifest,
+  DEFAULT_FRAMING,
   EMOTION_CODES,
 } from '../src/manifest.ts';
 import type { CharacterManifest } from '../src/manifest.ts';
@@ -121,6 +125,96 @@ describe('isExpressive', () => {
   it('does not count gesture-only variety as expression variety', () => {
     // One expression (neutral) plus gestures is still frozen-faced.
     assert.equal(isExpressive(figure(['neutral', 'wave', 'point-self'])), false);
+  });
+});
+
+// A minimal whole-figure character: two neutrals (to exercise variant
+// cycling), one gesture pose and one expression pose.
+const figurePose = (src: string, key: string) => ({
+  src,
+  key,
+  tailAnchor: { x: 20, y: 12 },
+  bounds: { x: 0, y: 0, width: 40, height: 80 },
+});
+const figureFixture = {
+  id: 'fig',
+  name: 'Fig',
+  figures: [
+    figurePose('neutral-1.png', 'neutral'),
+    figurePose('neutral-2.png', 'neutral'),
+    figurePose('wave.png', 'wave'),
+    figurePose('happy.png', 'happy'),
+  ],
+};
+const figureManifest = parseCharacterManifest(figureFixture);
+
+describe('whole-figure manifests', () => {
+  it('validates a well-formed figure manifest', () => {
+    const result = validateCharacterManifest(figureFixture);
+    assert.equal(result.ok, true);
+  });
+
+  it('rejects figures combined with heads', () => {
+    // The two character kinds are mutually exclusive; mixing them would leave
+    // the renderer guessing which art to draw.
+    const result = validateCharacterManifest({ ...figureFixture, heads: nib.heads });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.ok(result.errors.some((e) => e.includes('must not also define')));
+    }
+  });
+
+  it('requires a neutral pose', () => {
+    // Neutral is the universal fallback — without it figureFor has nowhere to land.
+    const result = validateCharacterManifest({
+      ...figureFixture,
+      figures: [figurePose('wave.png', 'wave')],
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.ok(result.errors.some((e) => e.includes('neutral')));
+    }
+  });
+
+  it('reports missing heads AND bodies in one pass', () => {
+    // The validator promises every problem at once; bodies errors must appear
+    // even when heads is absent entirely.
+    const result = validateCharacterManifest({ id: 'x', name: 'X' });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.ok(result.errors.some((e) => e.startsWith('heads')), 'heads error missing');
+      assert.ok(result.errors.some((e) => e.startsWith('bodies')), 'bodies error missing');
+    }
+  });
+
+  it('isFigureManifest tells the two kinds apart', () => {
+    assert.equal(isFigureManifest(figureManifest), true);
+    assert.equal(isFigureManifest(nib), false);
+  });
+
+  it('figureFor prefers a matching gesture over the expression', () => {
+    // A wave reads more strongly at comic scale than a smile.
+    assert.equal(figureFor(figureManifest, 'happy', 'wave').src, 'wave.png');
+    assert.equal(figureFor(figureManifest, 'happy', 'neutral').src, 'happy.png');
+  });
+
+  it('figureFor falls back to neutral for an unknown pose', () => {
+    assert.equal(figureFor(figureManifest, 'scared', 'shrug').src, 'neutral-1.png');
+  });
+
+  it('figureFor cycles same-key variants and wraps around', () => {
+    assert.equal(figureFor(figureManifest, 'neutral', 'neutral', 0).src, 'neutral-1.png');
+    assert.equal(figureFor(figureManifest, 'neutral', 'neutral', 1).src, 'neutral-2.png');
+    assert.equal(figureFor(figureManifest, 'neutral', 'neutral', 2).src, 'neutral-1.png');
+  });
+
+  it('derives camera proportions from the neutral pose bounds', () => {
+    const p = characterProportions(figureManifest);
+    assert.equal(p.aspect, 40 / 80);
+    // No framing block on the fixture, so the humanoid defaults apply.
+    assert.equal(p.shoulderFraction, DEFAULT_FRAMING.shoulderFraction);
+    assert.equal(p.kneeFraction, DEFAULT_FRAMING.kneeFraction);
+    assert.ok(p.shoulderFraction < p.kneeFraction);
   });
 });
 

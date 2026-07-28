@@ -138,7 +138,9 @@ export interface CharacterManifest {
 }
 
 /** Whether a manifest is a whole-figure character rather than head + body. */
-export function isFigureManifest(manifest: CharacterManifest): boolean {
+export function isFigureManifest(
+  manifest: CharacterManifest,
+): manifest is CharacterManifest & { figures: FigureSprite[] } {
   return Array.isArray(manifest.figures) && manifest.figures.length > 0;
 }
 
@@ -376,7 +378,10 @@ export function validateCharacterManifest(input: unknown): ValidationResult {
     }
   }
 
-  if (!isFigure && input.heads !== undefined) {
+  // Validate bodies whenever the manifest is layered — even when `heads` is
+  // missing entirely — so one pass reports every problem, not just the first
+  // missing section.
+  if (!isFigure) {
     if (!isRecord(input.bodies)) {
       errors.push('bodies: expected an object keyed by gesture');
     } else {

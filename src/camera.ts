@@ -23,20 +23,12 @@
  * manifest or rendering dependency so it can be tested on its own.
  */
 
-/** A camera: a rectangle of world space, mapped onto the full panel viewport. */
-export interface Camera {
-  /** Left edge of the visible window, in world (composed) coordinates. */
-  x: number;
-  /** Top edge of the visible window. */
-  y: number;
-  width: number;
-  height: number;
-  /**
-   * Magnification: `panelWidth / width`. Greater than 1 is a close shot,
-   * less than 1 pulls back to show more than the panel's worth of world.
-   */
-  scale: number;
-}
+// The camera shape lives in types.ts (the composer's public vocabulary);
+// re-exported here so camera-only consumers need no second import. A local
+// duplicate used to sit here, kept in sync with types.ts by hand — one
+// definition means no silent drift.
+import type { Camera } from './types.ts';
+export type { Camera } from './types.ts';
 
 /** One character's horizontal extent in world coordinates. */
 export interface CameraCharacter {

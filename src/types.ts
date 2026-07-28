@@ -236,14 +236,20 @@ export interface PanelBalloon {
  * A rectangle of world space mapped onto the panel viewport, framing the
  * character and background layer (§6.2). Balloons are drawn over the top in
  * unscaled panel coordinates — "word balloons are unaffected by the virtual
- * zoom factor". See {@link import('./camera.ts').Camera}.
+ * zoom factor". `camera.ts` re-exports this type; it is the single source of
+ * truth for the camera shape.
  */
 export interface Camera {
+  /** Left edge of the visible window, in world (composed) coordinates. */
   x: number;
+  /** Top edge of the visible window. */
   y: number;
   width: number;
   height: number;
-  /** Magnification: `panelWidth / width`. */
+  /**
+   * Magnification: `panelWidth / width`. Greater than 1 is a close shot,
+   * less than 1 pulls back to show more than the panel's worth of world.
+   */
   scale: number;
 }
 
