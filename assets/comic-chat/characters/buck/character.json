@@ -1,0 +1,149 @@
+{
+  "id": "buck",
+  "name": "Buck",
+  "heads": {
+    "neu": {
+      "src": "head-neu.png",
+      "attach": {
+        "x": 26,
+        "y": 59
+      },
+      "tailAnchor": {
+        "x": 29,
+        "y": 40
+      }
+    },
+    "hap": {
+      "src": "head-hap.png",
+      "attach": {
+        "x": 27,
+        "y": 53
+      },
+      "tailAnchor": {
+        "x": 30,
+        "y": 35
+      }
+    },
+    "laf": {
+      "src": "head-laf.png",
+      "attach": {
+        "x": 27,
+        "y": 69
+      },
+      "tailAnchor": {
+        "x": 32,
+        "y": 48
+      }
+    },
+    "coy": {
+      "src": "head-coy.png",
+      "attach": {
+        "x": 22,
+        "y": 59
+      },
+      "tailAnchor": {
+        "x": 24,
+        "y": 47
+      }
+    },
+    "sad": {
+      "src": "head-sad.png",
+      "attach": {
+        "x": 24,
+        "y": 54
+      },
+      "tailAnchor": {
+        "x": 28,
+        "y": 39
+      }
+    },
+    "ang": {
+      "src": "head-ang.png",
+      "attach": {
+        "x": 30,
+        "y": 60
+      },
+      "tailAnchor": {
+        "x": 30,
+        "y": 43
+      }
+    },
+    "sho": {
+      "src": "head-sho.png",
+      "attach": {
+        "x": 22,
+        "y": 61
+      },
+      "tailAnchor": {
+        "x": 27,
+        "y": 44
+      }
+    }
+  },
+  "bodies": {
+    "neutral": [
+      {
+        "src": "body-neutral-0.png",
+        "headAttach": {
+          "x": 34,
+          "y": 5
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 77,
+          "height": 168
+        }
+      }
+    ],
+    "wave": [
+      {
+        "src": "body-wave-0.png",
+        "headAttach": {
+          "x": 59,
+          "y": 12
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 112,
+          "height": 167
+        }
+      }
+    ],
+    "point-self": [
+      {
+        "src": "body-point-self-0.png",
+        "headAttach": {
+          "x": 44,
+          "y": 5
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 82,
+          "height": 161
+        }
+      }
+    ],
+    "point-other": [
+      {
+        "src": "body-point-other-0.png",
+        "headAttach": {
+          "x": 35,
+          "y": 4
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 114,
+          "height": 166
+        }
+      }
+    ]
+  },
+  "framing": {
+    "shoulderFraction": 0.243,
+    "kneeFraction": 0.788
+  }
+}

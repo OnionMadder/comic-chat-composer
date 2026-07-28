@@ -27,6 +27,7 @@ import os
 import struct
 import sys
 import io
+import zlib
 
 try:
     from PIL import Image
@@ -45,9 +46,20 @@ EMOTION = {
     14: "shrug", 15: "walk-3qr", 16: "walk-side", 17: "walk-3qf",
 }
 
-# Chunk keys, from avatario.h.
+# Chunk keys, from avatario.h (v1.0) and avbfile.h (v2.5).
 AK_NAME, AK_FLAGS, AK_ICON, AK_NFACES, AK_NTORSOS, AK_START, AK_END, AK_STYLE, AK_NBODIES = \
     1, 2, 3, 4, 5, 6, 7, 8, 9
+# v2.5 record variants: same payloads but each record ends in six format bytes
+# instead of sixteen padding bytes.
+AK_NFACES2, AK_NTORSOS2, AK_NBODIES2 = 10, 11, 12
+# v2.5 keys >= 256 are followed by a 2-byte payload size, so unknown ones can
+# be skipped (avbfile.h documents this as the forward-compatibility scheme).
+AK_ICON_NEW, AK_COLORPALETTE, AK_OFFSET_ADJUSTMENT = 256, 257, 263
+
+# v2.5 image storage (avbfile.h: AVATARIMAGEFORMAT / AVATARIMAGEPALETTE).
+AIF_DIB, AIF_LZDEFLATE = 0, 1
+(AIP_NOPALETTE, AIP_GLOBALPALETTE, AIP_LOCALPALETTE,
+ AIP_MONOCHROME, AIP_MASKEDMONO, AIP_DUALMASK) = range(6)
 
 # Our seven manifest emotion codes <- Comic Chat emotion names (with fallbacks).
 EMOTION_TO_CODE = [
@@ -92,14 +104,23 @@ def parse_avb(data):
         return v
 
     magic, av_type, version = struct.unpack_from("<HHH", data, 0)
-    assert magic == 0x81, f"bad magic 0x{magic:x}"
+    assert magic in (0x81, 0x8181), f"bad magic 0x{magic:x}"
+    v2 = magic == 0x8181
 
-    av = {"type": av_type, "name": None, "faces": [], "torsos": [], "bodies": []}
+    av = {"type": av_type, "name": None, "faces": [], "torsos": [], "bodies": [],
+          "images": {}, "global_pal": None}
+    # AK_OFFSET_ADJUSTMENT shifts every image offset read after it (avbfile.cpp
+    # ADJUST_OFFSET — applied only to non-zero offsets).
+    adj = [0]
 
-    def read_records(n, kind):
+    def read_records(n, kind, fmt6=False):
         recs = []
         for _ in range(n):
             fg, tr, au = r32(), r32(), r32()
+            if adj[0]:
+                fg = fg + adj[0] if fg else 0
+                tr = tr + adj[0] if tr else 0
+                au = au + adj[0] if au else 0
             m = r16()
             intensity = data[p[0]]; p[0] += 1
             rec = {"fg": fg, "tr": tr, "au": au,
@@ -113,12 +134,17 @@ def parse_avb(data):
                 rec["xCX"], rec["yCX"] = r16(True), r16(True)
             else:  # simple whole-body
                 rec["faceX"], rec["faceY"] = r16() & 0xFF, r16() & 0xFF
-            p[0] += 16  # trailing padding
+            if fmt6:
+                # byImageFormat/byMaskFormat/byAuraFormat + the three palette types.
+                rec["formats"] = tuple(data[p[0]:p[0] + 6]); p[0] += 6
+            else:
+                p[0] += 16  # trailing padding
             recs.append(rec)
         return recs
 
     while True:
         key = r16()
+        size = r16() if key >= AK_ICON_NEW else None
         if key == AK_NAME:
             s = bytearray()
             while data[p[0]] != 0:
@@ -131,21 +157,144 @@ def parse_avb(data):
             av["flags"] = r16()
         elif key == AK_ICON:
             av["icon"] = r32()
-        elif key == AK_NFACES:
-            av["faces"] = read_records(r16(), "face")
-        elif key == AK_NTORSOS:
-            av["torsos"] = read_records(r16(), "torso")
-        elif key == AK_NBODIES:
-            av["bodies"] = read_records(r16(), "body")
+        elif key in (AK_NFACES, AK_NFACES2):
+            av["faces"] = read_records(r16(), "face", fmt6=key == AK_NFACES2)
+        elif key in (AK_NTORSOS, AK_NTORSOS2):
+            av["torsos"] = read_records(r16(), "torso", fmt6=key == AK_NTORSOS2)
+        elif key in (AK_NBODIES, AK_NBODIES2):
+            av["bodies"] = read_records(r16(), "body", fmt6=key == AK_NBODIES2)
+        elif key == AK_OFFSET_ADJUSTMENT:
+            adj[0] += struct.unpack_from("<i", data, p[0])[0]; p[0] += 4
+        elif key == AK_COLORPALETTE:
+            n = r16()
+            av["global_pal"] = [tuple(data[p[0] + 3 * i:p[0] + 3 * i + 3]) for i in range(n)]
+            p[0] += 3 * n
         elif key == AK_START:
             break
+        elif size is not None:
+            p[0] += size  # unknown v2.5 record (copyright, URLs, …) — skippable
         else:
             raise ValueError(f"unknown chunk key {key} at offset {p[0] - 2}")
+
+    if v2:
+        _decode_v2_images(data, av)
     return av
 
 
-def bmp_at(data, off):
-    if not off or off + 6 > len(data) or data[off:off + 2] != b"BM":
+def _read_v2_dib(data, off, fmt, ptype, global_pal):
+    """
+    Decode one v2.5 image resource at `off` -> (index array HxW, palette).
+
+    Layout (avbfile.cpp CAvatarFileZlibImage::Read): an optional inline
+    AK_COLORPALETTE record (for AIP_LOCALPALETTE), then the BITMAPINFOHEADER
+    prefixed by its own size, then a zlib buffer ({u32 raw size, u32 compressed
+    size, deflate bytes}) holding the usual bottom-up, 4-byte-aligned DIB rows.
+    """
+    p = off
+    pal = global_pal if ptype == AIP_GLOBALPALETTE else None
+    if ptype == AIP_LOCALPALETTE:
+        tag, _sz = struct.unpack_from("<HH", data, p); p += 4
+        if tag != AK_COLORPALETTE:
+            raise ValueError(f"expected inline palette at offset {off}, got tag {tag}")
+        (n,) = struct.unpack_from("<H", data, p); p += 2
+        pal = [tuple(data[p + 3 * i:p + 3 * i + 3]) for i in range(n)]
+        p += 3 * n
+    (hdr_size,) = struct.unpack_from("<I", data, p)
+    bih = data[p:p + hdr_size]; p += hdr_size
+    width, height = struct.unpack_from("<ii", bih, 4)
+    (bpp,) = struct.unpack_from("<H", bih, 14)
+    stride = ((width * bpp + 31) // 32) * 4
+    if fmt == AIF_LZDEFLATE:
+        raw_size, comp_size = struct.unpack_from("<II", data, p); p += 8
+        bits = zlib.decompress(data[p:p + comp_size])
+    else:
+        bits = data[p:p + stride * abs(height)]
+    rows = np.frombuffer(bits, dtype=np.uint8)[:stride * abs(height)].reshape(abs(height), stride)
+    if height > 0:
+        rows = rows[::-1]  # DIB rows are stored bottom-up
+
+    if bpp == 8:
+        idx = rows[:, :width]
+    elif bpp == 4:
+        idx = np.stack([rows >> 4, rows & 0xF], axis=2).reshape(rows.shape[0], -1)[:, :width]
+    elif bpp == 2:
+        idx = np.stack([(rows >> 6) & 3, (rows >> 4) & 3, (rows >> 2) & 3, rows & 3],
+                       axis=2).reshape(rows.shape[0], -1)[:, :width]
+    elif bpp == 1:
+        idx = np.unpackbits(rows, axis=1)[:, :width]
+    else:
+        raise ValueError(f"unsupported v2.5 bit depth {bpp}")
+    return idx, pal
+
+
+def _mono_l(active):
+    """Boolean array -> L image in the v1.0 mask convention (dark = active)."""
+    return Image.fromarray(np.where(active, 0, 255).astype("uint8"), "L")
+
+
+def _decode_v2_images(data, av):
+    """
+    Decode every record's images eagerly and rewrite its fg/tr/au offsets to
+    synthetic keys into av["images"], so the shared sprite pipeline stays
+    offset-based. Handles the packed formats:
+
+    - AIP_MASKEDMONO: one 2bpp image carries all three planes. Per 2-bit pair
+      (avbfile.cpp ConvertMasksCommon): image bit = pair 11 after masking,
+      mask bit = high bit (10, 11), aura bit = any non-zero pair.
+    - AIP_DUALMASK: the mask slot's 2bpp image carries mask (bit 0) and aura
+      (bit 1).
+    """
+    images = av["images"]
+    cache = {}
+    for rec in av["faces"] + av["torsos"] + av["bodies"]:
+        fmts = rec.pop("formats", None)
+        if fmts is None:
+            continue
+        orig = (rec["fg"], rec["tr"], rec["au"])
+        if orig in cache:  # the C++ "ditto" case: repeated offsets share art
+            rec["fg"], rec["tr"], rec["au"] = cache[orig]
+            continue
+        img_f, mask_f, aura_f, img_p, mask_p, aura_p = fmts
+        fg = tr = au = None
+        if rec["fg"]:
+            idx, pal = _read_v2_dib(data, rec["fg"], img_f, img_p, av["global_pal"])
+            if img_p == AIP_MASKEDMONO:
+                ink = idx == 3
+                fg = Image.fromarray(np.where(ink, 0, 255).astype("uint8"), "L").convert("RGB")
+                tr = _mono_l(idx >= 2)
+                au = _mono_l(idx != 0)
+            elif pal is not None:
+                lut = np.array(pal + [(0, 0, 0)] * (256 - len(pal)), dtype=np.uint8)
+                fg = Image.fromarray(lut[idx], "RGB")
+            else:
+                fg = _mono_l(idx == 1).convert("RGB")
+        if tr is None and rec["tr"]:
+            idx, _ = _read_v2_dib(data, rec["tr"], mask_f, mask_p, av["global_pal"])
+            if mask_p == AIP_DUALMASK:
+                tr = _mono_l((idx & 1) != 0)
+                au = _mono_l((idx & 2) != 0)
+            else:
+                tr = _mono_l(idx == 1)
+        if au is None and rec["au"]:
+            idx, _ = _read_v2_dib(data, rec["au"], aura_f, aura_p, av["global_pal"])
+            au = _mono_l(idx == 1)
+        keys = []
+        for slot, img in (("fg", fg), ("tr", tr), ("au", au)):
+            if img is None:
+                keys.append(0)
+                rec[slot] = 0
+            else:
+                key = f"v2:{len(images)}"
+                images[key] = img
+                keys.append(key)
+                rec[slot] = key
+        cache[orig] = tuple(keys)
+
+
+def bmp_at(data, off, images=None):
+    if images is not None and off in images:
+        return images[off]
+    if not isinstance(off, int) or not off or off + 6 > len(data) or data[off:off + 2] != b"BM":
         return None
     size = struct.unpack_from("<I", data, off + 2)[0]
     return Image.open(io.BytesIO(data[off:off + size]))
@@ -196,7 +345,7 @@ def _trim_to_ink(art_rgb, aura_l, cap=12):
     return Image.fromarray(np.where(keep, 255, 0).astype("uint8"), "L")
 
 
-def sprite_rgba(data, fg, tr, au):
+def sprite_rgba(data, fg, tr, au, images=None):
     """
     Foreground art keyed to a silhouette.
 
@@ -206,15 +355,15 @@ def sprite_rgba(data, fg, tr, au):
     consistent tight edge with no white halo ring. (A uniform halo, if wanted
     later, belongs behind the whole assembled character, not baked per-part.)
     """
-    art = bmp_at(data, fg)
+    art = bmp_at(data, fg, images)
     if art is None:
         return None
     art = art.convert("RGB")
-    exact = bmp_at(data, tr)
+    exact = bmp_at(data, tr, images)
     if exact is not None:
         alpha = exact.convert("L").resize(art.size).point(lambda v: 255 if v < 128 else 0)
     else:
-        au_img = bmp_at(data, au)
+        au_img = bmp_at(data, au, images)
         if au_img is None:
             return art.convert("RGBA")
         alpha = _trim_to_ink(art, au_img.convert("L").resize(art.size))
@@ -260,7 +409,7 @@ def convert_figure(data, av, cid, name, out):
         off = (rec["fg"], rec["tr"])
         if off in seen:
             continue
-        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"])
+        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"], av["images"])
         if img is None:
             continue
         anchors = {"tail": (rec["faceX"], rec["faceY"])}
@@ -324,7 +473,7 @@ def convert(avb_path, out_root):
                     if pick_first(av["faces"], n)), None)
         if rec is None:
             rec = pick_first(av["faces"], "neutral")
-        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"])
+        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"], av["images"])
         anchors = {"attach": (rec["xCX"], rec["yCX"]),
                    "tail": (rec["faceX"], rec["faceY"])}
         img, anchors = trim(img, anchors)
@@ -348,7 +497,7 @@ def convert(avb_path, out_root):
         key = (rec["fg"], rec["tr"])
         if key in seen_offsets:
             continue  # ditto/duplicate art
-        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"])
+        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"], av["images"])
         anchors = {"attach": (rec["xCX"], rec["yCX"])}
         img, anchors = trim(img, anchors)
         idx = len(manifest["bodies"].get(g, []))

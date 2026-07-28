@@ -1,0 +1,162 @@
+{
+  "id": "kirby",
+  "name": "Kirby",
+  "heads": {
+    "neu": {
+      "src": "head-neu.png",
+      "attach": {
+        "x": 17,
+        "y": 50
+      },
+      "tailAnchor": {
+        "x": 31,
+        "y": 36
+      }
+    },
+    "hap": {
+      "src": "head-hap.png",
+      "attach": {
+        "x": 13,
+        "y": 41
+      },
+      "tailAnchor": {
+        "x": 29,
+        "y": 32
+      }
+    },
+    "laf": {
+      "src": "head-laf.png",
+      "attach": {
+        "x": 17,
+        "y": 41
+      },
+      "tailAnchor": {
+        "x": 32,
+        "y": 27
+      }
+    },
+    "coy": {
+      "src": "head-coy.png",
+      "attach": {
+        "x": 32,
+        "y": 32
+      },
+      "tailAnchor": {
+        "x": 32,
+        "y": 33
+      }
+    },
+    "sad": {
+      "src": "head-sad.png",
+      "attach": {
+        "x": 14,
+        "y": 47
+      },
+      "tailAnchor": {
+        "x": 34,
+        "y": 35
+      }
+    },
+    "ang": {
+      "src": "head-ang.png",
+      "attach": {
+        "x": 11,
+        "y": 43
+      },
+      "tailAnchor": {
+        "x": 28,
+        "y": 35
+      }
+    },
+    "sho": {
+      "src": "head-sho.png",
+      "attach": {
+        "x": 18,
+        "y": 49
+      },
+      "tailAnchor": {
+        "x": 33,
+        "y": 32
+      }
+    }
+  },
+  "bodies": {
+    "wave": [
+      {
+        "src": "body-wave-0.png",
+        "headAttach": {
+          "x": 45,
+          "y": 4
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 94,
+          "height": 144
+        }
+      }
+    ],
+    "neutral": [
+      {
+        "src": "body-neutral-0.png",
+        "headAttach": {
+          "x": 32,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 72,
+          "height": 156
+        }
+      },
+      {
+        "src": "body-neutral-1.png",
+        "headAttach": {
+          "x": 40,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 83,
+          "height": 156
+        }
+      }
+    ],
+    "point-self": [
+      {
+        "src": "body-point-self-0.png",
+        "headAttach": {
+          "x": 42,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 85,
+          "height": 158
+        }
+      }
+    ],
+    "point-other": [
+      {
+        "src": "body-point-other-0.png",
+        "headAttach": {
+          "x": 50,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 111,
+          "height": 143
+        }
+      }
+    ]
+  },
+  "framing": {
+    "shoulderFraction": 0.232,
+    "kneeFraction": 0.785
+  }
+}

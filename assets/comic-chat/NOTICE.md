@@ -15,9 +15,21 @@ JSON-manifest format by [`tools/import-avb.py`](../../tools/import-avb.py). The
 was redrawn or altered beyond format conversion (bitmap → transparent PNG using
 the avatars' own transparency and aura masks).
 
-Characters converted (the "complex" avatars, which separate head and body):
-Anna, Armando, Bolo, Cro, Dan, Denise, Hugh, Lance, Lynnea, Margaret, Mike,
-Susan, Tiki, TongueTyed, Xeno. Backdrops: room, field, pastoral.
+Characters converted — 31 in all:
+
+- **v1.0** (`v1.0/client/comicart/avatars`), all 22: the layered head+body
+  avatars Anna, Armando, Bolo, Cro, Dan, Denise, Hugh, Lance, Lynnea,
+  Margaret, Mike, Susan, Tiki, TongueTyed, Xeno, plus the whole-figure
+  avatars Connor, Glenda, Jordan, Pedagogue, Rainbow, Tux, Waf.
+- **v2.5 Artpack 1** (`v2.5-beta-1/artpack1`), the 6 additions to the 2.5
+  standard cast: Kevin, Kwensa, Maynard, Rebecca, Sage, Scotty.
+- **v2.5 comicart** (`v2.5-beta-1/comicart`), the 3 color avatars: Buck,
+  Kirby, Veronica.
+
+The v2.5 files use the newer `.avb` container (magic `0x8181`: zlib-deflated
+bitmaps, packed masked-mono/dual-mask planes), decoded per that repository's
+`avbfile.h`/`avbfile.cpp`. Backdrops: all 9 (room, field, pastoral, and the
+v2.5 set).
 
 ## License of the bundled art
 

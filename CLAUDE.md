@@ -75,11 +75,17 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   hand-edited source file; `stage.ts` copies the set to the staging dir. Loads
   only its own files but needs http(s) (ESM). `main.ts` is the browser entry.
 
-**Assets — `assets/comic-chat/`**: all **22** real Comic Chat v1.0 characters
-and **9** v2.5 backdrops (`NOTICE.md` has attribution — MS art is MIT).
+**Assets — `assets/comic-chat/`**: **31** real Comic Chat characters — all 22
+from v1.0, the 6 Artpack 1 additions (Kevin, Kwensa, Maynard, Rebecca, Sage,
+Scotty), and the 3 v2.5 color avatars (Buck, Kirby, Veronica) — plus **9** v2.5
+backdrops (`NOTICE.md` has attribution — MS art is MIT). Quirk: `glenda.avb`'s
+embedded name really is "Greg" upstream; we display it as-is.
 
 **Tools — `tools/`** (one-time asset generation, Python + Pillow/numpy):
 - `import-avb.py` — decodes `.avb` avatars → PNG sprites + JSON manifests.
+  Handles both containers: v1.0 (magic `0x81`, plain BMPs) and v2.5 (magic
+  `0x8181` — zlib-deflated bitmaps, masked-mono/dual-mask packed planes,
+  local color palettes, offset-adjustment records).
 - `import-bgb.py` — decodes `.bgb` backdrops (zlib + 4/8-bit indexed) → PNG.
 - Regenerate: sparse-clone `microsoft/comic-chat`, point the tools at
   `v1.0/client/comicart/avatars` and `v2.5-beta-1/{comicart,artpack1}`.

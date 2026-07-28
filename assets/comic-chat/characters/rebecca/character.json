@@ -1,0 +1,175 @@
+{
+  "id": "rebecca",
+  "name": "Rebecca",
+  "heads": {
+    "neu": {
+      "src": "head-neu.png",
+      "attach": {
+        "x": 82,
+        "y": 108
+      },
+      "tailAnchor": {
+        "x": 84,
+        "y": 76
+      }
+    },
+    "hap": {
+      "src": "head-hap.png",
+      "attach": {
+        "x": 82,
+        "y": 108
+      },
+      "tailAnchor": {
+        "x": 84,
+        "y": 76
+      }
+    },
+    "laf": {
+      "src": "head-laf.png",
+      "attach": {
+        "x": 79,
+        "y": 105
+      },
+      "tailAnchor": {
+        "x": 83,
+        "y": 75
+      }
+    },
+    "coy": {
+      "src": "head-coy.png",
+      "attach": {
+        "x": 82,
+        "y": 108
+      },
+      "tailAnchor": {
+        "x": 84,
+        "y": 76
+      }
+    },
+    "sad": {
+      "src": "head-sad.png",
+      "attach": {
+        "x": 79,
+        "y": 110
+      },
+      "tailAnchor": {
+        "x": 79,
+        "y": 77
+      }
+    },
+    "ang": {
+      "src": "head-ang.png",
+      "attach": {
+        "x": 79,
+        "y": 110
+      },
+      "tailAnchor": {
+        "x": 79,
+        "y": 77
+      }
+    },
+    "sho": {
+      "src": "head-sho.png",
+      "attach": {
+        "x": 77,
+        "y": 115
+      },
+      "tailAnchor": {
+        "x": 77,
+        "y": 79
+      }
+    }
+  },
+  "bodies": {
+    "point-self": [
+      {
+        "src": "body-point-self-0.png",
+        "headAttach": {
+          "x": 70,
+          "y": 29
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 165,
+          "height": 364
+        }
+      }
+    ],
+    "wave": [
+      {
+        "src": "body-wave-0.png",
+        "headAttach": {
+          "x": 95,
+          "y": 96
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 216,
+          "height": 436
+        }
+      }
+    ],
+    "point-other": [
+      {
+        "src": "body-point-other-0.png",
+        "headAttach": {
+          "x": 69,
+          "y": 21
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 223,
+          "height": 353
+        }
+      }
+    ],
+    "neutral": [
+      {
+        "src": "body-neutral-0.png",
+        "headAttach": {
+          "x": 74,
+          "y": 27
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 158,
+          "height": 358
+        }
+      },
+      {
+        "src": "body-neutral-1.png",
+        "headAttach": {
+          "x": 79,
+          "y": 23
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 161,
+          "height": 355
+        }
+      },
+      {
+        "src": "body-neutral-2.png",
+        "headAttach": {
+          "x": 85,
+          "y": 23
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 156,
+          "height": 349
+        }
+      }
+    ]
+  },
+  "framing": {
+    "shoulderFraction": 0.185,
+    "kneeFraction": 0.772
+  }
+}
