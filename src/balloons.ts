@@ -403,10 +403,12 @@ export function layoutBalloons(
         });
       }
 
-      // Reading order: top-down, then left-to-right at equal height.
+      // Reading order: top-down, then left-to-right at equal height. Ties
+      // compare balloon centres, not left edges — a wide balloon can poke its
+      // left edge past a narrower neighbour that sits visually to its left.
       const order = laid
-        .map((b, i) => ({ i, y: b.y, x: b.x }))
-        .sort((a, b) => (a.y !== b.y ? a.y - b.y : a.x - b.x));
+        .map((b, i) => ({ i, y: b.y, cx: b.x + b.width / 2 }))
+        .sort((a, b) => (a.y !== b.y ? a.y - b.y : a.cx - b.cx));
       order.forEach((entry, rank) => {
         laid[entry.i]!.readingOrder = rank;
       });
@@ -464,13 +466,18 @@ function routeTail(
     );
   }
 
+  // Tails starting left of the speaker curve counterclockwise; right,
+  // clockwise. A near-vertical tail has no natural side, so rather than let
+  // float noise pick the bow direction, bow it toward the balloon's centre of
+  // mass so the arc reads as part of the balloon.
+  const dx = fromX - speakerX;
+  const nearVertical = Math.abs(dx) < metrics.lineHeight * 0.25;
   return {
     fromX,
     fromY: bodyBottom,
     toX: speakerX,
     toY: Math.max(tipY, bodyBottom),
-    // Tails starting left of the speaker curve counterclockwise; right, clockwise.
-    curve: fromX < speakerX ? 'ccw' : 'cw',
+    curve: nearVertical ? (bodyCenter >= fromX ? 'ccw' : 'cw') : dx < 0 ? 'ccw' : 'cw',
   };
 }
 

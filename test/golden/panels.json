@@ -340,7 +340,7 @@
           "fromY": 55.5,
           "toX": 100,
           "toY": 165,
-          "curve": "cw"
+          "curve": "ccw"
         },
         "readingOrder": 0,
         "continued": false

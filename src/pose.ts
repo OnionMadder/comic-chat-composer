@@ -39,30 +39,67 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
-  // Emoticons.
+  // Emoticons. The sad rules come before the angry one so `>:(` — whose tail
+  // also matches the plain frown — resolves to angry via last-match-wins.
   { test: /:-?\)/, expression: 'happy' },
   { test: /:-?\(/, expression: 'sad' },
-  { test: /:-?D\b/, expression: 'laughing' },
+  { test: /:'-?\(/, expression: 'sad' }, // crying — the apostrophe defeats the plain frown rule
+  { test: />:-?\(/, expression: 'angry' },
+  { test: /:-?D+\b/, expression: 'laughing' }, // D+ so emphatic ":DDD" still matches
+  { test: /\bxD\b/i, expression: 'laughing' },
   { test: /;-?\)/, expression: 'coy' },
+  { test: /:-?[Pp]\b/, expression: 'coy' },
+  { test: /:-?[Oo]\b/, expression: 'scared' },
+
+  // A few high-frequency Unicode emoji.
+  { test: /[😀😃😄😁🙂😊]/u, expression: 'happy' },
+  { test: /[😂🤣]/u, expression: 'laughing' },
+  { test: /[😢😭🙁]/u, expression: 'sad' },
+  { test: /[😠😡🤬]/u, expression: 'angry' },
+  { test: /[😱😨😰]/u, expression: 'scared' },
+  { test: /[😉😏]/u, expression: 'coy' },
+  { test: /[🥱😴]/u, expression: 'bored' },
 
   // Chat acronyms.
-  { test: /\b(?:LOL|ROTFL|LMAO)\b/i, expression: 'laughing' },
+  { test: /\b(?:LOL|ROTFL|ROFL|LMAO|LMFAO)\b/i, expression: 'laughing' },
   { test: /\bIMHO\b/i, gesture: 'point-self' },
   { test: /\bBRB\b/i, gesture: 'wave' },
   { test: /<g>|<grin>/i, gesture: 'smile', expression: 'happy' },
 
   // Sentence-initial references.
-  { test: /^(?:You|Are you|Will you|Did you|Don't you|Do you)\b/i, gesture: 'point-other', anchored: true },
+  {
+    test: /^(?:You|Are you|Will you|Did you|Don't you|Do you|Can you|Could you|Would you|Have you|Why (?:do|don't|did|are|would) you|What (?:do|are|did|would) you)\b/i,
+    gesture: 'point-other',
+    anchored: true,
+  },
   { test: /^(?:I|I'll|I will|I'm|I am|I'd|I would)\b/i, gesture: 'point-self', anchored: true },
-  { test: /^(?:Hi|Hello|Hey|Bye|Goodbye|Welcome)\b/i, gesture: 'wave', anchored: true },
+  {
+    test: /^(?:Hi|Hello|Hey|Heya|Hiya|Howdy|Yo|Sup|GM|Morning|Evening|Good (?:morning|afternoon|evening|night)|Bye|Goodbye|Later|See ya|Welcome)\b/i,
+    gesture: 'wave',
+    anchored: true,
+  },
 
   // Emphatic typesetting — highest priority, so it survives an earlier match.
   { test: /!{3,}/, expression: 'shouting' },
 ];
 
-/** True when the text is emphatic all-caps, ignoring non-letters. */
+/**
+ * Chat acronyms conventionally typed in caps without being yelled. Stripped
+ * before the all-caps check so a bare "LOL" or "OMG BRB" does not read as
+ * shouting — which would both force the shouting face (overriding the
+ * laughing expression the acronym rules just picked) and, via
+ * {@link isShoutText}, promote the balloon to a §5.1 starburst.
+ */
+const CAPS_ACRONYMS =
+  /\b(?:LOL|LMAO|LMFAO|ROTFL|ROFL|OMG|WTF|BRB|BBL|IMHO|IMO|BTW|FYI|TTYL|AFK|IDK|TBH|SMH|IIRC|FWIW|IRL|ASAP|AKA|FAQ|GG|GLHF|NP|TY|THX|OK)\b|:-?D+\b|\bXD\b/g;
+
+/**
+ * True when the text is emphatic all-caps, ignoring non-letters,
+ * conventionally-capitalized chat acronyms, and capital-letter emoticons
+ * (":DDD" is a big grin, not a yell).
+ */
 function isAllCaps(text: string): boolean {
-  const letters = text.replace(/[^A-Za-z]/g, '');
+  const letters = text.replace(CAPS_ACRONYMS, '').replace(/[^A-Za-z]/g, '');
   return letters.length >= 3 && text === text.toUpperCase();
 }
 
@@ -94,7 +131,7 @@ export interface InferPoseOptions {
  *
  * @example
  * ```ts
- * inferPose('LOL you are back');
+ * inferPose('Did you see that? LOL');
  * // → { gesture: 'point-other', expression: 'laughing', neutralVariant: 0 }
  * ```
  */

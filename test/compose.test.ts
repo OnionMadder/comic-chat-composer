@@ -261,6 +261,29 @@ describe('compose', () => {
     );
   });
 
+  it('does not infer an addressee from a bare mid-sentence mention', () => {
+    // A participant named with a common word ("will") must not be pulled in —
+    // or faced — just because the word appears inside a sentence.
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'join', author: 'bob', at: 1 },
+        { type: 'join', author: 'will', at: 2 },
+        { type: 'message', author: 'bob', text: 'who is taking notes today', at: 3 },
+        { type: 'message', author: 'alice', text: 'I will do it later', at: 4 },
+      ],
+      cast: { ...cast, will: { characterId: 'nib' } },
+      backdrops,
+      seed: 11,
+    });
+    const panel = panels.find((p) => p.balloons.some((b) => b.text.includes('WILL DO IT')))!;
+    assert.ok(panel, 'the line composes into a panel');
+    assert.ok(
+      !panel.characters.some((c) => c.author === 'will'),
+      '"will" the participant stays out of the panel',
+    );
+  });
+
   it('keeps one backdrop for the whole conversation', () => {
     const panels = run(SAMPLE);
     assert.ok(panels.length >= 2);

@@ -9,10 +9,33 @@ describe('inferPose', () => {
     assert.equal(inferPose('oh no :-(').expression, 'sad');
   });
 
+  it('reads the wider emoticon set', () => {
+    assert.equal(inferPose("I miss it already :'(").expression, 'sad');
+    assert.equal(inferPose('seriously >:(').expression, 'angry');
+    assert.equal(inferPose('that was amazing :DDD').expression, 'laughing');
+    assert.equal(inferPose('lmao xD').expression, 'laughing');
+    assert.equal(inferPose('just kidding :P').expression, 'coy');
+    assert.equal(inferPose('wait what :O').expression, 'scared');
+  });
+
+  it('reads a few high-frequency emoji', () => {
+    assert.equal(inferPose('😂 no way').expression, 'laughing');
+    assert.equal(inferPose('great news 😊').expression, 'happy');
+    assert.equal(inferPose('oh no 😭').expression, 'sad');
+  });
+
   it('reads chat acronyms', () => {
     assert.equal(inferPose('LOL that was great').expression, 'laughing');
     assert.equal(inferPose('IMHO we should wait').gesture, 'point-self');
     assert.equal(inferPose('BRB').gesture, 'wave');
+  });
+
+  it('does not read a bare caps acronym as shouting', () => {
+    // "LOL" used to trip the all-caps check, overriding the laughing
+    // expression it had just matched — and starbursting the balloon.
+    assert.equal(inferPose('LOL').expression, 'laughing');
+    assert.equal(inferPose('OMG BRB').expression, 'neutral');
+    assert.equal(inferPose(':DDD').expression, 'laughing');
   });
 
   it('treats all-caps as shouting', () => {
@@ -31,6 +54,22 @@ describe('inferPose', () => {
   it('points at self or other on sentence-initial pronouns', () => {
     assert.equal(inferPose("I'll handle it").gesture, 'point-self');
     assert.equal(inferPose('You should try it').gesture, 'point-other');
+  });
+
+  it('points at the other on modal question openers', () => {
+    assert.equal(inferPose('Can you check the door?').gesture, 'point-other');
+    assert.equal(inferPose('Could you say that again').gesture, 'point-other');
+    assert.equal(inferPose('Have you seen my keys').gesture, 'point-other');
+    assert.equal(inferPose("Why don't you go first").gesture, 'point-other');
+    assert.equal(inferPose('What do you mean').gesture, 'point-other');
+  });
+
+  it('waves on casual greetings', () => {
+    assert.equal(inferPose('yo, anyone here?').gesture, 'wave');
+    assert.equal(inferPose('sup nerds').gesture, 'wave');
+    assert.equal(inferPose('good morning all').gesture, 'wave');
+    // "Yo" must not swallow the start of "You".
+    assert.equal(inferPose('You did this').gesture, 'point-other');
   });
 
   it('only fires anchored rules at the start of the message', () => {
@@ -68,5 +107,14 @@ describe('isShoutText', () => {
     assert.equal(isShoutText('ok!'), false); // one bang, two letters
     assert.equal(isShoutText('OK'), false); // fewer than 3 letters
     assert.equal(isShoutText('Stop it.'), false);
+  });
+
+  it('leaves caps acronyms and caps emoticons alone', () => {
+    assert.equal(isShoutText('LOL'), false);
+    assert.equal(isShoutText('OMG BRB'), false);
+    assert.equal(isShoutText(':DDD'), false);
+    assert.equal(isShoutText('XD'), false);
+    // ...but real yelling around them still counts.
+    assert.equal(isShoutText('LOL STOP IT'), true);
   });
 });

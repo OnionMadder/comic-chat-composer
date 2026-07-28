@@ -464,7 +464,7 @@ export function compose(input: ComposeInput): Panel[] {
         (name) =>
           name !== msg.author &&
           knownParticipants.has(name) &&
-          new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i').test(msg.text),
+          isDirectAddress(msg.text, name),
       );
 
     const pose = inferPose(msg.text, {
@@ -594,4 +594,29 @@ export function compose(input: ComposeInput): Panel[] {
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * True when `text` addresses `name` directly — the name in vocative position:
+ * leading ("bob what do you think" / "sana: look"), punctuation-adjacent
+ * anywhere ("nice one, sana!" / "right, sana?"), trailing after a comma
+ * ("what do you think, sana"), or led by a greeting ("hey sana look at this").
+ *
+ * A bare mid-sentence mention deliberately does not count. Matching any
+ * `\b name \b` pulled participants with common-word names (Will, Mark, Grace)
+ * into panels — and rotated the speaker to face them — on ordinary sentences
+ * like "I will do it" or "leave a mark". (A leading name is still ambiguous
+ * for such casts — "will do" reads as addressing Will — but that is the price
+ * of the standard comma-less chat vocative.)
+ */
+function isDirectAddress(text: string, name: string): boolean {
+  const n = escapeRegExp(name);
+  return (
+    new RegExp(`^\\s*${n}\\b`, 'i').test(text) ||
+    new RegExp(`\\b${n}[,!?]`, 'i').test(text) ||
+    new RegExp(`[,;]\\s*${n}\\s*[.!?…]*\\s*$`, 'i').test(text) ||
+    new RegExp(`\\b(?:hey|hi|hello|yo|ok|okay|thanks|sorry|listen|look|c'mon|come on)[,!]?\\s+${n}\\b`, 'i').test(
+      text,
+    )
+  );
 }
