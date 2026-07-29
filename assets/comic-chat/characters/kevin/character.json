@@ -81,9 +81,24 @@
     }
   },
   "bodies": {
+    "bored": [
+      {
+        "src": "body-bored-0.png",
+        "headAttach": {
+          "x": 68,
+          "y": 16
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 155,
+          "height": 320
+        }
+      }
+    ],
     "neutral": [
       {
-        "src": "body-neutral-0.png",
+        "src": "body-bored-0.png",
         "headAttach": {
           "x": 68,
           "y": 16
@@ -96,7 +111,7 @@
         }
       },
       {
-        "src": "body-neutral-1.png",
+        "src": "body-scared-0.png",
         "headAttach": {
           "x": 98,
           "y": 15
@@ -109,7 +124,7 @@
         }
       },
       {
-        "src": "body-neutral-2.png",
+        "src": "body-angry-1.png",
         "headAttach": {
           "x": 31,
           "y": 17
@@ -119,6 +134,47 @@
           "y": 0,
           "width": 136,
           "height": 332
+        }
+      }
+    ],
+    "laughing": [
+      {
+        "src": "body-bored-0.png",
+        "headAttach": {
+          "x": 68,
+          "y": 16
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 155,
+          "height": 320
+        }
+      },
+      {
+        "src": "body-laughing-1.png",
+        "headAttach": {
+          "x": 46,
+          "y": 13
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 170,
+          "height": 328
+        }
+      },
+      {
+        "src": "body-wave-0.png",
+        "headAttach": {
+          "x": 78,
+          "y": 52
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 195,
+          "height": 368
         }
       }
     ],
@@ -137,6 +193,49 @@
         }
       }
     ],
+    "shouting": [
+      {
+        "src": "body-laughing-1.png",
+        "headAttach": {
+          "x": 46,
+          "y": 13
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 170,
+          "height": 328
+        }
+      },
+      {
+        "src": "body-scared-0.png",
+        "headAttach": {
+          "x": 98,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 173,
+          "height": 324
+        }
+      }
+    ],
+    "scared": [
+      {
+        "src": "body-scared-0.png",
+        "headAttach": {
+          "x": 98,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 173,
+          "height": 324
+        }
+      }
+    ],
     "wave": [
       {
         "src": "body-wave-0.png",
@@ -149,6 +248,34 @@
           "y": 0,
           "width": 195,
           "height": 368
+        }
+      }
+    ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 96,
+          "y": 16
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 175,
+          "height": 326
+        }
+      },
+      {
+        "src": "body-angry-1.png",
+        "headAttach": {
+          "x": 31,
+          "y": 17
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 136,
+          "height": 332
         }
       }
     ],

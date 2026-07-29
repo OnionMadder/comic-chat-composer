@@ -81,6 +81,64 @@
     }
   },
   "bodies": {
+    "coy": [
+      {
+        "src": "body-coy-0.png",
+        "headAttach": {
+          "x": 83,
+          "y": 12
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 154,
+          "height": 348
+        }
+      },
+      {
+        "src": "body-coy-1.png",
+        "headAttach": {
+          "x": 77,
+          "y": 81
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 181,
+          "height": 404
+        }
+      }
+    ],
+    "laughing": [
+      {
+        "src": "body-laughing-0.png",
+        "headAttach": {
+          "x": 115,
+          "y": 27
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 219,
+          "height": 361
+        }
+      }
+    ],
+    "shouting": [
+      {
+        "src": "body-laughing-0.png",
+        "headAttach": {
+          "x": 115,
+          "y": 27
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 219,
+          "height": 361
+        }
+      }
+    ],
     "point-self": [
       {
         "src": "body-point-self-0.png",
@@ -96,9 +154,52 @@
         }
       }
     ],
+    "sad": [
+      {
+        "src": "body-sad-0.png",
+        "headAttach": {
+          "x": 74,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 158,
+          "height": 353
+        }
+      }
+    ],
+    "bored": [
+      {
+        "src": "body-sad-0.png",
+        "headAttach": {
+          "x": 74,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 158,
+          "height": 353
+        }
+      },
+      {
+        "src": "body-neutral-4.png",
+        "headAttach": {
+          "x": 120,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 242,
+          "height": 356
+        }
+      }
+    ],
     "neutral": [
       {
-        "src": "body-neutral-0.png",
+        "src": "body-sad-0.png",
         "headAttach": {
           "x": 74,
           "y": 15
@@ -160,6 +261,47 @@
           "y": 0,
           "width": 242,
           "height": 356
+        }
+      }
+    ],
+    "angry": [
+      {
+        "src": "body-neutral-1.png",
+        "headAttach": {
+          "x": 84,
+          "y": 10
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 159,
+          "height": 342
+        }
+      },
+      {
+        "src": "body-neutral-3.png",
+        "headAttach": {
+          "x": 75,
+          "y": 12
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 158,
+          "height": 349
+        }
+      },
+      {
+        "src": "body-angry-2.png",
+        "headAttach": {
+          "x": 118,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 194,
+          "height": 341
         }
       }
     ],

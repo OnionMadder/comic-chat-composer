@@ -40,6 +40,26 @@ export const GESTURE_KEYS: readonly Gesture[] = [
   'shrug',
 ];
 
+/**
+ * A key a layered manifest's `bodies` map may use: a gesture, or an
+ * expression for the emotional torsos the original art ships (an angry
+ * stance, a laughing slump, …).
+ */
+export type BodyKey = Gesture | Expression;
+
+/** Every key `bodies` may use: the gestures plus the expressions. */
+export const BODY_KEYS: readonly BodyKey[] = [
+  ...GESTURE_KEYS,
+  'happy',
+  'sad',
+  'angry',
+  'laughing',
+  'shouting',
+  'coy',
+  'scared',
+  'bored',
+];
+
 export interface Point {
   x: number;
   y: number;
@@ -119,12 +139,15 @@ export interface CharacterManifest {
    */
   heads?: Record<EmotionCode, HeadSprite>;
   /**
-   * Body sprites keyed by gesture, for a layered character. Each value is a
-   * list of variants the composer cycles through so repeated poses do not look
-   * identical; `neutral` is required and is the fallback for any gesture the
-   * character does not supply. Absent for a whole-figure character.
+   * Body sprites keyed by gesture *or* expression, for a layered character.
+   * The original art carries emotional body language alongside the gestures —
+   * an angry stance, a laughing slump, a scared cower — and the torso is
+   * chosen by gesture first, then by expression (see {@link bodyForPose}).
+   * Each value is a list of variants the composer cycles through so repeated
+   * poses do not look identical; `neutral` is required and is the final
+   * fallback. Absent for a whole-figure character.
    */
-  bodies?: Partial<Record<Gesture, BodySprite[]>> & { neutral: BodySprite[] };
+  bodies?: Partial<Record<BodyKey, BodySprite[]>> & { neutral: BodySprite[] };
   /**
    * Whole-figure poses, for a character with no separable head. Present
    * *instead of* {@link heads} and {@link bodies}. Must include a `neutral`
@@ -201,6 +224,10 @@ export function headForExpression(
  * Resolve the body sprite for a gesture, falling back to `neutral` when the
  * character has no art for it (layered characters).
  *
+ * Prefer {@link bodyForPose}, which also matches the expression's body
+ * language the way the original client does; this remains for callers that
+ * only know the gesture.
+ *
  * @param variant - Which variant of the gesture to use; wraps around.
  */
 export function bodyForGesture(
@@ -210,6 +237,53 @@ export function bodyForGesture(
 ): BodySprite {
   const bodies = manifest.bodies!;
   const list = bodies[gesture]?.length ? bodies[gesture]! : bodies.neutral;
+  return list[((variant % list.length) + list.length) % list.length]!;
+}
+
+/**
+ * When a body key has no art, the nearest stance that reads the same way.
+ * One hop only; anything still missing falls through to `neutral`.
+ */
+const BODY_FALLBACK: Partial<Record<BodyKey, BodyKey>> = {
+  // No Comic Chat avatar ships a smile or shrug torso — borrow the closest
+  // emotional stance so those gestures still read.
+  smile: 'happy',
+  shrug: 'bored',
+  // Sparse emotional sets (several v1.0 avatars lack these).
+  happy: 'laughing',
+  laughing: 'happy',
+  shouting: 'angry',
+  angry: 'shouting',
+  sad: 'bored',
+  scared: 'shouting',
+  bored: 'sad',
+};
+
+/**
+ * Resolve the body sprite for a full pose (layered characters), the way the
+ * original client picks torsos: a distinctive gesture wins; otherwise the
+ * expression's emotional stance (an angry body under an angry head); failing
+ * both, the `neutral` variants cycle.
+ *
+ * @param variant - Which variant of the chosen list to use; wraps around.
+ */
+export function bodyForPose(
+  manifest: CharacterManifest,
+  expression: Expression,
+  gesture: Gesture,
+  variant = 0,
+): BodySprite {
+  const bodies = manifest.bodies!;
+  const lookup = (key: BodyKey): BodySprite[] | undefined => {
+    if (bodies[key]?.length) return bodies[key];
+    const alt = BODY_FALLBACK[key];
+    return alt && bodies[alt]?.length ? bodies[alt] : undefined;
+  };
+
+  const list =
+    (gesture !== 'neutral' ? lookup(gesture) : undefined) ??
+    (expression !== 'neutral' ? lookup(expression) : undefined) ??
+    bodies.neutral;
   return list[((variant % list.length) + list.length) % list.length]!;
 }
 
@@ -389,8 +463,8 @@ export function validateCharacterManifest(input: unknown): ValidationResult {
         errors.push('bodies.neutral: at least one neutral body is required');
       }
       for (const [key, value] of Object.entries(input.bodies)) {
-        if (!GESTURE_KEYS.includes(key as Gesture)) {
-          errors.push(`bodies.${key}: not a recognised gesture`);
+        if (!BODY_KEYS.includes(key as BodyKey)) {
+          errors.push(`bodies.${key}: not a recognised gesture or expression`);
           continue;
         }
         if (!Array.isArray(value) || value.length === 0) {

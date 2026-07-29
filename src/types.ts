@@ -188,6 +188,13 @@ export interface PanelCharacter {
   facing: Facing;
   gesture: Gesture;
   expression: Expression;
+  /**
+   * Which variant of the chosen pose art to draw (§4.1's neutral cycling —
+   * repeated plain messages advance through a character's neutral poses so
+   * consecutive panels don't look stamped). Renderers with variant art should
+   * pass this to `bodyForPose` / `figureFor`; it wraps by list length.
+   */
+  poseVariant: number;
 }
 
 /** A balloon tail, routed from balloon body down toward the speaker (§5.4). */

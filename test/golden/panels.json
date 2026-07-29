@@ -16,7 +16,8 @@
         "x": 133.33333333333334,
         "facing": "right",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       },
       {
         "author": "alice",
@@ -24,7 +25,8 @@
         "x": 266.6666666666667,
         "facing": "left",
         "gesture": "wave",
-        "expression": "happy"
+        "expression": "happy",
+        "poseVariant": 0
       }
     ],
     "balloons": [
@@ -70,7 +72,8 @@
         "x": 133.33333333333334,
         "facing": "right",
         "gesture": "wave",
-        "expression": "laughing"
+        "expression": "laughing",
+        "poseVariant": 0
       },
       {
         "author": "alice",
@@ -78,7 +81,8 @@
         "x": 266.6666666666667,
         "facing": "left",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 1
       }
     ],
     "balloons": [
@@ -138,7 +142,8 @@
         "x": 266.6666666666667,
         "facing": "left",
         "gesture": "point-self",
-        "expression": "shouting"
+        "expression": "shouting",
+        "poseVariant": 1
       },
       {
         "author": "bob",
@@ -146,7 +151,8 @@
         "x": 133.33333333333334,
         "facing": "right",
         "gesture": "point-self",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       }
     ],
     "balloons": [
@@ -212,7 +218,8 @@
         "x": 200,
         "facing": "left",
         "gesture": "wave",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 1
       }
     ],
     "balloons": [
@@ -257,7 +264,8 @@
         "x": 200,
         "facing": "left",
         "gesture": "point-other",
-        "expression": "sad"
+        "expression": "sad",
+        "poseVariant": 0
       }
     ],
     "balloons": [
@@ -303,7 +311,8 @@
         "x": 100,
         "facing": "right",
         "gesture": "neutral",
-        "expression": "happy"
+        "expression": "happy",
+        "poseVariant": 0
       },
       {
         "author": "cara",
@@ -311,7 +320,8 @@
         "x": 200,
         "facing": "left",
         "gesture": "point-self",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       },
       {
         "author": "bob",
@@ -319,7 +329,8 @@
         "x": 300,
         "facing": "left",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 1
       }
     ],
     "balloons": [
@@ -407,7 +418,8 @@
         "x": 80,
         "facing": "right",
         "gesture": "point-other",
-        "expression": "shouting"
+        "expression": "shouting",
+        "poseVariant": 0
       },
       {
         "author": "alice",
@@ -415,7 +427,8 @@
         "x": 160,
         "facing": "right",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       },
       {
         "author": "bob",
@@ -423,7 +436,8 @@
         "x": 240,
         "facing": "left",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 1
       },
       {
         "author": "cara",
@@ -431,7 +445,8 @@
         "x": 320,
         "facing": "left",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       }
     ],
     "balloons": [
@@ -476,7 +491,8 @@
         "x": 200,
         "facing": "left",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       }
     ],
     "balloons": [
@@ -529,7 +545,8 @@
         "x": 100,
         "facing": "right",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       },
       {
         "author": "fran",
@@ -537,7 +554,8 @@
         "x": 200,
         "facing": "left",
         "gesture": "wave",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 0
       },
       {
         "author": "alice",
@@ -545,7 +563,8 @@
         "x": 300,
         "facing": "left",
         "gesture": "neutral",
-        "expression": "neutral"
+        "expression": "neutral",
+        "poseVariant": 1
       }
     ],
     "balloons": [

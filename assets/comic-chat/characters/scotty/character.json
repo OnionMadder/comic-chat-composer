@@ -152,6 +152,51 @@
         }
       }
     ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 91,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 184,
+          "height": 326
+        }
+      }
+    ],
+    "scared": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 91,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 184,
+          "height": 326
+        }
+      }
+    ],
+    "bored": [
+      {
+        "src": "body-bored-0.png",
+        "headAttach": {
+          "x": 119,
+          "y": 12
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 257,
+          "height": 334
+        }
+      }
+    ],
     "wave": [
       {
         "src": "body-wave-0.png",

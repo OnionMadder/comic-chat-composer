@@ -135,6 +135,60 @@
         }
       }
     ],
+    "angry": [
+      {
+        "src": "body-neutral-0.png",
+        "headAttach": {
+          "x": 116,
+          "y": 14
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 196,
+          "height": 300
+        }
+      },
+      {
+        "src": "body-neutral-1.png",
+        "headAttach": {
+          "x": 83,
+          "y": 18
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 154,
+          "height": 308
+        }
+      },
+      {
+        "src": "body-angry-2.png",
+        "headAttach": {
+          "x": 140,
+          "y": 31
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 230,
+          "height": 333
+        }
+      },
+      {
+        "src": "body-neutral-2.png",
+        "headAttach": {
+          "x": 134,
+          "y": 21
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 262,
+          "height": 311
+        }
+      }
+    ],
     "wave": [
       {
         "src": "body-wave-0.png",
@@ -177,6 +231,21 @@
           "y": 0,
           "width": 185,
           "height": 304
+        }
+      }
+    ],
+    "coy": [
+      {
+        "src": "body-neutral-3.png",
+        "headAttach": {
+          "x": 110,
+          "y": 30
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 201,
+          "height": 317
         }
       }
     ]

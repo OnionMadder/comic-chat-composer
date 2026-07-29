@@ -72,10 +72,19 @@ EMOTION_TO_CODE = [
     ("sho", ["shout", "scared"]),
 ]
 
-# Our gesture keys <- Comic Chat gesture names.
-GESTURE_FROM = {
+# Our body keys <- Comic Chat torso names. Torsos carry more than gestures:
+# the originals ship emotional body language (an angry stance, a laughing
+# slump, a scared cower) under the same enum as the gestures, and the client
+# picks the torso by the message's emotion when no gesture fires. Import all
+# of them — expression-keyed bodies use our expression names.
+BODY_FROM = {
+    # Gestures.
     "neutral": "neutral", "wave": "wave",
     "point-self": "point-self", "point-other": "point-other",
+    "double-point": "point-other",
+    # Emotional torsos.
+    "happy": "happy", "sad": "sad", "angry": "angry", "laugh": "laughing",
+    "shout": "shouting", "coy": "coy", "bored": "bored", "scared": "scared",
 }
 
 # Whole-figure pose key <- Comic Chat emotion/gesture name. Covers both the
@@ -408,6 +417,11 @@ def convert_figure(data, av, cid, name, out):
             continue  # walking / unmapped pose
         off = (rec["fg"], rec["tr"])
         if off in seen:
+            # Shared art (ditto): alias it into this key rather than lose it.
+            prior = seen[off]
+            if any(f["key"] == key and f["src"] == prior["src"] for f in figures):
+                continue
+            figures.append({**prior, "key": key})
             continue
         img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"], av["images"])
         if img is None:
@@ -417,13 +431,14 @@ def convert_figure(data, av, cid, name, out):
         idx = sum(1 for f in figures if f["key"] == key)
         fn = f"figure-{key}-{idx}.png"
         img.save(os.path.join(out, fn))
-        seen[off] = fn
-        figures.append({
+        entry = {
             "src": fn,
             "key": key,
             "tailAnchor": {"x": anchors["tail"][0], "y": anchors["tail"][1]},
             "bounds": {"x": 0, "y": 0, "width": img.size[0], "height": img.size[1]},
-        })
+        }
+        seen[off] = entry
+        figures.append(entry)
         if key == "neutral" and neutral_bounds is None:
             neutral_bounds = img.size
             neutral_face_y = anchors["tail"][1]
@@ -486,32 +501,43 @@ def convert(avb_path, out_root):
             "tailAnchor": {"x": anchors["tail"][0], "y": anchors["tail"][1]},
         }
 
-    # --- Bodies, grouped by gesture (variants cycle) ---------------------
+    # --- Bodies, grouped by body key (variants cycle) --------------------
+    # Records can share art (the C++ "ditto" case): several intensities of one
+    # emotion, or two different emotions drawn identically. Shared art is saved
+    # once and *aliased* into every body key that references it — dropping the
+    # later record entirely would lose whole keys (Kevin's neutral torso is a
+    # ditto of an emotional one).
     seen_offsets = {}
     body_h_for_framing = None
     head_attach_y_for_framing = None
     for rec in av["torsos"]:
-        g = GESTURE_FROM.get(rec["name"])
+        g = BODY_FROM.get(rec["name"])
         if g is None:
             continue
         key = (rec["fg"], rec["tr"])
+        entries = manifest["bodies"].setdefault(g, [])
         if key in seen_offsets:
-            continue  # ditto/duplicate art
-        img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"], av["images"])
-        anchors = {"attach": (rec["xCX"], rec["yCX"])}
-        img, anchors = trim(img, anchors)
-        idx = len(manifest["bodies"].get(g, []))
-        fn = f"body-{g}-{idx}.png"
-        img.save(os.path.join(out, fn))
-        seen_offsets[key] = fn
-        manifest["bodies"].setdefault(g, []).append({
-            "src": fn,
-            "headAttach": {"x": anchors["attach"][0], "y": anchors["attach"][1]},
-            "bounds": {"x": 0, "y": 0, "width": img.size[0], "height": img.size[1]},
-        })
+            prior = seen_offsets[key]
+            if any(e["src"] == prior["src"] for e in entries):
+                continue  # an intensity variant within a key we already hold
+            entries.append(dict(prior))
+        else:
+            img = sprite_rgba(data, rec["fg"], rec["tr"], rec["au"], av["images"])
+            anchors = {"attach": (rec["xCX"], rec["yCX"])}
+            img, anchors = trim(img, anchors)
+            fn = f"body-{g}-{len(entries)}.png"
+            img.save(os.path.join(out, fn))
+            entry = {
+                "src": fn,
+                "headAttach": {"x": anchors["attach"][0], "y": anchors["attach"][1]},
+                "bounds": {"x": 0, "y": 0, "width": img.size[0], "height": img.size[1]},
+            }
+            seen_offsets[key] = entry
+            entries.append(entry)
         if g == "neutral" and body_h_for_framing is None:
-            body_h_for_framing = img.size[1]
-            head_attach_y_for_framing = anchors["attach"][1]
+            first = manifest["bodies"]["neutral"][0]
+            body_h_for_framing = first["bounds"]["height"]
+            head_attach_y_for_framing = first["headAttach"]["y"]
 
     if "neutral" not in manifest["bodies"]:
         print(f"  {cid}: no neutral torso — skipped")

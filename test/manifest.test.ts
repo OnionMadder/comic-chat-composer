@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   bodyForGesture,
+  bodyForPose,
   characterProportions,
   figureFor,
   headForExpression,
@@ -94,6 +95,52 @@ describe('sprite resolution', () => {
   it('falls back to neutral for a gesture the character lacks', () => {
     const stripped = { ...nib, bodies: { neutral: nib.bodies!.neutral } };
     assert.equal(bodyForGesture(stripped, 'wave').src, 'body-neutral-1.svg');
+  });
+});
+
+describe('bodyForPose', () => {
+  // A manifest in the shape the importer now emits: gesture bodies plus the
+  // emotional torsos the original art ships.
+  const body = (src: string) => ({ src, headAttach: { x: 5, y: 2 }, bounds: { x: 0, y: 0, width: 10, height: 30 } });
+  const m: CharacterManifest = {
+    id: 'm',
+    name: 'M',
+    bodies: {
+      neutral: [body('neutral-0.png'), body('neutral-1.png')],
+      wave: [body('wave-0.png')],
+      angry: [body('angry-0.png')],
+      happy: [body('happy-0.png')],
+      bored: [body('bored-0.png')],
+    },
+  };
+
+  it('lets a distinctive gesture win over the expression', () => {
+    assert.equal(bodyForPose(m, 'angry', 'wave').src, 'wave-0.png');
+  });
+
+  it('uses the emotional torso when the gesture is neutral', () => {
+    assert.equal(bodyForPose(m, 'angry', 'neutral').src, 'angry-0.png');
+  });
+
+  it('borrows the nearest stance for gestures with no Comic Chat art', () => {
+    // No avatar ships smile or shrug torsos; they read as happy/bored.
+    assert.equal(bodyForPose(m, 'neutral', 'smile').src, 'happy-0.png');
+    assert.equal(bodyForPose(m, 'neutral', 'shrug').src, 'bored-0.png');
+  });
+
+  it('reaches a sibling stance for a missing emotional torso', () => {
+    // laughing is absent; the one-hop fallback lands on happy.
+    assert.equal(bodyForPose(m, 'laughing', 'neutral').src, 'happy-0.png');
+  });
+
+  it('cycles neutral variants when the whole pose is neutral', () => {
+    assert.equal(bodyForPose(m, 'neutral', 'neutral', 0).src, 'neutral-0.png');
+    assert.equal(bodyForPose(m, 'neutral', 'neutral', 1).src, 'neutral-1.png');
+    assert.equal(bodyForPose(m, 'neutral', 'neutral', 2).src, 'neutral-0.png');
+  });
+
+  it('falls through to neutral when nothing matches', () => {
+    assert.equal(bodyForPose(m, 'coy', 'neutral').src, 'neutral-0.png');
   });
 });
 

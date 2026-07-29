@@ -101,8 +101,36 @@
       }
     },
     {
+      "src": "figure-angry-0.png",
+      "key": "shouting",
+      "tailAnchor": {
+        "x": 125,
+        "y": 122
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 149,
+        "height": 402
+      }
+    },
+    {
       "src": "figure-happy-1.png",
       "key": "happy",
+      "tailAnchor": {
+        "x": 122,
+        "y": 118
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 152,
+        "height": 407
+      }
+    },
+    {
+      "src": "figure-happy-1.png",
+      "key": "laughing",
       "tailAnchor": {
         "x": 122,
         "y": 118
@@ -143,6 +171,20 @@
       }
     },
     {
+      "src": "figure-happy-2.png",
+      "key": "neutral",
+      "tailAnchor": {
+        "x": 114,
+        "y": 113
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 142,
+        "height": 402
+      }
+    },
+    {
       "src": "figure-coy-0.png",
       "key": "coy",
       "tailAnchor": {
@@ -157,7 +199,7 @@
       }
     },
     {
-      "src": "figure-neutral-1.png",
+      "src": "figure-neutral-2.png",
       "key": "neutral",
       "tailAnchor": {
         "x": 120,

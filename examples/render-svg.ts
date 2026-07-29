@@ -20,7 +20,7 @@
 
 import type { Panel, PanelBalloon, PanelCharacter } from '../src/types.ts';
 import {
-  bodyForGesture,
+  bodyForPose,
   headForExpression,
   figureFor,
   isFigureManifest,
@@ -226,7 +226,7 @@ function renderFigure(
   characterHeight: number,
   haloId: string,
 ): string {
-  const figure = figureFor(manifest, c.expression, c.gesture);
+  const figure = figureFor(manifest, c.expression, c.gesture, c.poseVariant);
   const scale = characterHeight / figure.bounds.height;
   const tx = c.x - scale * figure.tailAnchor.x;
   const ty = groundY - scale * figure.bounds.height;
@@ -253,7 +253,10 @@ function renderCharacter(
     return renderFigure(c, manifest, options, groundY, characterHeight, haloId);
   }
 
-  const body = bodyForGesture(manifest, c.gesture);
+  // The torso follows the pose the way the original client picks it: a
+  // distinctive gesture wins, otherwise the expression's body language (an
+  // angry stance under an angry head), otherwise the cycling neutrals.
+  const body = bodyForPose(manifest, c.expression, c.gesture, c.poseVariant);
   const head = headForExpression(manifest, c.expression);
 
   // Head sits on the body where its `attach` meets the body's `headAttach`.

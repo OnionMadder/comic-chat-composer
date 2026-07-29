@@ -124,6 +124,152 @@
         }
       }
     ],
+    "laughing": [
+      {
+        "src": "body-laughing-0.png",
+        "headAttach": {
+          "x": 24,
+          "y": 4
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 77,
+          "height": 144
+        }
+      },
+      {
+        "src": "body-laughing-1.png",
+        "headAttach": {
+          "x": 48,
+          "y": 6
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 93,
+          "height": 155
+        }
+      }
+    ],
+    "shouting": [
+      {
+        "src": "body-shouting-0.png",
+        "headAttach": {
+          "x": 73,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 120,
+          "height": 161
+        }
+      }
+    ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 42,
+          "y": 4
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 86,
+          "height": 162
+        }
+      }
+    ],
+    "scared": [
+      {
+        "src": "body-scared-0.png",
+        "headAttach": {
+          "x": 36,
+          "y": 7
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 93,
+          "height": 156
+        }
+      }
+    ],
+    "sad": [
+      {
+        "src": "body-sad-0.png",
+        "headAttach": {
+          "x": 33,
+          "y": 7
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 76,
+          "height": 164
+        }
+      }
+    ],
+    "bored": [
+      {
+        "src": "body-sad-0.png",
+        "headAttach": {
+          "x": 33,
+          "y": 7
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 76,
+          "height": 164
+        }
+      }
+    ],
+    "coy": [
+      {
+        "src": "body-coy-0.png",
+        "headAttach": {
+          "x": 53,
+          "y": 7
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 79,
+          "height": 151
+        }
+      }
+    ],
+    "happy": [
+      {
+        "src": "body-happy-0.png",
+        "headAttach": {
+          "x": 46,
+          "y": 5
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 92,
+          "height": 151
+        }
+      },
+      {
+        "src": "body-happy-1.png",
+        "headAttach": {
+          "x": 40,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 103,
+          "height": 164
+        }
+      }
+    ],
     "point-other": [
       {
         "src": "body-point-other-0.png",

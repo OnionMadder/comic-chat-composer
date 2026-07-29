@@ -31,6 +31,20 @@
       }
     },
     {
+      "src": "figure-point-self-0.png",
+      "key": "coy",
+      "tailAnchor": {
+        "x": 119,
+        "y": 125
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 209,
+        "height": 410
+      }
+    },
+    {
       "src": "figure-angry-0.png",
       "key": "angry",
       "tailAnchor": {
@@ -101,8 +115,36 @@
       }
     },
     {
+      "src": "figure-neutral-0.png",
+      "key": "happy",
+      "tailAnchor": {
+        "x": 126,
+        "y": 124
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 210,
+        "height": 404
+      }
+    },
+    {
       "src": "figure-neutral-1.png",
       "key": "neutral",
+      "tailAnchor": {
+        "x": 122,
+        "y": 123
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 191,
+        "height": 424
+      }
+    },
+    {
+      "src": "figure-neutral-1.png",
+      "key": "scared",
       "tailAnchor": {
         "x": 122,
         "y": 123
@@ -131,6 +173,20 @@
     {
       "src": "figure-shouting-0.png",
       "key": "shouting",
+      "tailAnchor": {
+        "x": 126,
+        "y": 121
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 272,
+        "height": 427
+      }
+    },
+    {
+      "src": "figure-shouting-0.png",
+      "key": "sad",
       "tailAnchor": {
         "x": 126,
         "y": 121

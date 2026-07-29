@@ -245,7 +245,9 @@ function previewSvg(characterId: string, expression: Expression, gesture: Gestur
     panelIndex: 0,
     zoom: 'wide',
     camera: { x: 0, y: 0, width: PANEL_W, height: PANEL_H, scale: 1 },
-    characters: [{ author: 'preview', characterId, x: PANEL_W / 2, facing: 'right', gesture, expression }],
+    characters: [
+      { author: 'preview', characterId, x: PANEL_W / 2, facing: 'right', gesture, expression, poseVariant: 0 },
+    ],
     balloons: [],
     backdrop: '',
   };

@@ -394,6 +394,9 @@ export function compose(input: ComposeInput): Panel[] {
         facing: p.facing,
         gesture: utterance?.pose.gesture ?? 'neutral',
         expression: state.expressionOf.get(p.author) ?? 'neutral',
+        // Silent bystanders hold their most recent variant so they don't
+        // snap back to pose 0 whenever someone else is talking.
+        poseVariant: utterance?.pose.neutralVariant ?? neutralVariantOf.get(p.author) ?? 0,
       };
     });
 

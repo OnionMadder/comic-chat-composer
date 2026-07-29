@@ -96,7 +96,7 @@
         }
       },
       {
-        "src": "body-neutral-1.png",
+        "src": "body-bored-0.png",
         "headAttach": {
           "x": 73,
           "y": -1
@@ -109,7 +109,7 @@
         }
       },
       {
-        "src": "body-neutral-2.png",
+        "src": "body-coy-0.png",
         "headAttach": {
           "x": 63,
           "y": -2
@@ -149,6 +149,79 @@
           "y": 0,
           "width": 125,
           "height": 307
+        }
+      }
+    ],
+    "bored": [
+      {
+        "src": "body-bored-0.png",
+        "headAttach": {
+          "x": 73,
+          "y": -1
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 115,
+          "height": 277
+        }
+      },
+      {
+        "src": "body-bored-1.png",
+        "headAttach": {
+          "x": 110,
+          "y": 3
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 221,
+          "height": 301
+        }
+      }
+    ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 60,
+          "y": 10
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 125,
+          "height": 309
+        }
+      }
+    ],
+    "scared": [
+      {
+        "src": "body-scared-0.png",
+        "headAttach": {
+          "x": 62,
+          "y": 1
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 142,
+          "height": 299
+        }
+      }
+    ],
+    "coy": [
+      {
+        "src": "body-coy-0.png",
+        "headAttach": {
+          "x": 63,
+          "y": -2
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 138,
+          "height": 297
         }
       }
     ],

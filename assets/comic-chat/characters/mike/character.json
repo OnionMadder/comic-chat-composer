@@ -124,6 +124,21 @@
         }
       }
     ],
+    "coy": [
+      {
+        "src": "body-neutral-0.png",
+        "headAttach": {
+          "x": 111,
+          "y": 15
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 173,
+          "height": 295
+        }
+      }
+    ],
     "point-self": [
       {
         "src": "body-point-self-0.png",
@@ -151,6 +166,21 @@
           "y": 0,
           "width": 168,
           "height": 299
+        }
+      }
+    ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 110,
+          "y": 19
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 231,
+          "height": 305
         }
       }
     ]

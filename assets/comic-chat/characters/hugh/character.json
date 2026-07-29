@@ -96,7 +96,7 @@
         }
       },
       {
-        "src": "body-neutral-1.png",
+        "src": "body-coy-0.png",
         "headAttach": {
           "x": 120,
           "y": 26
@@ -109,7 +109,7 @@
         }
       },
       {
-        "src": "body-neutral-2.png",
+        "src": "body-bored-0.png",
         "headAttach": {
           "x": 112,
           "y": 20
@@ -164,6 +164,94 @@
           "y": 0,
           "width": 246,
           "height": 371
+        }
+      }
+    ],
+    "laughing": [
+      {
+        "src": "body-wave-0.png",
+        "headAttach": {
+          "x": 154,
+          "y": 65
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 246,
+          "height": 371
+        }
+      }
+    ],
+    "coy": [
+      {
+        "src": "body-coy-0.png",
+        "headAttach": {
+          "x": 120,
+          "y": 26
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 208,
+          "height": 336
+        }
+      }
+    ],
+    "bored": [
+      {
+        "src": "body-bored-0.png",
+        "headAttach": {
+          "x": 112,
+          "y": 20
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 207,
+          "height": 324
+        }
+      },
+      {
+        "src": "body-bored-1.png",
+        "headAttach": {
+          "x": 191,
+          "y": 14
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 374,
+          "height": 322
+        }
+      }
+    ],
+    "scared": [
+      {
+        "src": "body-scared-0.png",
+        "headAttach": {
+          "x": 122,
+          "y": 13
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 259,
+          "height": 312
+        }
+      }
+    ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 143,
+          "y": 23
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 276,
+          "height": 339
         }
       }
     ]

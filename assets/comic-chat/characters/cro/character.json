@@ -135,6 +135,47 @@
         }
       }
     ],
+    "angry": [
+      {
+        "src": "body-angry-0.png",
+        "headAttach": {
+          "x": 95,
+          "y": 10
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 199,
+          "height": 294
+        }
+      },
+      {
+        "src": "body-neutral-1.png",
+        "headAttach": {
+          "x": 98,
+          "y": 12
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 227,
+          "height": 295
+        }
+      },
+      {
+        "src": "body-point-self-0.png",
+        "headAttach": {
+          "x": 92,
+          "y": 1
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 222,
+          "height": 295
+        }
+      }
+    ],
     "point-other": [
       {
         "src": "body-point-other-0.png",
@@ -161,6 +202,49 @@
           "x": 0,
           "y": 0,
           "width": 222,
+          "height": 295
+        }
+      }
+    ],
+    "scared": [
+      {
+        "src": "body-scared-0.png",
+        "headAttach": {
+          "x": 60,
+          "y": 5
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 152,
+          "height": 299
+        }
+      },
+      {
+        "src": "body-neutral-3.png",
+        "headAttach": {
+          "x": 72,
+          "y": 9
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 188,
+          "height": 295
+        }
+      }
+    ],
+    "laughing": [
+      {
+        "src": "body-neutral-3.png",
+        "headAttach": {
+          "x": 72,
+          "y": 9
+        },
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 188,
           "height": 295
         }
       }

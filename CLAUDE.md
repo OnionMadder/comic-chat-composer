@@ -49,8 +49,13 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
 - `pose.ts` — §4.1 gesture/expression inference (emoticons, LOL/IMHO/BRB, ALL-
   CAPS/!!! shouting, greetings, self/other references, neutral cycling).
 - `manifest.ts` — character asset schema + validation. Two kinds: **layered**
-  (heads-by-emotion × bodies-by-gesture) and **figure** (whole-figure single
-  sprites keyed by pose). Helpers: `headForExpression`, `bodyForGesture`,
+  (heads-by-emotion × bodies keyed by **gesture or expression** — the original
+  art ships emotional torsos: angry stances, laughing slumps, scared cowers)
+  and **figure** (whole-figure single sprites keyed by pose). `bodyForPose`
+  picks the torso the way the original client does (gesture wins, else the
+  expression's stance, else cycling neutrals; smile/shrug borrow happy/bored).
+  Panels carry `poseVariant` so renderers actually draw the §4.1 neutral
+  cycling. Other helpers: `headForExpression`, `bodyForGesture` (legacy),
   `figureFor`, `isFigureManifest`, `isExpressive`, `characterProportions`.
 - `rng.ts` — seeded mulberry32 (`createRandom`) + `seededIndex` (fmix32) for
   well-distributed one-shot seed picks (scene, corpus selection).
