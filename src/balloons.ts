@@ -98,6 +98,14 @@ export interface BalloonLayoutResult {
    * in a fresh one — this is the paper's primary panel-break trigger.
    */
   placedCount: number;
+  /**
+   * The screen y the tails converge on — the line just below the panel's
+   * lowest balloon (clamped to the lowest third of the region, §5.4). The
+   * composer anchors the tallest character's head here so short-text panels
+   * don't leave a dead band between the text and the cast. Absent when no
+   * balloons were placed.
+   */
+  headLine?: number;
 }
 
 /**
@@ -368,15 +376,16 @@ export function layoutBalloons(
       // Tails all come to a point at roughly the same height, below the lowest
       // balloon and within the lowest third of the balloon region (§5.4).
       //
-      // Those are both lower bounds, so the tip is taken all the way down to
-      // the bottom of the balloon region — which is exactly the line above the
-      // tallest character's head. Stopping at the lowest-third bound instead
-      // leaves the tail hanging in mid-air well short of the speaker.
+      // This line doubles as the panel's *head line*: the camera anchors the
+      // tallest character's head here (compose.ts), so tails always land on a
+      // head. It hugs the text — a short balloon pulls the line (and the cast)
+      // up rather than leaving a dead band and a long tail — but never rises
+      // above the lowest third of the region (§5.4), and never drops below the
+      // region bottom.
       const regionHeight = region.bottom - region.top;
-      const tipY = Math.max(
+      const tipY = Math.min(
         region.bottom,
-        lowestBottom + metrics.lineHeight * 0.5,
-        region.top + regionHeight * (2 / 3),
+        Math.max(lowestBottom + metrics.lineHeight * 1.25, region.top + regionHeight * (2 / 3)),
       );
 
       const laid: LaidOutBalloon[] = [];
@@ -413,7 +422,7 @@ export function layoutBalloons(
         laid[entry.i]!.readingOrder = rank;
       });
 
-      return { balloons: laid, placedCount: count };
+      return { balloons: laid, placedCount: count, headLine: tipY };
     }
   }
 }

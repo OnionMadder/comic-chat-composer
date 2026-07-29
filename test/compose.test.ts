@@ -119,6 +119,29 @@ describe('compose', () => {
     assert.ok(panels[0]!.balloons.length > 0, 'opens straight into dialogue');
   });
 
+  it('pulls the cast up to meet short balloons', () => {
+    // A one-word panel used to anchor the head at the fixed balloon-region
+    // bottom, leaving a dead band under the tiny balloon. The head now anchors
+    // just below the actual text, so with the same magnification the camera
+    // window sits lower in the world (larger y) — the character rides higher
+    // in the frame, closing the gap.
+    const compose1 = (text: string) =>
+      run([
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'message', author: 'alice', text, at: 1 },
+      ], { rules: { establishingShots: 'off', soloPanelProbability: 0 } });
+    const short = compose1('hi.')[0]!;
+    const tall = compose1(
+      'this is a much longer message that wraps onto several lines and fills ' +
+        'most of the balloon region with text before it finally ends',
+    )[0]!;
+    assert.ok(short.camera.scale >= tall.camera.scale, 'never frames looser than a tall panel');
+    assert.ok(
+      short.camera.y > tall.camera.y,
+      `short-text panel should raise the cast (camera.y ${short.camera.y} vs ${tall.camera.y})`,
+    );
+  });
+
   it('gives every panel a valid camera', () => {
     for (const panel of run(SAMPLE)) {
       const c = panel.camera;

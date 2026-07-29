@@ -260,7 +260,11 @@ export function compose(input: ComposeInput): Panel[] {
   const characterHeight = rules.panelHeight * rules.characterHeightFraction;
 
   /** Frame a panel's characters with the virtual camera (§6.2). */
-  const buildCamera = (characters: readonly PanelCharacter[], establishing: boolean): Camera => {
+  const buildCamera = (
+    characters: readonly PanelCharacter[],
+    establishing: boolean,
+    headLine?: number,
+  ): Camera => {
     // Every character the composer placed was included on purpose, so all of
     // them are "required" and must stay within the panel sides.
     const cameraCharacters: CameraCharacter[] = characters.map((c) => {
@@ -295,9 +299,10 @@ export function compose(input: ComposeInput): Panel[] {
       kneeFraction,
       establishing,
       maxScale: rules.maxZoom,
-      // Heads sit just below the balloon region, so balloons read as being
-      // above them; the tails bridge the gap.
-      headScreenY: balloonRegion.bottom,
+      // Heads sit just below the panel's actual text — the balloon layout's
+      // tail-tip line — so short balloons pull the cast up instead of leaving
+      // a dead band. Without balloons, fall back to the region bottom.
+      headScreenY: headLine ?? balloonRegion.bottom,
       groundScreenY: rules.panelHeight - rules.panelHeight * 0.03,
       sideMargin: rules.panelWidth * 0.04,
       establishingScale: rules.establishingZoom,
@@ -310,7 +315,7 @@ export function compose(input: ComposeInput): Panel[] {
    */
   const tryLayout = (
     candidate: PanelState,
-  ): { placements: Placement[]; balloons: PanelBalloon[] } | null => {
+  ): { placements: Placement[]; balloons: PanelBalloon[]; headLine?: number } | null => {
     const placements = placeCharacters({
       authors: candidate.order,
       addresseesOf: candidate.addresseesOf,
@@ -348,7 +353,7 @@ export function compose(input: ComposeInput): Panel[] {
       continued: b.request.continued ?? false,
     }));
 
-    return { placements, balloons };
+    return { placements, balloons, headLine: result.headLine };
   };
 
   const flush = (): void => {
@@ -392,7 +397,7 @@ export function compose(input: ComposeInput): Panel[] {
       };
     });
 
-    const camera = buildCamera(characters, state.forceEstablishing);
+    const camera = buildCamera(characters, state.forceEstablishing, laid?.headLine);
     const zoom = zoomLabel(camera.scale, state.forceEstablishing);
 
     panels.push({
