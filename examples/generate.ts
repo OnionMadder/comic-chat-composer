@@ -13,8 +13,10 @@
  * the demo already understands.
  */
 
+import { compose } from '../src/compose.ts';
 import { createRandom, type Random } from '../src/rng.ts';
 import { CONVERSATIONS } from './corpus.ts';
+import { parseLog } from './parse-log.ts';
 
 // Short chat-handle names. Deliberately none of the bundled character ids, so
 // casting stays seed-driven (see `resolveCast` in the demo).
@@ -481,13 +483,89 @@ function fill(template: Template, rng: Random): string {
 }
 
 /**
+ * Every seeded comic lands on this many panels — a 2×3 grid downloads and
+ * shares cleanly. User-authored edits are never tuned; only the seed roll.
+ */
+export const TARGET_PANELS = 6;
+
+// Panel dimensions the tuner composes with. Must match the demo's PANEL_W /
+// PANEL_H (examples/demo/main.ts): text wrapping depends on the panel width,
+// and the tuner's count is only exact if it composes what the demo composes.
+const TUNE_PANEL_W = 400;
+const TUNE_PANEL_H = 300;
+
+// Reaction beats appended when a conversation composes short of the target.
+// A closing reaction shot after the punchline reads naturally, and the pool is
+// varied enough that padded endings don't feel stamped from one mold.
+const CLOSERS = [
+  '{X} (laugh): I cannot believe this group',
+  '{X} (bored): anyway. same time tomorrow',
+  '{X} (happy): never change, {Y}',
+  '{X} (think): I have so many questions',
+  '{X} (coy): screenshotting this',
+  '{X} (shrug): and that was that',
+  '{X} (sad): why are we like this',
+  '{X} (laugh): classic {Y}',
+  '{X} (wave): ok I gotta go',
+  '{X} -> {Y} (point-other): {Y} started it',
+  '{X} (scared): wait, who is telling {Y}',
+  '{X} (laugh): put that on the fridge',
+];
+
+/** Compose a script the way the demo will, for an exact panel count. */
+function composeForCount(script: string, seed: number) {
+  const { events, authors } = parseLog(script);
+  // The count is cast-independent (breaks are driven by text, speakers and the
+  // seed), so a placeholder cast stands in for the demo's real one.
+  const cast = Object.fromEntries(authors.map((a) => [a, { characterId: 'tuner' }]));
+  const panels = compose({
+    events,
+    cast,
+    backdrops: ['room'],
+    seed,
+    rules: { panelWidth: TUNE_PANEL_W, panelHeight: TUNE_PANEL_H },
+  });
+  return { panels, authors };
+}
+
+/**
+ * Nudge a script until it composes to exactly {@link TARGET_PANELS} panels for
+ * this seed. Short comics gain closing reaction beats (spoken by someone in
+ * the final panel, so each beat reliably opens a new one); long comics lose a
+ * mid line, sparing the punchline. Deterministic: the caller's seeded rng
+ * drives every choice.
+ */
+function tuneToTarget(script: string, seed: number, rng: Random): string {
+  const lines = script.split('\n');
+  for (let guard = 0; guard < 8; guard++) {
+    const { panels, authors } = composeForCount(lines.join('\n'), seed);
+    if (panels.length === TARGET_PANELS) break;
+    if (panels.length < TARGET_PANELS) {
+      const last = panels[panels.length - 1]!;
+      const inLast = last.characters.map((c) => c.author).filter((a) => authors.includes(a));
+      const x = pick(rng, inLast.length > 0 ? inLast : authors);
+      const y = pick(rng, authors.filter((a) => a !== x)) ?? x;
+      lines.push(pick(rng, CLOSERS).replaceAll('{X}', x).replaceAll('{Y}', y));
+    } else {
+      if (lines.length <= 5) break;
+      lines.splice(lines.length - 2, 1);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
  * Build a conversation script for a seed. Deterministic: the same seed always
- * yields the same comic.
+ * yields the same comic, and it always composes to {@link TARGET_PANELS}
+ * panels under the demo's settings.
  */
 export function generateConversation(seed: number): string {
   const rng = createRandom(seed);
-  if (Math.floor(rng() * CURATED_ODDS) === 0) return pick(rng, CONVERSATIONS);
-  return fill(pick(rng, TEMPLATES), rng);
+  const script =
+    Math.floor(rng() * CURATED_ODDS) === 0
+      ? pick(rng, CONVERSATIONS)
+      : fill(pick(rng, TEMPLATES), rng);
+  return tuneToTarget(script, seed, rng);
 }
 
 // Exposed for tests.

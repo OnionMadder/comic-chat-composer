@@ -66,8 +66,11 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
 - `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
 - `generate.ts` — procedural conversation generator: mad-libs templates ×
   name/filler pools, deterministic per seed (`generateConversation`). The demo's
-  seed roll uses this (with the curated corpus surfacing ~1 in 4), so seeds are
-  near-always unique instead of cycling a finite list.
+  seed roll uses this (with the curated corpus surfacing ~1 in 7), so seeds are
+  near-always unique instead of cycling a finite list. Every seeded comic is
+  tuned to compose to exactly **6 panels** (`TARGET_PANELS`; a 2×3 download
+  grid) — a compose-in-the-loop pass appends seeded reaction beats or trims a
+  mid line. Only the seed roll is tuned; user-authored edits keep any count.
 - `strip.ts` — tiles panels into one downloadable strip SVG.
 - `load-assets.ts` — loads manifests + inlines sprite/backdrop markup.
 - `demo/` — the web demo. `build.ts` bundles `main.ts` → `app.js` (ESM, sprites

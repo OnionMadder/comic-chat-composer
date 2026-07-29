@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { generateConversation } from '../examples/generate.ts';
+import { generateConversation, TARGET_PANELS } from '../examples/generate.ts';
 import { parseLog } from '../examples/parse-log.ts';
 import { compose } from '../src/compose.ts';
 
@@ -33,5 +33,23 @@ describe('generateConversation', () => {
     const seen = new Set<string>();
     for (let seed = 0; seed < 250; seed++) seen.add(generateConversation(seed));
     assert.ok(seen.size >= 180, `only ${seen.size}/250 distinct comics`);
+  });
+
+  it('every seed composes to exactly TARGET_PANELS under the demo settings', () => {
+    // The download strip is a 2×3 grid; the tuner pads or trims each seed's
+    // script until it lands there. Must compose with the demo's panel size —
+    // the count depends on how the text wraps.
+    for (let seed = 0; seed < 120; seed++) {
+      const { events, authors } = parseLog(generateConversation(seed));
+      const cast = Object.fromEntries(authors.map((a) => [a, { characterId: 'nib' }]));
+      const panels = compose({
+        events,
+        cast,
+        backdrops: ['room'],
+        seed,
+        rules: { panelWidth: 400, panelHeight: 300 },
+      });
+      assert.equal(panels.length, TARGET_PANELS, `seed ${seed}: ${panels.length} panels`);
+    }
   });
 });
