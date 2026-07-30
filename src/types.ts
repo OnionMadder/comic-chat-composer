@@ -46,12 +46,12 @@ export type Gesture =
   | 'smile'
   | 'shrug';
 
-/** Camera framing for a panel (§4.4). */
+/** Camera framing for a panel (§6.2). */
 export type Zoom = 'establishing' | 'wide' | 'medium' | 'close';
 
 /**
  * How the scene-setting establishing shot on a participant's first appearance
- * (§4.4) is handled. This is where composing a finished comic diverges from
+ * (§6.2) is handled. This is where composing a finished comic diverges from
  * Comic Chat's live stream: streaming had to make a join its own dialogue-free
  * panel (no line existed yet); a composer sees the whole log and can do better.
  *
@@ -90,7 +90,7 @@ export interface MessageEvent {
   at: number;
 }
 
-/** A participant joining or leaving. Joins force an establishing shot (§4.4). */
+/** A participant joining or leaving. Joins force an establishing shot (§6.2). */
 export interface PresenceEvent {
   type: 'join' | 'leave';
   author: string;

@@ -3,7 +3,7 @@
  *
  * The paper is explicit that small-scale randomness is what keeps composed
  * panels from looking machine-generated (§5.2: balloon widths and horizontal
- * positions are chosen randomly; §4.4: the 15% solo-panel roll). Making that
+ * positions are chosen randomly; §6.1: the 15% solo-panel roll). Making that
  * randomness seedable is what keeps the composer testable.
  */
 

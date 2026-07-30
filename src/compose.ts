@@ -67,7 +67,7 @@ export const DEFAULT_RULES: Rules = {
   soloPanelProbability: 0.15,
   panelsBetweenEstablishingShots: 15,
   // Comic-friendly by default: the opening establishing shot carries the first
-  // line rather than standing empty (§4.4). Set 'per-join' for the paper-literal
+  // line rather than standing empty (§6.2). Set 'per-join' for the paper-literal
   // behaviour, or 'off' to skip join establishing shots entirely.
   establishingShots: 'fold',
   panelWidth: 400,
@@ -460,7 +460,7 @@ export function compose(input: ComposeInput): Panel[] {
   };
 
   /**
-   * Panel-break rules that can be decided without running layout (§4.4).
+   * Panel-break rules that can be decided without running layout (§6.1).
    * The layout-failure rule is handled separately, by trial.
    */
   const requiresBreakBefore = (u: PendingUtterance): boolean => {
@@ -549,7 +549,7 @@ export function compose(input: ComposeInput): Panel[] {
 
     // Solo-panel roll: on the first utterance of a panel, if it is more than a
     // few words long, there is a small chance of giving the speaker a panel to
-    // themselves (§4.4).
+    // themselves (§6.1).
     if (state.utterances.length === 0 && !state.soloRolled) {
       state.soloRolled = true;
       if (u.text.split(/\s+/).length > 5 && rand() < rules.soloPanelProbability) {
@@ -657,7 +657,7 @@ export function compose(input: ComposeInput): Panel[] {
     knownParticipants.add(event.author);
     pushUtterance(buildUtterance(event, event.text, false));
 
-    // Periodic establishing shot as a reminder of the setting (§4.4), following
+    // Periodic establishing shot as a reminder of the setting (§6.2), following
     // the same fold/per-join/off policy as join shots.
     if (
       rules.establishingShots !== 'off' &&

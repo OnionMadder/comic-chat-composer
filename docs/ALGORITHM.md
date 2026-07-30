@@ -2,34 +2,62 @@
 
 Where this implementation follows Kurlander, Skelly & Salesin's SIGGRAPH '96 paper exactly, where it fills in detail the paper leaves unstated, and where it deliberately diverges.
 
-Section numbers refer to [the paper](https://kurlander.net/DJ/Pubs/SIGGRAPH96.pdf).
+Section numbers refer to [the paper](https://kurlander.net/DJ/Pubs/SIGGRAPH96.pdf). Note the paper's real numbering, which earlier drafts of this file got wrong: **§4.4** is *Rendering* (character composition and halos), **§6.1** is *Panel breaks*, **§6.2** is *Camera zoom* (establishing shots included), **§6.3** is *Semantic elements*.
+
+Since Microsoft released the client's source at [github.com/microsoft/comic-chat](https://github.com/microsoft/comic-chat), there is a third thing to compare against: **what actually shipped**. It does not always match the paper, so divergences below are labelled against both. See [The program vs. the paper](#the-program-vs-the-paper).
 
 ---
 
 ## §4.1 — Gesture and expression inference
 
-**Followed.** The trigger set is the paper's: emoticons, chat acronyms, all-caps, emphatic punctuation, sentence-initial greetings and pronouns, and neutral-pose cycling when nothing fires.
+**Followed.** The trigger set is the paper's: emoticons, chat acronyms, all-caps, emphatic punctuation, sentence-start greetings and pronouns, and neutral-pose cycling when nothing fires.
 
-**Filled in.** The paper says multiple triggers are resolved by a fixed priority but never enumerates it. `src/pose.ts` evaluates rules in array order with later entries winning, gesture and expression tracked independently, and puts emphatic typesetting last so shouting survives an earlier match. This is a guess at the original ordering and is flagged with a `TODO` in the source — confirming it needs the v1.0 C++ sources, which the extraction plan notes were unreadable from the research sandbox.
+**Resolved from the shipped source** (this was an open `TODO` until the C++ could be read). The paper mentions "a prioritization scheme to choose the most important gesture" without enumerating it. The client's rules were not code at all: they lived in localizable string resources (`v1.0/client/chat.rc` lines 1029–1043), parsed at startup by `textpose.cpp` into *matcher + argument + strength*, and priority was that numeric strength. `src/pose.ts` now has the same shape — `PoseRule { match, text, strength }` with `all-caps` / `find` / `word` / `start` matchers — and `SHIPPED_POSE_RULES` is that table transcribed:
 
-**Diverged.** Greeting/pronoun rules only fire at the start of a trimmed message, so `"she said Hi to me"` does not produce a wave. The paper says "at sentence start"; anchoring to the message start is a stricter reading that avoids obvious false positives.
+| Strength | Cues |
+|---|---|
+| 11 | `ROTFL`, `LOL` (word) — plus `HEHE` from v2.1b |
+| 10 | `:)` `:-)` `:(` `:-(` `;-)` — plus `;)` from v2.5 |
+| 9 | ALL-CAPS, `!!!` |
+| 8 | `are you`, `will you`, `did you`, `aren't you`, `don't you` (word, anywhere) |
+| 7 | `i'm`, `i will`, `i'll`, `i am` (word, anywhere) |
+| 5 / 3 / 2 | `Hello` `Welcome` `Howdy` / `Bye` / `Hi` (sentence start) |
+| 4 / 3 | bare `You` / bare `I` (sentence start) |
+
+Two consequences worth stating. Expression and gesture are filled **independently** from one strength-ordered candidate list — mirroring `GetBodyFromEmotion`, which pops candidates by descending strength and fills a face slot and a torso slot separately — so `"Are you OK? LOL"` laughs *and* points. And shouting at 9 sits *below* laughter and emoticons, so `"LOL THAT RULES"` gets a laughing face.
+
+**Fixed against the paper and the program.** Two earlier readings were wrong:
+
+- The multi-word phrase forms are matched as *words anywhere in the message*, not anchored to its start. The paper lists them separately from bare `You` for exactly this reason ("You (at beginning of sentence), are you, will you, …"), and the shipped table matches them with `CheckWord`. Anchoring them meant no ordinary question — `"how are you?"` — ever pointed, losing the gesture class the paper says "come[s] off well in comics".
+- `start` rules fire at **every sentence start**, not just the message's. The client walked sentence boundaries (`GetNextSentenceStart`), so `"Well. I think so"` points at self.
+
+**Extended.** `EXTRA_POSE_RULES` adds emoji, more emoticons, later acronyms (`ROFL`/`LMAO`/`IMHO`/`BRB`), more question openers, and casual greetings — at the shipped table's strength bands. It also adds rules for `angry`, `scared` and `bored`, which **no released version could trigger from text**: those three rule strings are empty in v1.0, v2.1b and v2.5 alike, so only the emotion wheel could ever set them. (A side effect, pinned in `test/pose.test.ts`: under the shipped table alone, `>:(` renders *sad*, because its `:(` tail matches the frown rule and nothing outranks it.)
+
+**Extended — caps acronyms are not shouting.** A bare `LOL` or `OMG BRB` is stripped before the all-caps test, so it neither pulls a shouting face nor bursts the balloon. The original needed no such guard for the *face* (laughter's 11 beat all-caps' 9), but our §5.1 shout balloon does.
+
+**Filled in.** The neutral-pose cycle advances only when nothing at all was inferred, since an expression now drives an emotional torso through `bodyForPose`. The original's `SetTorsoNeutral` likewise only ran when neither slot had been filled, and it too advanced round-robin from the last used pose.
 
 ---
 
 ## §4.3 — Character position and orientation
 
-**Followed.** The scoring function and all six weights are the paper's, exposed as `rules.facingPenalties`:
+**Followed.** The scoring function and all six weights are the paper's, exposed as `rules.facingPenalties` — and they match the shipped `EvalPair` (`panel.cpp`) exactly, term for term:
 
 | Condition | Weight |
 |---|---|
-| `a` addressed nobody and is not facing `b` | 4 |
-| `a` addressed nobody and `b` is not facing `a` | 2 |
+| `a` addressed **nobody** and is not facing `b` | 4 |
+| `a` addressed **nobody** and `b` is not facing `a` | 2 |
 | `a` addressed `b` and `b` is not facing `a` | 4 |
 | `a` addressed `b` and `a` is not facing `b` | **40** |
 | per character between `a` and their addressee | 4 × n |
-| per position change since the previous panel | 1 |
+| per left/right **neighbour identity** change since the previous panel | 1 |
 
 The greedy solver is also the paper's: place character 1 (1 slot × 2 facings), then character 2 (2 slots × 2 facings), and so on, keeping the lowest-scoring option at each step.
+
+**Fixed — two terms had drifted from the paper.** Both were found auditing the code against the paper and confirmed against `EvalPair`:
+
+1. *The "not addressed" test.* The first two weights are for a speaker who "has not addressed his utterance" — a general remark to the room, where facing anyone is fine. The code had tested "did not address **`b`**", which charged a speaker for turning away from every *bystander* of a directed line, pulling them round to face the crowd instead of committing to their addressee. Now the branch fires only when the speaker addressed nobody at all. Visible immediately in the golden fixture: a character thinking to herself while two others address her moves to the end of the row, where one facing takes in both — 8 points to 4.
+2. *The Neighbors term.* The paper counts each of a character's left/right neighbours "that is different from the character last appearing there". The code had counted characters whose **x coordinate** moved. Because slots are spread evenly across the panel width, any change in cast size shifts every x at once — so the coordinate form fired uniformly for everyone and expressed no seating preference at all, precisely when a character joins or leaves and panel-to-panel stability matters most. Now it compares neighbour identity (ignoring neighbours who have themselves left the panel, which the seating cannot do anything about).
 
 **Diverged — added a local search and an exhaustive pass.** The paper concedes its greedy "does an adequate job" without claiming optimality. Two failure modes showed up in testing:
 
@@ -42,9 +70,26 @@ The greedy solver is also the paper's: place character 1 (1 slot × 2 facings), 
 
 ---
 
-## §4.4 — Establishing shots
+## §6.1 — Panel breaks
 
-**Followed.** A wide, pulled-back shot orients the reader at the start and periodically thereafter (`rules.panelsBetweenEstablishingShots`, paper default ~15). The camera math is §6.2's.
+**Followed.** All four of the paper's break rules are implemented in `compose.ts` (`requiresBreakBefore` plus the layout-failure path), and they line up with the shipped `AddLine`:
+
+- balloon layout fails for the panel → close it and retry the line in a fresh one; if it fails alone, split it (§5.2) and continue across panels;
+- the five-character cap;
+- one balloon per character per panel;
+- a character already drawn cannot change expression within a panel (the information would be lost).
+
+The 15% solo-panel roll on a first utterance "longer than a few words" (read as > 5 words) is the paper's too — see the program note below.
+
+**Extended — an explicit break event.** `{ type: 'break' }` closes the panel wherever the author wants one. This is the client's `<Brk>` token, which it reached by converting an *empty message* into a break; `parse-log.ts` follows suit by emitting one for a blank line. It is the one bit of pacing control the composition rules cannot express.
+
+**Extended — narration is exempt** from the one-balloon rule, so an action line and a spoken line by the same character can share a panel.
+
+---
+
+## §6.2 — Establishing shots
+
+**Followed.** A wide, pulled-back shot orients the reader at the start and periodically thereafter (`rules.panelsBetweenEstablishingShots`, paper default ~15). The camera math is below.
 
 **Diverged — establishing shots fold into the first line by default.** This is the clearest place the *composing* task departs from the *streaming* one. Comic Chat rendered a live stream: a `join` arrived as its own event with no text, so it could only become a standalone, dialogue-free panel. A composer sees the whole conversation at once and can open the way comics actually do — a wide shot that *also carries* the first line.
 
@@ -162,7 +207,9 @@ The one §5.3 element deliberately left out is fitting the spline to the actual 
 
 ---
 
-## §6.1 — Backdrops and halos
+## §4.4 — Rendering: backdrops and halos
+
+*(The paper's §4.4. Backdrops themselves have no numbered section; the halo/aura is described here and in §5.5.)*
 
 **Renderer concern, supported by the schema and the reference renderer.** Comic Chat draws characters over a backdrop and gives each a white halo so it doesn't disappear into a busy background — the paper's Figure 3 makes the case starkly. The composer picks a backdrop id per scene and the manifest carries per-sprite `halo` bounds so that data travels with the art; the actual drawing is left to the renderer.
 
@@ -170,7 +217,7 @@ Backdrop selection (`chooseSceneBackdrop` in [`src/compose.ts`](../src/compose.t
 
 The reference renderer ([`examples/render-svg.ts`](../examples/render-svg.ts)) takes an optional `backdrops` map and draws the art panel-filling behind the characters, bottom-aligned so the scene's ground meets the characters' feet. The backdrop is *not* put through the camera transform: tying a flat scene image to the character zoom drifts the horizon and, on close-ups, frames a meaningless slice of it, so it stays fixed while the characters zoom.
 
-Halos are the paper's §6.1 aura, always on. The renderer dilates a character's *assembled* silhouette (`feMorphology`) and floods it white behind the art — one filter over the whole head+body group, so the aura is a single seamless shape rather than a per-part outline that rings at the neck. The dilation radius matches the ~4px aura baked into the original Comic Chat art, and because the filter sits inside the character's scale transform it rides the zoom, thickening on close-ups exactly as the original bitmap aura did. `feMorphology` is universally supported in browsers (the renderer's target); an SVG engine without it degrades gracefully to no halo.
+Halos are the paper's aura, always on. The renderer dilates a character's *assembled* silhouette (`feMorphology`) and floods it white behind the art — one filter over the whole head+body group, so the aura is a single seamless shape rather than a per-part outline that rings at the neck. The dilation radius matches the ~4px aura baked into the original Comic Chat art, and because the filter sits inside the character's scale transform it rides the zoom, thickening on close-ups exactly as the original bitmap aura did. `feMorphology` is universally supported in browsers (the renderer's target); an SVG engine without it degrades gracefully to no halo.
 
 ---
 
@@ -214,13 +261,49 @@ committed PNGs and manifests are the deliverable, so the tool is rarely re-run.
 
 ---
 
+## The program vs. the paper
+
+Reading the released source settles a number of questions — and shows the paper describes a slightly *more* ambitious system than the one that shipped. Composition froze early: `panel.cpp` and `textpose.cpp` are byte-identical between the v1.0-pre and v1.0 snapshots (both August 1996), and functionally unchanged through v2.5-beta-1 (June 1998). Everything Microsoft added over those two years — IRCX, OLE automation and an ActiveX control, art packs, RTF input, file transfer, a bot rules engine — was protocol, UI, art and automation. The algorithm never moved.
+
+**In the paper, never in the program.** These are implemented here from the paper, and are marked as such because the original client did not do them:
+
+| Feature | Reality in the source |
+|---|---|
+| Shout balloons (§5.1) | Never shipped. `CBWoodringShout` is commented out in v1.0's `MakeBalloon` and gone by v2.5; the paper itself calls them unimplemented. A shouted line just got the shouting *face*. |
+| Solo panels (§6.1) | No such roll exists. Every `randfloat()` in `panel.cpp` is balloon geometry or the title picker. |
+| Periodic / per-join establishing shots (§6.2) | `Establishing()` returns true only for the **first panel or two of the whole comic** — no periodic re-establishing, no per-join shot. |
+| The neck / ankle / knee crop rules (§6.2) | The shipped camera is ~15 lines: fit the width, then cap so a head cannot exceed `maxBodyHeight / 1.2` — the "don't cut at the neck" rule and nothing else. No knee or ankle logic, and establishing was zoom 1.0 rather than a pull-back below 1. |
+| Text-based addressee detection (§4.2) | `FindAddressees` is commented out. Addressees came only from clicking a name in the UI. Our name-scanning (vocative position only) is an extension. |
+| `angry` / `scared` / `bored` from text (§4.1) | Empty rule strings in every version — only the emotion wheel could set them. |
+
+**In the program, and now adopted here.** Details the paper omits, taken from the source:
+
+| Feature | Where it came from |
+|---|---|
+| Rule strengths and independent face/torso fill (§4.1) | `chat.rc` + `GetBodyFromEmotion` — see §4.1 above. |
+| Sentence-start (not message-start) anchoring | `GetNextSentenceStart` in `textpose.cpp`. |
+| Emotional torsos | Torso records carry expression poses, not just gestures; `bodyForPose` picks gesture → expression stance → cycling neutrals. See the character-assets section. |
+| Wordless reactions, re-posed in place | `AddReaction` / `ReplaceBody` — a reaction by someone already in the panel does *not* break it. `{ type: 'reaction' }`. |
+| Author-forced panel breaks | The `<Brk>` token, reached by sending an empty message. `{ type: 'break' }`; the log parser emits one per blank line. |
+| The "starring" cast panel | `AddStars`, ordered by a per-avatar speech tally. `renderStripSvg(..., { credits: true })`. |
+| Per-panel deterministic seeding | `m_seed = rand()` per panel, with `srand(m_seed)` before every draw — the same design as our `rng.ts`, independently arrived at. |
+
+**Still in the program, not adopted.** Judged not worth the change, or worth a look later:
+
+- **Listener-presence breaks.** `AvatarInPanel` checks whether the speaker is in the last panel *as a body at all* — so a silent listener who replies always starts a fresh panel. Adopting it would raise the panel count noticeably and shift the tuned pacing of seeded comics; our rule (same author already *spoke*) is looser and closer to the paper's wording.
+- **Wider tail channels.** `MINROUTEWIDTH` is ~6.2% of panel width against our `minTailChannelWidth` ~3.5%.
+- **Uniformly random balloon widths.** `GetCloudEstimate` draws the width uniformly between narrowest-feasible and full width; a knob to reach for if strips ever look too regular.
+
+---
+
 ## Not implemented in v0.1
 
 | Feature | Paper | Status |
 |---|---|---|
-| Shout balloons (§5.1) | jagged outline | Laid out identically to `speech`. The reference renderer draws the jagged outline; the paper notes these were unimplemented in the original. |
 | Thought balloons (§5.1) | tail as a chain of ovals | Laid out, and drawn by the reference renderer with the oval-chain tail. |
-| Semantic elements / Greek Chorus (§6.3) | keyword-triggered backdrop swaps, overlay objects, a commenting meta-character | Not started. Content-heavy and opt-in by design; a natural v0.2 extension point. |
+| Semantic elements / Greek Chorus (§6.3) | keyword-triggered backdrop swaps, overlay objects, a commenting meta-character | Not started. Content-heavy and opt-in by design; a natural v0.2 extension point. The one such hack in the shipped source (`semantic.cpp`) was a SIGGRAPH-demo easter egg, commented out of v2.5's `AddLine`. |
+| Per-viewer views (§7) | whispers visible only to those involved; the join shot is per-recipient | Inherent to composing one shared view of a conversation. Whispers are drawn for everyone, and `per-join` establishing shots are per-join rather than per-viewer. |
+| Emote intensity | the emotion wheel's radius | The builder captures it per row, but inference and the manifest ignore it. The original mapped fractional intensity onto per-intensity art records (with a `< 0.2` snap-to-neutral detente) — worth revisiting only when the asset set has per-intensity sprites. |
 
 ---
 
@@ -234,7 +317,7 @@ After Microsoft open-sourced Comic Chat (July 2026), several independent reimple
 - Their `QueryRoute` uses `max(Ri.l + t, xi)` and pushes the new channel clear of the prior speaker — which is what our `maxAllowable` now does, after the cross-check caught an inner `min` that should have been `max`.
 - Their `pairRating` uses the same **40 / 4 / 2** facing weights as our `scorePair`, independently confirming the §4.3 numbers.
 
-Their **camera** (`panel.cpp`) is *simpler* than the paper: `zoomFactor = unitWidth / sumWidth` capped by a head factor, snapped to 1 below 1.1×. The v1.0 source never implemented the paper's neck/ankle/knee caveats — so this library's §6.2 head-anchored model is actually closer to the paper's stated rules than the original code was.
+Their **camera** (`panel.cpp`) is *simpler* than the paper: `zoomFactor = unitWidth / sumWidth` capped by a head factor, snapped to 1 below 1.1×. The v1.0 source never implemented the paper's neck/ankle/knee caveats — so this library's §6.2 head-anchored model is actually closer to the paper's stated rules than the original code was. (Confirmed directly against the released source; see [The program vs. the paper](#the-program-vs-the-paper).)
 
 **[gyng/comicchat](https://github.com/gyng/comicchat)** (the most-starred reimplementation, predating the open-sourcing) is a "quick and dirty" web app that approximates the look without the routing-channel algorithm.
 
