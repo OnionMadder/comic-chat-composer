@@ -295,6 +295,99 @@ describe('compose', () => {
     );
   });
 
+  it('lands a reaction in the panel it is reacting to', () => {
+    // A wordless reaction from someone already in frame replaces their pose in
+    // place — it must NOT break to a new panel, or the beat loses its target.
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'join', author: 'bob', at: 1 },
+        { type: 'message', author: 'alice', text: 'I ate the last one', at: 2, addressees: ['bob'] },
+        { type: 'reaction', author: 'bob', expression: 'angry', at: 3 },
+      ],
+      cast,
+      backdrops,
+      seed: 4,
+      rules: { establishingShots: 'off' },
+    });
+    const panel = panels.find((p) => p.balloons.some((b) => b.text.includes('ATE THE LAST')))!;
+    assert.ok(panel, 'the line still composes');
+    const reactor = panel.characters.find((c) => c.author === 'bob')!;
+    assert.equal(reactor.expression, 'angry', 'bob reacts inside the same panel');
+  });
+
+  it('lets a reaction override the pose the speaker would have drawn', () => {
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        // "I'll" would infer point-self...
+        { type: 'message', author: 'alice', text: "I'll do it", at: 1 },
+        // ...but the reaction wins.
+        { type: 'reaction', author: 'alice', gesture: 'shrug', expression: 'bored', at: 2 },
+      ],
+      cast,
+      backdrops,
+      seed: 4,
+      rules: { establishingShots: 'off' },
+    });
+    const alice = panels.flatMap((p) => p.characters).find((c) => c.author === 'alice')!;
+    assert.equal(alice.gesture, 'shrug');
+    assert.equal(alice.expression, 'bored');
+  });
+
+  it('emits a panel for a reaction with no dialogue at all', () => {
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'reaction', author: 'alice', expression: 'scared', at: 1 },
+      ],
+      cast,
+      backdrops,
+      seed: 4,
+      rules: { establishingShots: 'off' },
+    });
+    assert.equal(panels.length, 1, 'a silent reaction is still a beat worth drawing');
+    assert.equal(panels[0]!.balloons.length, 0);
+    assert.equal(panels[0]!.characters[0]!.expression, 'scared');
+  });
+
+  it('closes the panel on an explicit break event', () => {
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'join', author: 'bob', at: 1 },
+        { type: 'message', author: 'alice', text: 'first beat', at: 2 },
+        { type: 'break', at: 3 },
+        { type: 'message', author: 'bob', text: 'second beat', at: 4 },
+      ],
+      cast,
+      backdrops,
+      seed: 4,
+      rules: { establishingShots: 'off' },
+    });
+    const first = panels.find((p) => p.balloons.some((b) => b.text.includes('FIRST')))!;
+    assert.ok(
+      !first.balloons.some((b) => b.text.includes('SECOND')),
+      'the break must keep the two beats in separate panels',
+    );
+  });
+
+  it('ignores a break that would produce an empty panel', () => {
+    const panels = compose({
+      events: [
+        { type: 'join', author: 'alice', at: 0 },
+        { type: 'break', at: 1 },
+        { type: 'break', at: 2 },
+        { type: 'message', author: 'alice', text: 'hello', at: 3 },
+      ],
+      cast,
+      backdrops,
+      seed: 4,
+      rules: { establishingShots: 'off' },
+    });
+    assert.equal(panels.length, 1);
+  });
+
   it('does not infer an addressee from a bare mid-sentence mention', () => {
     // A participant named with a common word ("will") must not be pulled in —
     // or faced — just because the word appears inside a sentence.

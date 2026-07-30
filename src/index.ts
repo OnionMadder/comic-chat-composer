@@ -93,7 +93,7 @@ export {
   type CameraOptions,
 } from './camera.ts';
 
-export { isMessageEvent, isPresenceEvent } from './types.ts';
+export { isMessageEvent, isPresenceEvent, isReactionEvent } from './types.ts';
 
 export type {
   BalloonKind,
@@ -108,8 +108,10 @@ export type {
   MessageEvent,
   Panel,
   PanelBalloon,
+  PanelBreakEvent,
   PanelCharacter,
   PresenceEvent,
+  ReactionEvent,
   Rules,
   Zoom,
 } from './types.ts';

@@ -33,7 +33,7 @@ import { placeCharacters, type Placement } from './placement.ts';
 import { inferPose, isShoutText, type Pose } from './pose.ts';
 import { createRandom, seededIndex, type Random } from './rng.ts';
 import { createApproximateMetrics, type FontMetrics } from './text.ts';
-import { isPresenceEvent } from './types.ts';
+import { isPresenceEvent, isReactionEvent } from './types.ts';
 import type {
   BalloonKind,
   Camera,
@@ -41,10 +41,12 @@ import type {
   ChatEvent,
   Expression,
   FacingPenalties,
+  Gesture,
   MessageEvent,
   Panel,
   PanelBalloon,
   PanelCharacter,
+  ReactionEvent,
   Rules,
   Zoom,
 } from './types.ts';
@@ -115,6 +117,14 @@ interface PanelState {
   addresseesOf: Map<string, string[]>;
   expressionOf: Map<string, Expression>;
   gestureOf: Map<string, PendingUtterance>;
+  /**
+   * Poses set by a wordless reaction. These override whatever the character's
+   * own utterance would have drawn, so a reaction lands in the panel it is
+   * reacting to.
+   */
+  reactionOf: Map<string, { expression?: Expression; gesture?: Gesture }>;
+  /** True once a reaction has given this panel content of its own. */
+  hasReaction: boolean;
   forceEstablishing: boolean;
   /** True once the solo-panel roll has been made for this panel. */
   soloRolled: boolean;
@@ -129,6 +139,8 @@ function emptyPanelState(): PanelState {
     addresseesOf: new Map(),
     expressionOf: new Map(),
     gestureOf: new Map(),
+    reactionOf: new Map(),
+    hasReaction: false,
     forceEstablishing: false,
     soloRolled: false,
     solo: false,
@@ -357,7 +369,7 @@ export function compose(input: ComposeInput): Panel[] {
   };
 
   const flush = (): void => {
-    if (state.utterances.length === 0) {
+    if (state.utterances.length === 0 && !state.hasReaction) {
       // An empty panel is only ever emitted as a standalone establishing shot,
       // and only under the paper-faithful 'per-join' policy. Under 'fold' the
       // establishing frame waits for a line (so it's never blank); under 'off'
@@ -387,13 +399,16 @@ export function compose(input: ComposeInput): Panel[] {
 
     const characters: PanelCharacter[] = placements.map((p) => {
       const utterance = state.gestureOf.get(p.author);
+      // A wordless reaction outranks the pose the character's own line would
+      // have drawn — that is the whole point of reacting.
+      const reaction = state.reactionOf.get(p.author);
       return {
         author: p.author,
         characterId: input.cast[p.author]?.characterId ?? 'unknown',
         x: p.x,
         facing: p.facing,
-        gesture: utterance?.pose.gesture ?? 'neutral',
-        expression: state.expressionOf.get(p.author) ?? 'neutral',
+        gesture: reaction?.gesture ?? utterance?.pose.gesture ?? 'neutral',
+        expression: reaction?.expression ?? state.expressionOf.get(p.author) ?? 'neutral',
         // Silent bystanders hold their most recent variant so they don't
         // snap back to pose 0 whenever someone else is talking.
         poseVariant: utterance?.pose.neutralVariant ?? neutralVariantOf.get(p.author) ?? 0,
@@ -424,6 +439,8 @@ export function compose(input: ComposeInput): Panel[] {
     addresseesOf: new Map(s.addresseesOf),
     expressionOf: new Map(s.expressionOf),
     gestureOf: new Map(s.gestureOf),
+    reactionOf: new Map(s.reactionOf),
+    hasReaction: s.hasReaction,
     forceEstablishing: s.forceEstablishing,
     soloRolled: s.soloRolled,
     solo: s.solo,
@@ -573,7 +590,45 @@ export function compose(input: ComposeInput): Panel[] {
     }
   };
 
+  /**
+   * Add a wordless reaction (§4.1/§4.2).
+   *
+   * Unlike speech, a reaction from someone **already in the panel** does not
+   * break: it replaces their pose where they stand, so the beat reads as a
+   * response to what is in frame. (The shipped client did exactly this, with a
+   * dedicated `ReplaceBody` path — reactions were the one thing that could
+   * change a drawn character without starting a new panel.) A reaction from
+   * someone not yet in frame joins the panel, breaking only if the panel is
+   * solo or already at the character cap.
+   */
+  const pushReaction = (event: ReactionEvent): void => {
+    const addressees = (event.addressees ?? []).filter((a) => a !== event.author);
+
+    if (!state.order.includes(event.author)) {
+      const incoming = new Set([...state.order, event.author, ...addressees]);
+      if (state.solo || incoming.size > rules.maxCharactersPerPanel) flush();
+      state.order.push(event.author);
+    }
+    if (!state.solo) {
+      for (const a of addressees) {
+        if (!state.order.includes(a)) state.order.push(a);
+      }
+    }
+    if (addressees.length > 0) state.addresseesOf.set(event.author, addressees);
+
+    state.reactionOf.set(event.author, {
+      expression: event.expression,
+      gesture: event.gesture,
+    });
+    state.hasReaction = true;
+  };
+
   for (const event of input.events) {
+    if (event.type === 'break') {
+      flush();
+      continue;
+    }
+
     if (isPresenceEvent(event)) {
       if (event.type === 'leave') {
         knownParticipants.delete(event.author);
@@ -590,6 +645,12 @@ export function compose(input: ComposeInput): Panel[] {
         state.forceEstablishing = true;
         if (rules.establishingShots === 'per-join') flush();
       }
+      continue;
+    }
+
+    if (isReactionEvent(event)) {
+      knownParticipants.add(event.author);
+      pushReaction(event);
       continue;
     }
 

@@ -87,6 +87,59 @@ describe('parseLog', () => {
     assert.deepEqual(authors, []);
   });
 
+  it('reads a hinted line with no text as a wordless reaction', () => {
+    const { events } = parseLog('alice: I ate it\nbob (angry):');
+    const reaction = events.find((e) => e.type === 'reaction');
+    assert.ok(reaction, 'a hint-only line becomes a reaction, not an empty balloon');
+    assert.equal(reaction.author, 'bob');
+    assert.equal(reaction.expression, 'angry');
+    // Still joins first, so the composer knows they are in the scene.
+    assert.ok(events.some((e) => e.type === 'join' && e.author === 'bob'));
+  });
+
+  it('carries an addressee and a gesture into a reaction', () => {
+    const { events } = parseLog('alice: well?\nbob -> alice (shrug):');
+    const reaction = events.find((e) => e.type === 'reaction')!;
+    assert.equal(reaction.gesture, 'shrug');
+    assert.deepEqual(reaction.addressees, ['alice']);
+  });
+
+  it('skips a line with neither text nor hints', () => {
+    const { events } = parseLog('alice: hi\nbob:');
+    assert.equal(events.filter((e) => e.type === 'reaction').length, 0);
+    assert.equal(events.filter((e) => e.type === 'message').length, 1);
+  });
+
+  it('turns a blank line into a panel break', () => {
+    const { events } = parseLog('alice: one\n\nalice: two');
+    const kinds = events.map((e) => e.type);
+    assert.deepEqual(kinds, ['join', 'message', 'break', 'message']);
+  });
+
+  it('collapses blank-line runs and drops leading and trailing ones', () => {
+    // Blank lines used for spacing must not emit a pile of empty breaks, and a
+    // break with no panel after it should leave no trace.
+    const { events } = parseLog('\n\nalice: one\n\n\n\nalice: two\n\n');
+    assert.equal(events.filter((e) => e.type === 'break').length, 1);
+    assert.notEqual(events[events.length - 1]!.type, 'break');
+  });
+
+  it('breaks the panel where the author asked', () => {
+    const script = 'alice: one\nbob: two\n\nalice: three\nbob: four';
+    const { events, authors } = parseLog(script);
+    const panels = compose({
+      events,
+      cast: Object.fromEntries(authors.map((a) => [a, { characterId: 'nib' }])),
+      backdrops: ['room'],
+      seed: 7,
+      rules: { establishingShots: 'off' },
+    });
+    const withText = panels.filter((p) => p.balloons.length > 0);
+    // "three" must open a panel rather than joining the one "one"/"two" formed.
+    const three = withText.find((p) => p.balloons.some((b) => b.text.includes('THREE')))!;
+    assert.ok(!three.balloons.some((b) => b.text.includes('ONE')));
+  });
+
   it('feeds the composer directly', () => {
     const { events, authors } = parseLog(
       'alice: Hi Bob!\nbob -> alice: hey, LOL\n* alice waves',

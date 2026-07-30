@@ -149,6 +149,7 @@ const html = `<!doctype html>
               ${hintLine('emotions', HINT_WORDS.expressions)}
               ${hintLine('gestures', HINT_WORDS.gestures)}
               ${hintLine('balloon', HINT_WORDS.kinds)}
+              <p style="margin:9px 0 0"><code>bob (angry):</code> with no text &mdash; a wordless reaction, posed in the panel they're reacting to. A <b>blank line</b> ends the panel.</p>
               <p style="margin:9px 0 0;color:var(--dim)">Emoticons, <code>LOL</code>/<code>IMHO</code> and ALL-CAPS are still detected automatically when you don't give a hint.</p>
             </div>
           </details>
@@ -168,6 +169,7 @@ const html = `<!doctype html>
       <div class="setting"><label>Title &mdash; shown on exports</label><input id="title" type="text" maxlength="80" placeholder="Name your comic"></div>
       <div class="setting"><label>Subtitle &mdash; optional byline</label><input id="subtitle" type="text" maxlength="100" placeholder="by you"></div>
       <div class="setting"><label>Save strip &mdash; columns</label><input id="cols" type="number" min="1" max="8" value="3"></div>
+      <label class="toggle"><input id="credits" type="checkbox"> Add a &ldquo;starring&rdquo; cast panel</label>
       <div class="exports"><button id="dl-png" class="btn primary">Download PNG</button><button id="dl-svg" class="btn">SVG</button></div>
       <button id="share" class="btn share-btn">&#128279; Copy share link</button>
     </div></div>

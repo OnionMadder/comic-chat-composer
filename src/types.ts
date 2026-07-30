@@ -97,7 +97,44 @@ export interface PresenceEvent {
   at: number;
 }
 
-export type ChatEvent = MessageEvent | PresenceEvent;
+/**
+ * A wordless reaction: a pose with no balloon (§4.1/§4.2).
+ *
+ * The paper notes gestures and expressions may be "transmitted with or without
+ * accompanying text", and that when a participant reacts without speaking "the
+ * system must show this as well". The shipped client sent these from the
+ * self-view's *Send Expression* command, and treated them unlike speech: a
+ * reaction by someone **already in the panel replaces their body in place**
+ * rather than breaking to a new panel, so a nod or an eye-roll lands in the
+ * frame it is reacting to.
+ */
+export interface ReactionEvent {
+  type: 'reaction';
+  author: string;
+  /** The face to pull. At least one of this or {@link gesture} should be set. */
+  expression?: Expression;
+  /** The body to strike. */
+  gesture?: Gesture;
+  /** Who the reaction is aimed at, for facing purposes. */
+  addressees?: string[];
+  at: number;
+}
+
+/**
+ * An explicit panel break: close the panel here, whatever the rules would
+ * otherwise decide.
+ *
+ * The shipped client had this too, and reached it the same way an author
+ * naturally would — it turned an **empty message** into its internal `<Brk>`
+ * token, so pressing Enter on a blank line ended the panel. It is the one bit
+ * of manual control over pacing that composition rules cannot express.
+ */
+export interface PanelBreakEvent {
+  type: 'break';
+  at: number;
+}
+
+export type ChatEvent = MessageEvent | PresenceEvent | ReactionEvent | PanelBreakEvent;
 
 /**
  * Narrow a {@link ChatEvent} to a {@link MessageEvent}.
@@ -115,6 +152,11 @@ export function isMessageEvent(event: ChatEvent): event is MessageEvent {
 /** Narrow a {@link ChatEvent} to a {@link PresenceEvent}. See {@link isMessageEvent}. */
 export function isPresenceEvent(event: ChatEvent): event is PresenceEvent {
   return event.type === 'join' || event.type === 'leave';
+}
+
+/** Narrow a {@link ChatEvent} to a {@link ReactionEvent}. See {@link isMessageEvent}. */
+export function isReactionEvent(event: ChatEvent): event is ReactionEvent {
+  return event.type === 'reaction';
 }
 
 /** Maps a participant to the character art they use. */

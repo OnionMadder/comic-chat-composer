@@ -351,11 +351,13 @@ function currentStripSvg(): string | null {
   const subtitle = subtitleValue();
   // Never draw the layout guides into a saved image. A titled export gets the
   // credit line; a plain one stays clean.
+  const credits = ($('credits') as HTMLInputElement).checked;
   return renderStripSvg(currentPanels, renderOptions(false), {
     columns,
     title: title || undefined,
     subtitle: subtitle || undefined,
     credit: title || subtitle ? EXPORT_CREDIT : undefined,
+    credits,
   });
 }
 

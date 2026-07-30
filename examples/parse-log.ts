@@ -18,12 +18,20 @@
  * | `alice (whisper): psst`       | a whisper balloon                          |
  * | `alice (think): hmm`          | a thought balloon                          |
  * | `alice -> bob (sad): sorry`   | addressee and a hint together              |
+ * | `alice (angry):`              | a wordless reaction — a pose, no balloon   |
+ * | *(a blank line)*              | an explicit panel break                    |
  *
  * A parenthetical after the name (and optional `-> addressee`) carries one or
  * more comma-separated hints, each an emotion, a gesture, or a balloon kind
  * (see {@link HINT_WORDS}). A participant's first appearance emits a `join`
- * right before their first line, which triggers an establishing shot. Blank and
- * unrecognised lines are skipped.
+ * right before their first line, which triggers an establishing shot.
+ * Unrecognised lines are skipped.
+ *
+ * The last two forms mirror the original client: a hinted line with no text is
+ * its *Send Expression* command (the character reacts in the panel they are
+ * reacting to, without breaking it), and a blank line is its `<Brk>` — the
+ * client turned an empty message into a panel break, so an author could end a
+ * panel by pressing Enter twice.
  */
 
 import type { BalloonKind, ChatEvent, Expression, Gesture, MessageEvent } from '../src/types.ts';
@@ -112,7 +120,15 @@ export function parseLog(text: string): ParsedLog {
 
   for (const raw of text.split('\n')) {
     const line = raw.trim();
-    if (!line) continue;
+    if (!line) {
+      // A blank line ends the panel — but only once, and never before the
+      // comic has started, so ordinary blank-line spacing between beats does
+      // not emit a run of empty breaks.
+      if (events.length > 0 && events[events.length - 1]!.type !== 'break') {
+        events.push({ type: 'break', at: at++ });
+      }
+      continue;
+    }
 
     let event: MessageEvent | undefined;
 
@@ -135,8 +151,28 @@ export function parseLog(text: string): ParsedLog {
       authors.push(event.author);
       events.push({ type: 'join', author: event.author, at: at++ });
     }
+
+    // A hinted line with no text is a wordless reaction, not an empty balloon.
+    if (event.type === 'message' && event.text.trim() === '') {
+      const { expressionOverride, gestureOverride, addressees } = event;
+      if (expressionOverride === undefined && gestureOverride === undefined) continue;
+      events.push({
+        type: 'reaction',
+        author: event.author,
+        ...(expressionOverride !== undefined ? { expression: expressionOverride } : {}),
+        ...(gestureOverride !== undefined ? { gesture: gestureOverride } : {}),
+        ...(addressees !== undefined ? { addressees } : {}),
+        at: at++,
+      });
+      continue;
+    }
+
     events.push({ ...event, at: at++ });
   }
+
+  // A break with nothing after it would compose to nothing; drop it so
+  // trailing blank lines leave no trace in the event stream.
+  while (events.length > 0 && events[events.length - 1]!.type === 'break') events.pop();
 
   return { events, authors };
 }

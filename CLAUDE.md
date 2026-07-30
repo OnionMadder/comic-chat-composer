@@ -36,7 +36,11 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
 **The library — `src/`** (pixel-free; emits a layout tree):
 - `compose.ts` — the orchestrator. Event stream → `Panel[]`. Owns gesture/
   expression inference dispatch, balloon-kind selection (incl. auto-shout for
-  yelled lines), character-inclusion + panel-break rules, the solo-panel roll,
+  yelled lines), character-inclusion + panel-break rules, **wordless reactions**
+  (`{type:'reaction'}` — a pose with no balloon; someone already in frame is
+  re-posed *in place* rather than breaking, as the shipped client's
+  `ReplaceBody` did) and **explicit breaks** (`{type:'break'}`, the client's
+  `<Brk>`; the log parser emits one for a blank line), the solo-panel roll,
   establishing-shot policy (`rules.establishingShots`: `fold` default / `per-join`
   / `off`), one-scene-per-conversation backdrop choice, and assembling each panel.
 - `placement.ts` — §4.3 greedy character placement + the Facing/Neighbors
@@ -85,7 +89,12 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   tuned to compose to exactly **6 panels** (`TARGET_PANELS`; a 2×3 download
   grid) — a compose-in-the-loop pass appends seeded reaction beats or trims a
   mid line. Only the seed roll is tuned; user-authored edits keep any count.
-- `strip.ts` — tiles panels into one downloadable strip SVG.
+- `strip.ts` — tiles panels into one downloadable strip SVG; optional title band
+  and a **"starring" cast panel** (`credits: true`), the original's `AddStars`
+  curtain call — cast waving, ordered by how much each spoke, captioned
+  "nickname as Character". Note nested `<svg x/y>` tiles: browsers position them
+  correctly, but PyMuPDF ignores x/y and stacks every tile at the origin — check
+  strip output in a browser (headless Chrome `--screenshot` works).
 - `load-assets.ts` — loads manifests + inlines sprite/backdrop markup.
 - `demo/` — the web demo. `build.ts` bundles `main.ts` → `app.js` (ESM, sprites
   inlined via esbuild `define`) and generates `index.html`; `style.css` is a
