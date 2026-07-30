@@ -46,8 +46,17 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   reading order, tails, and oversized-text splitting.
 - `camera.ts` — §6.2 virtual camera. Head-anchored framing; crops at shoulders/
   knees/full body, never the neck or ankles; pulls back for establishing shots.
-- `pose.ts` — §4.1 gesture/expression inference (emoticons, LOL/IMHO/BRB, ALL-
-  CAPS/!!! shouting, greetings, self/other references, neutral cycling).
+- `pose.ts` — §4.1 gesture/expression inference, as a **data-driven rule
+  table** the way the original was (its rules lived in localizable `chat.rc`
+  string resources). Each rule is matcher (`all-caps`/`find`/`word`/`start`) ×
+  cue × **strength**; the strongest match fills the expression and the gesture
+  slot *independently*, so one line can laugh and point at once.
+  `SHIPPED_POSE_RULES` is Microsoft's table transcribed verbatim (laughter 11 >
+  emoticons 10 > shouting 9 > "are you" 8 > "i'm" 7 > greetings 5–2 — which
+  answers the priority question the paper leaves open); `EXTRA_POSE_RULES` adds
+  emoji, later acronyms, more openers, and rules for angry/scared/bored, which
+  **no released version could trigger from text at all**. Callers can pass
+  their own table via `inferPose(text, { rules })`.
 - `manifest.ts` — character asset schema + validation. Two kinds: **layered**
   (heads-by-emotion × bodies keyed by **gesture or expression** — the original
   art ships emotional torsos: angry stances, laughing slumps, scared cowers)

@@ -312,7 +312,7 @@
         "facing": "right",
         "gesture": "neutral",
         "expression": "happy",
-        "poseVariant": 0
+        "poseVariant": 1
       },
       {
         "author": "cara",
@@ -428,7 +428,7 @@
         "facing": "right",
         "gesture": "neutral",
         "expression": "neutral",
-        "poseVariant": 0
+        "poseVariant": 1
       },
       {
         "author": "bob",
@@ -553,7 +553,7 @@
         "characterId": "nib",
         "x": 200,
         "facing": "left",
-        "gesture": "wave",
+        "gesture": "point-other",
         "expression": "neutral",
         "poseVariant": 0
       },
@@ -564,7 +564,7 @@
         "facing": "left",
         "gesture": "neutral",
         "expression": "neutral",
-        "poseVariant": 1
+        "poseVariant": 0
       }
     ],
     "balloons": [

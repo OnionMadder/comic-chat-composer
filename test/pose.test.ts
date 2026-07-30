@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { inferPose, isShoutText } from '../src/pose.ts';
+import { inferPose, isShoutText, SHIPPED_POSE_RULES } from '../src/pose.ts';
 
 describe('inferPose', () => {
   it('reads emoticons as expressions', () => {
@@ -72,9 +72,64 @@ describe('inferPose', () => {
     assert.equal(inferPose('You did this').gesture, 'point-other');
   });
 
-  it('only fires anchored rules at the start of the message', () => {
+  it('only fires start rules at a sentence start', () => {
     // "Hi" mid-sentence must not trigger a wave.
     assert.equal(inferPose('she said Hi to me').gesture, 'neutral');
+  });
+
+  it('fires start rules at every sentence, not just the first', () => {
+    // The shipped client walked each sentence start, so a pronoun opening the
+    // second sentence still points.
+    assert.equal(inferPose('Well. I think so.').gesture, 'point-self');
+    assert.equal(inferPose('Sure thing! You go first.').gesture, 'point-other');
+  });
+
+  it('fires phrase forms anywhere in the message', () => {
+    // These multi-word cues are unambiguous mid-sentence, and the shipped
+    // table matched them as words rather than sentence openers. Anchoring them
+    // to the message start meant an ordinary question never pointed.
+    assert.equal(inferPose('how are you?').gesture, 'point-other');
+    assert.equal(inferPose('so what will you do about it').gesture, 'point-other');
+    assert.equal(inferPose("honestly I'm not sure").gesture, 'point-self');
+  });
+
+  it('resolves competing cues by strength', () => {
+    // The paper flags "Hi Sue, how are you?" as suggesting both a wave and a
+    // point; the shipped strengths settle it — "are you" (8) over "Hi" (2).
+    assert.equal(inferPose('Hi Sue, how are you?').gesture, 'point-other');
+    // Laughter (11) outranks all-caps shouting (9) for the face.
+    assert.equal(inferPose('LOL THAT RULES').expression, 'laughing');
+    // ...though the balloon is still a shout, which is the point of keeping
+    // isShoutText independent of the expression.
+    assert.equal(isShoutText('LOL THAT RULES'), true);
+  });
+
+  it('fills the expression and the gesture from separate cues', () => {
+    // One message, two slots: the strongest expression cue and the strongest
+    // gesture cue each win their own slot, as in the original's face/torso fill.
+    const pose = inferPose('Are you OK? LOL');
+    assert.equal(pose.expression, 'laughing');
+    assert.equal(pose.gesture, 'point-other');
+  });
+
+  it('accepts a caller-supplied rule table', () => {
+    const rules = [
+      { match: 'word' as const, text: 'banana', expression: 'happy' as const, strength: 5 },
+    ];
+    assert.equal(inferPose('banana', { rules }).expression, 'happy');
+    // ...and nothing else fires, since the default table is replaced entirely.
+    assert.equal(inferPose('LOL', { rules }).expression, 'neutral');
+  });
+
+  it('reproduces the shipped table on its own', () => {
+    const shipped = { rules: SHIPPED_POSE_RULES };
+    assert.equal(inferPose('LOL', shipped).expression, 'laughing');
+    assert.equal(inferPose('Howdy folks', shipped).gesture, 'wave');
+    // No angry, scared or bored rule existed in any released version, so an
+    // angry emoticon came out *sad* — its `:(` tail matched the frown rule and
+    // nothing outranked it. Our extra rules are what make it angry.
+    assert.equal(inferPose('seriously >:(', shipped).expression, 'sad');
+    assert.equal(inferPose('seriously >:(').expression, 'angry');
   });
 
   it('lets explicit overrides win over inference', () => {
@@ -83,7 +138,7 @@ describe('inferPose', () => {
     assert.equal(pose.gesture, 'shrug');
   });
 
-  it('cycles neutral variants when nothing triggers a gesture', () => {
+  it('cycles neutral variants when nothing at all is inferred', () => {
     const a = inferPose('the weather is fine', { previousNeutralVariant: 0, neutralPoseCount: 3 });
     const b = inferPose('so it is', { previousNeutralVariant: a.neutralVariant, neutralPoseCount: 3 });
     assert.notEqual(a.neutralVariant, b.neutralVariant);
@@ -92,6 +147,13 @@ describe('inferPose', () => {
   it('holds the neutral variant steady when a gesture does fire', () => {
     const pose = inferPose('Hi there', { previousNeutralVariant: 2, neutralPoseCount: 3 });
     assert.equal(pose.neutralVariant, 2);
+  });
+
+  it('holds the neutral variant steady for an expression-only line', () => {
+    // An expression gives the character an emotional torso via `bodyForPose`,
+    // so the neutral cycle should not advance underneath it.
+    const pose = inferPose('oh no :-(', { previousNeutralVariant: 1, neutralPoseCount: 3 });
+    assert.equal(pose.neutralVariant, 1);
   });
 });
 

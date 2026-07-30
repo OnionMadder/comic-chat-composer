@@ -17,7 +17,17 @@
 
 export { compose, DEFAULT_RULES, DEFAULT_FACING_PENALTIES, type ComposeInput } from './compose.ts';
 
-export { inferPose, type Pose, type InferPoseOptions } from './pose.ts';
+export {
+  inferPose,
+  isShoutText,
+  DEFAULT_POSE_RULES,
+  SHIPPED_POSE_RULES,
+  EXTRA_POSE_RULES,
+  type Pose,
+  type InferPoseOptions,
+  type PoseRule,
+  type PoseMatcher,
+} from './pose.ts';
 
 export {
   placeCharacters,
