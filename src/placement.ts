@@ -11,6 +11,9 @@
  * *not* facing the character they addressed. Everything else is single digits,
  * so in practice "face the person you are talking to" wins, and the remaining
  * weights break ties.
+ *
+ * The six weights are the paper's, and match the shipped C++ (`EvalPair` in
+ * `panel.cpp`) exactly.
  */
 
 import type { Facing, FacingPenalties } from './types.ts';
@@ -56,13 +59,20 @@ function scorePair(
   const bFacesA = isFacing(b, a);
 
   let s = 0;
-  if (!aAddressedB) {
-    if (!aFacesB) s += w.notAddrNotFacing;
-    if (!bFacesA) s += w.notAddrOtherNotFacing;
-  } else {
+  if (aAddressedB) {
     if (!bFacesA) s += w.addrOtherNotFacing;
     if (!aFacesB) s += w.addrNotFacing;
     s += w.addrBetweenFactor * between;
+  } else if (addressed.length === 0) {
+    // The paper's first two weights are for a speaker who "has not addressed
+    // his utterance" — a general statement to the room, where it is worth
+    // facing anyone. They must not apply to the *bystanders* of a directed
+    // utterance: testing "did not address b" instead of "addressed nobody"
+    // made a speaker who is talking to one character also pay for turning
+    // away from everyone else, which pulled them round to face the crowd
+    // rather than committing to their addressee.
+    if (!aFacesB) s += w.notAddrNotFacing;
+    if (!bFacesA) s += w.notAddrOtherNotFacing;
   }
   return s;
 }
@@ -83,18 +93,67 @@ function scoreConfiguration(
   return total;
 }
 
-/** The `Neighbors` term: one point per character that moved since last panel. */
+/** Who stood immediately left and right of each character, by x order. */
+function neighborsByAuthor(
+  entries: readonly { author: string; x: number }[],
+): Map<string, { left: string | null; right: string | null }> {
+  const sorted = [...entries].sort((p, q) => p.x - q.x);
+  const map = new Map<string, { left: string | null; right: string | null }>();
+  sorted.forEach((p, i) => {
+    map.set(p.author, {
+      left: sorted[i - 1]?.author ?? null,
+      right: sorted[i + 1]?.author ?? null,
+    });
+  });
+  return map;
+}
+
+/**
+ * The `Neighbors` term: one point per side whose occupant changed since the
+ * previous panel — the paper counts, for a character's left and right
+ * neighbours, "each of these that is different from the character last
+ * appearing there".
+ *
+ * Comparing *identities* rather than x coordinates matters because the slots
+ * are evenly spread across the panel width: any change in cast size shifts
+ * every x at once, so a coordinate-based term fires for everyone uniformly and
+ * exerts no preference at all — precisely when a character joins or leaves,
+ * which is when panel-to-panel stability is worth the most. Neighbour identity
+ * keeps the cast's relative order stable across those changes instead.
+ */
 function neighborPenalty(
   config: readonly Placement[],
   previousPositions: ReadonlyMap<string, number>,
   w: FacingPenalties,
 ): number {
+  if (previousPositions.size === 0) return 0;
+
+  const before = neighborsByAuthor(
+    [...previousPositions].map(([author, x]) => ({ author, x })),
+  );
+  const now = neighborsByAuthor(config);
+
   let total = 0;
   for (const p of config) {
-    const prev = previousPositions.get(p.author);
-    if (prev !== undefined && Math.abs(prev - p.x) > 1e-6) total += w.neighborChange;
+    const wasThere = before.get(p.author);
+    if (!wasThere) continue; // no history for a newcomer — nothing to preserve
+    const isThere = now.get(p.author)!;
+    // A neighbour who has left the panel entirely is not a "change" the
+    // seating can do anything about; only compare against characters still
+    // present, so the term keeps ranking the orderings we can actually choose.
+    if (wasThere.left !== isThere.left && stillPresent(wasThere.left, config)) {
+      total += w.neighborChange;
+    }
+    if (wasThere.right !== isThere.right && stillPresent(wasThere.right, config)) {
+      total += w.neighborChange;
+    }
   }
   return total;
+}
+
+/** Whether a previous neighbour (or the panel edge) is still in this panel. */
+function stillPresent(author: string | null, config: readonly Placement[]): boolean {
+  return author === null || config.some((p) => p.author === author);
 }
 
 export interface PlaceCharactersOptions {

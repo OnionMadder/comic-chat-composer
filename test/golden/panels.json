@@ -317,7 +317,7 @@
       {
         "author": "cara",
         "characterId": "nib",
-        "x": 200,
+        "x": 300,
         "facing": "left",
         "gesture": "point-self",
         "expression": "neutral",
@@ -326,8 +326,8 @@
       {
         "author": "bob",
         "characterId": "nib",
-        "x": 300,
-        "facing": "left",
+        "x": 200,
+        "facing": "right",
         "gesture": "neutral",
         "expression": "neutral",
         "poseVariant": 1
@@ -342,12 +342,12 @@
           "NEVER",
           ":-)"
         ],
-        "x": 92.16998035265134,
+        "x": 70.07009469191544,
         "y": 7.5,
-        "width": 73.79999999999997,
+        "width": 73.79999999999998,
         "height": 48,
         "tail": {
-          "fromX": 103.35549279042074,
+          "fromX": 93,
           "fromY": 55.5,
           "toX": 100,
           "toY": 140.25,
@@ -363,16 +363,16 @@
         "lines": [
           "WE WERE ONLY WARMING UP"
         ],
-        "x": 130.86660139063008,
+        "x": 100,
         "y": 55.5,
-        "width": 267.40646394246073,
+        "width": 300,
         "height": 33,
         "tail": {
-          "fromX": 345.47137057941416,
+          "fromX": 193.2609640962377,
           "fromY": 88.5,
-          "toX": 300,
+          "toX": 200,
           "toY": 140.25,
-          "curve": "cw"
+          "curve": "ccw"
         },
         "readingOrder": 1,
         "continued": false
@@ -384,14 +384,14 @@
         "lines": [
           "I WONDER IF THEY MEAN IT"
         ],
-        "x": 107.08399693634388,
+        "x": 201.19135792894474,
         "y": 88.5,
-        "width": 173.49599999999995,
+        "width": 173.49599999999998,
         "height": 33,
         "tail": {
-          "fromX": 202.17203018502357,
+          "fromX": 296.27939117762446,
           "fromY": 121.5,
-          "toX": 200,
+          "toX": 300,
           "toY": 140.25,
           "curve": "cw"
         },
