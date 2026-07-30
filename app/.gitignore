@@ -1,0 +1,14 @@
+# Node
+node_modules/
+
+# Capacitor / Android build artifacts (the android/ project itself is kept)
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/
+android/local.properties
+*.keystore
+*.jks
+
+# Built web output (regenerated from src)
+www/app.js

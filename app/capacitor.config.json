@@ -1,0 +1,9 @@
+{
+  "appId": "com.onionmadder.mcomic96",
+  "appName": "mComic '96",
+  "webDir": "www",
+  "backgroundColor": "#08080b",
+  "android": {
+    "backgroundColor": "#08080b"
+  }
+}
