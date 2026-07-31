@@ -240,7 +240,7 @@ function renderFigure(
   characterHeight: number,
   haloId: string,
 ): string {
-  const figure = figureFor(manifest, c.expression, c.gesture, c.poseVariant);
+  const figure = figureFor(manifest, c.expression, c.gesture, c.poseVariant, c.dominant);
   const scale = characterHeight / figure.bounds.height;
   const tx = c.x - scale * figure.tailAnchor.x;
   const ty = groundY - scale * figure.bounds.height;

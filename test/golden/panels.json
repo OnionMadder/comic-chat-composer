@@ -26,7 +26,8 @@
         "facing": "left",
         "gesture": "wave",
         "expression": "happy",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "expression"
       }
     ],
     "balloons": [
@@ -73,7 +74,8 @@
         "facing": "right",
         "gesture": "wave",
         "expression": "laughing",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "expression"
       },
       {
         "author": "alice",
@@ -143,7 +145,8 @@
         "facing": "left",
         "gesture": "point-self",
         "expression": "shouting",
-        "poseVariant": 1
+        "poseVariant": 1,
+        "dominant": "expression"
       },
       {
         "author": "bob",
@@ -152,7 +155,8 @@
         "facing": "right",
         "gesture": "point-self",
         "expression": "neutral",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "gesture"
       }
     ],
     "balloons": [
@@ -219,7 +223,8 @@
         "facing": "left",
         "gesture": "wave",
         "expression": "neutral",
-        "poseVariant": 1
+        "poseVariant": 1,
+        "dominant": "gesture"
       }
     ],
     "balloons": [
@@ -265,7 +270,8 @@
         "facing": "left",
         "gesture": "point-other",
         "expression": "sad",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "expression"
       }
     ],
     "balloons": [
@@ -312,7 +318,8 @@
         "facing": "right",
         "gesture": "neutral",
         "expression": "happy",
-        "poseVariant": 1
+        "poseVariant": 1,
+        "dominant": "expression"
       },
       {
         "author": "cara",
@@ -321,7 +328,8 @@
         "facing": "left",
         "gesture": "point-self",
         "expression": "neutral",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "gesture"
       },
       {
         "author": "bob",
@@ -419,7 +427,8 @@
         "facing": "right",
         "gesture": "point-other",
         "expression": "shouting",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "expression"
       },
       {
         "author": "alice",
@@ -555,7 +564,8 @@
         "facing": "left",
         "gesture": "point-other",
         "expression": "neutral",
-        "poseVariant": 0
+        "poseVariant": 0,
+        "dominant": "gesture"
       },
       {
         "author": "alice",
