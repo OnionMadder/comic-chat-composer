@@ -126,7 +126,7 @@ const html = `<!doctype html>
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=${Date.now()}"></script>
 </body>
 </html>
 `;

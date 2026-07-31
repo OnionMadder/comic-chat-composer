@@ -20,6 +20,7 @@ import type {
   Expression,
   Gesture,
   Panel,
+  Rules,
 } from '../src/types.ts';
 import { generateConversation } from '../examples/generate.ts';
 import { parseLog } from '../examples/parse-log.ts';
@@ -38,8 +39,33 @@ const manifests = __MANIFESTS__;
 const spritesByChar = __SPRITES__;
 const backdrops = __BACKDROPS__;
 
+// Portrait panels for a phone: tall enough to give a character real presence
+// with the balloons stacked above, instead of a wide desktop strip where
+// everyone shrinks to a speck.
+// Square panels — matching the square Comic Chat backdrops exactly, so the scene
+// fills the frame with no crop or stretch and there's real vertical room.
 const PANEL_W = 400;
-const PANEL_H = 300;
+const PANEL_H = 400;
+
+// Characters stand *in* the square scene (identity camera — see paint()): feet
+// on the ground line like the original, filling the lower ~70% of the frame,
+// with the balloons in the band above. Faithful, and it renders reliably.
+const RENDER_CHAR_FRACTION = 0.72;
+const RENDER_BASELINE = 1.0;
+
+// Only the clean backdrops while we tune framing — the busy color rooms (Buck's
+// poster museum, the den) fight the characters on a small screen.
+const SCENES = ['room', 'field', 'pastoral'];
+
+const RULES: Partial<Rules> = {
+  panelWidth: PANEL_W,
+  panelHeight: PANEL_H,
+  // Up to three fit in a square scene without shrinking too far.
+  maxCharactersPerPanel: 3,
+  // Balloons in the top ~40%; characters stand below them.
+  balloonRegionFraction: 0.4,
+  establishingShots: 'off',
+};
 
 // Size balloons against a slightly wider advance than the default (which is
 // tuned for Comic Sans). Comic Neue — the font we bundle and render — runs a
@@ -66,6 +92,11 @@ function renderOptions(): RenderOptions {
     backdrops,
     panelWidth: PANEL_W,
     panelHeight: PANEL_H,
+    characterHeightFraction: RENDER_CHAR_FRACTION,
+    characterBaselineFraction: RENDER_BASELINE,
+    // Halo off: its zoom-nested filter is unreliable on device, and we render at
+    // identity now anyway. A device-safe aura can come back later.
+    halo: false,
   };
 }
 
@@ -126,44 +157,74 @@ function starter(seed: number): { cast: string[]; events: ChatEvent[]; scene: st
     const addressees = ev.addressees?.map((a) => cast.get(a) ?? a).filter((a) => castIds.includes(a));
     mapped.push({ ...ev, author, addressees });
   }
-  const scene = Object.keys(backdrops)[seed % Object.keys(backdrops).length] ?? '';
+  const scene = SCENES[seed % SCENES.length] ?? '';
   return { cast: castIds, events: mapped, scene };
 }
 
 // ---- Painting the comic ---------------------------------------------------
 
 let currentPanels: Panel[] = [];
+// How many panels are already in the DOM. New lines only ever *append* beyond
+// this, so an already-drawn panel is never re-rendered — the comic is a
+// transcript, not a live-recomposed document.
+let renderedCount = 0;
 
-function paint(): void {
-  const comic = $('comic');
+const EMPTY_HTML = `<div class="empty"><p>Tap a character, type a line, hit send.</p>
+  <p class="dim">Your conversation draws itself into a comic, panel by panel.</p></div>`;
+
+// Mobile render: flatten the §6.2 zoom camera to identity. The zoom transform
+// (scale 2× on the character layer) is what some device Chromes refuse to
+// paint; drawing characters at 1:1 like the live preview renders reliably.
+const FLAT_CAMERA = { x: 0, y: 0, width: PANEL_W, height: PANEL_H, scale: 1 } as const;
+
+/** Compose the whole event stream into panels. Deterministic for a fixed seed. */
+function composePanels(): Panel[] {
+  const hasContent = state.events.some((e) => e.type !== 'join' && e.type !== 'break');
+  if (!hasContent) {
+    currentPanels = [];
+    return [];
+  }
   const castMap: Record<string, CastEntry> = {};
   for (const id of state.cast) castMap[id] = { characterId: id };
-
-  const messages = state.events.filter((e) => e.type !== 'join').length;
-  if (messages === 0) {
-    currentPanels = [];
-    comic.innerHTML = `<div class="empty"><p>Tap a character, type a line, hit send.</p>
-      <p class="dim">Your conversation draws itself into a comic, panel by panel.</p></div>`;
-    return;
-  }
-
-  const panels = compose({
+  currentPanels = compose({
     events: state.events,
     cast: castMap,
     characterAssets: manifests,
     backdrops: state.scene ? [state.scene] : Object.keys(backdrops),
     seed: state.seed,
     metrics: METRICS,
-    rules: { panelWidth: PANEL_W, panelHeight: PANEL_H },
+    rules: RULES,
   });
-  currentPanels = panels;
+  return currentPanels;
+}
 
-  const opts = renderOptions();
-  comic.innerHTML = panels
-    .map((p) => `<figure class="panel">${renderPanelToSvg(p, opts)}</figure>`)
-    .join('');
-  // Newest beat sits at the bottom, above the thumb.
+const panelHtml = (p: Panel): string =>
+  `<figure class="panel">${renderPanelToSvg({ ...p, camera: FLAT_CAMERA }, renderOptions())}</figure>`;
+
+const scrollToNewest = (): void => {
+  const comic = $('comic');
   requestAnimationFrame(() => comic.scrollTo({ top: comic.scrollHeight, behavior: 'smooth' }));
+};
+
+/** Full rebuild — a fresh comic, an undo, anything that isn't a simple append. */
+function repaintAll(): void {
+  const comic = $('comic');
+  const panels = composePanels();
+  comic.innerHTML = panels.length ? panels.map(panelHtml).join('') : EMPTY_HTML;
+  renderedCount = panels.length;
+  if (panels.length) scrollToNewest();
+}
+
+/** Append only the panels a new line produced. Existing panels are untouched. */
+function appendPanels(): void {
+  const comic = $('comic');
+  const panels = composePanels();
+  if (renderedCount === 0) comic.innerHTML = ''; // clear the empty-state message
+  for (let i = renderedCount; i < panels.length; i++) {
+    comic.insertAdjacentHTML('beforeend', panelHtml(panels[i]!));
+  }
+  renderedCount = panels.length;
+  if (panels.length) scrollToNewest();
 }
 
 // ---- The compose bar ------------------------------------------------------
@@ -226,18 +287,24 @@ function send(): void {
   const input = $('text') as HTMLInputElement;
   const text = input.value.trim();
   const addressees = pending.addressee ? [pending.addressee] : undefined;
-  const at = state.events.length;
+
+  // Nothing to send: no words and no chosen pose.
+  if (!text && pending.expression === 'neutral' && pending.gesture === 'neutral') return;
+
+  // Close the previous panel so this line starts its own — an already-drawn
+  // panel never recomposes when the next line arrives.
+  const last = state.events[state.events.length - 1];
+  if (last && last.type !== 'break') state.events.push({ type: 'break', at: state.events.length });
 
   if (!text) {
-    // No words but a chosen pose → a wordless reaction, posed in place.
-    if (pending.expression === 'neutral' && pending.gesture === 'neutral') return;
+    // No words but a chosen pose → a wordless reaction.
     state.events.push({
       type: 'reaction',
       author: state.speaker,
       expression: pending.expression === 'neutral' ? undefined : pending.expression,
       gesture: pending.gesture === 'neutral' ? undefined : pending.gesture,
       addressees,
-      at,
+      at: state.events.length,
     });
   } else {
     const type = pending.kind === 'action' ? 'action' : 'message';
@@ -251,7 +318,7 @@ function send(): void {
       kind,
       expressionOverride: pending.expression === 'neutral' ? undefined : pending.expression,
       gestureOverride: pending.gesture === 'neutral' ? undefined : pending.gesture,
-      at,
+      at: state.events.length,
     });
   }
 
@@ -264,14 +331,18 @@ function send(): void {
   advanceSpeaker();
   renderCast();
   renderTray();
-  paint();
+  appendPanels();
   input.focus();
 }
 
 function undo(): void {
   if (!state.events.length) return;
-  state.events.pop();
-  paint();
+  state.events.pop(); // the line
+  // ...and the break that preceded it, so we don't leave a dangling separator.
+  while (state.events.length && state.events[state.events.length - 1]!.type === 'break') {
+    state.events.pop();
+  }
+  repaintAll();
 }
 
 // ---- Cast picker sheet ----------------------------------------------------
@@ -294,7 +365,8 @@ function addCharacter(id: string): void {
   closeSheet();
   renderCast();
   renderTray();
-  paint();
+  // No repaint: adding a character to the cast doesn't change any drawn panel —
+  // they only appear once they speak, in a new panel.
 }
 
 // ---- Surprise -------------------------------------------------------------
@@ -308,7 +380,7 @@ function loadSeed(seed: number): void {
   state.speaker = s.cast[0] ?? '';
   renderCast();
   renderTray();
-  paint();
+  repaintAll();
 }
 
 function surprise(): void {
