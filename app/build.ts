@@ -68,7 +68,6 @@ const fonts =
 writeFileSync(join(www, 'style.css'), fonts + readFileSync(join(here, 'style.css'), 'utf8'));
 
 const opt = (v: string, label: string): string => `<option value="${v}">${label}</option>`;
-const emotions = ['neutral', 'happy', 'laughing', 'coy', 'sad', 'angry', 'shouting', 'scared', 'bored'];
 const gestures = ['neutral', 'wave', 'point-self', 'point-other', 'smile', 'shrug'];
 const kinds: Array<[string, string]> = [
   ['say', 'say'], ['think', 'think'], ['whisper', 'whisper'], ['shout', 'shout'], ['action', 'action'],
@@ -107,10 +106,15 @@ const html = `<!doctype html>
       <button id="send" class="send" aria-label="Send">${balloonIcon}</button>
     </div>
     <div id="tray" class="tray">
-      <label>delivery<select id="kind">${kinds.map(([v, l]) => opt(v, l)).join('')}</select></label>
-      <label>emotion<select id="emotion">${emotions.map((e) => opt(e, e)).join('')}</select></label>
-      <label>gesture<select id="gesture">${gestures.map((g) => opt(g, g)).join('')}</select></label>
-      <label>to<select id="addressee"><option value="">to everyone</option></select></label>
+      <div class="console">
+        <div id="preview" class="preview" aria-label="Speaker preview"></div>
+        <div id="wheel" class="wheel"></div>
+      </div>
+      <div class="selects">
+        <label>delivery<select id="kind">${kinds.map(([v, l]) => opt(v, l)).join('')}</select></label>
+        <label>gesture<select id="gesture">${gestures.map((g) => opt(g, g)).join('')}</select></label>
+        <label>to<select id="addressee"><option value="">to everyone</option></select></label>
+      </div>
     </div>
   </footer>
 </div>

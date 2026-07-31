@@ -28,6 +28,7 @@ import { renderPanelToSvg, type RenderOptions } from '../examples/render-svg.ts'
 import { createApproximateMetrics } from '../src/text.ts';
 import { castName } from './cast-names.ts';
 import { speakerColor } from './branding.ts';
+import { createWheel, type WheelApi } from './wheel.ts';
 
 declare const __MANIFESTS__: Record<string, CharacterManifest>;
 declare const __SPRITES__: Record<string, Record<string, string>>;
@@ -86,6 +87,8 @@ interface AppState {
 interface Pending {
   kind: LineKind;
   expression: Expression;
+  /** Emotion-wheel radius, 0–1. Captured for future per-intensity art. */
+  intensity: number;
   gesture: Gesture;
   addressee: string; // character id, or '' for none
 }
@@ -93,9 +96,12 @@ interface Pending {
 type LineKind = 'say' | 'think' | 'whisper' | 'shout' | 'action';
 
 const state: AppState = { cast: [], events: [], speaker: '', scene: '', seed: 1 };
-const pending: Pending = { kind: 'say', expression: 'neutral', gesture: 'neutral', addressee: '' };
+const pending: Pending = { kind: 'say', expression: 'neutral', intensity: 0, gesture: 'neutral', addressee: '' };
 
 const colorOf = (id: string): string => speakerColor(Math.max(0, state.cast.indexOf(id)));
+
+// The emotion wheel, wired to drive the pending pose + the live preview.
+let wheel: WheelApi;
 
 // ---- Composing a starter from a seed --------------------------------------
 
@@ -179,12 +185,33 @@ function renderCast(): void {
 
 function renderTray(): void {
   ($('kind') as HTMLSelectElement).value = pending.kind;
-  ($('emotion') as HTMLSelectElement).value = pending.expression;
   ($('gesture') as HTMLSelectElement).value = pending.gesture;
   const others = state.cast.filter((id) => id !== state.speaker);
   ($('addressee') as HTMLSelectElement).innerHTML =
     `<option value="">to everyone</option>` +
     others.map((id) => `<option value="${id}"${id === pending.addressee ? ' selected' : ''}>to ${esc(castName(id, manifests[id]?.name))}</option>`).join('');
+  updatePreview();
+}
+
+// ---- Live speaker preview -------------------------------------------------
+
+/** Draw the active speaker on its own, in the pending pose (identity camera). */
+function previewSvg(characterId: string, expression: Expression, gesture: Gesture): string {
+  const panel: Panel = {
+    panelIndex: 0,
+    zoom: 'wide',
+    camera: { x: 0, y: 0, width: PANEL_W, height: PANEL_H, scale: 1 },
+    characters: [{ author: 'preview', characterId, x: PANEL_W / 2, facing: 'right', gesture, expression, poseVariant: 0 }],
+    balloons: [],
+    backdrop: '',
+  };
+  return renderPanelToSvg(panel, renderOptions());
+}
+
+/** Repaint the preview to the current speaker + pending pose. */
+function updatePreview(): void {
+  if (!state.speaker || !$('tray').classList.contains('open')) return;
+  $('preview').innerHTML = previewSvg(state.speaker, pending.expression, pending.gesture);
 }
 
 /** Advance to the next speaker after a line — the reply, for a chat feel. */
@@ -230,8 +257,10 @@ function send(): void {
 
   input.value = '';
   pending.expression = 'neutral';
+  pending.intensity = 0;
   pending.gesture = 'neutral';
   pending.addressee = '';
+  wheel.set({ emotion: 'neutral', intensity: 0 });
   advanceSpeaker();
   renderCast();
   renderTray();
@@ -301,10 +330,21 @@ $('cast').addEventListener('click', (e) => {
   }
 });
 
-$('more').addEventListener('click', () => $('tray').classList.toggle('open'));
+wheel = createWheel($('wheel'), (v) => {
+  pending.expression = v.emotion;
+  pending.intensity = v.intensity;
+  updatePreview();
+});
+
+$('more').addEventListener('click', () => {
+  $('tray').classList.toggle('open');
+  updatePreview();
+});
 $('kind').addEventListener('change', (e) => (pending.kind = (e.target as HTMLSelectElement).value as LineKind));
-$('emotion').addEventListener('change', (e) => (pending.expression = (e.target as HTMLSelectElement).value as Expression));
-$('gesture').addEventListener('change', (e) => (pending.gesture = (e.target as HTMLSelectElement).value as Gesture));
+$('gesture').addEventListener('change', (e) => {
+  pending.gesture = (e.target as HTMLSelectElement).value as Gesture;
+  updatePreview();
+});
 $('addressee').addEventListener('change', (e) => (pending.addressee = (e.target as HTMLSelectElement).value));
 $('send').addEventListener('click', send);
 $('text').addEventListener('keydown', (e) => {
