@@ -65,6 +65,15 @@ const RULES: Partial<Rules> = {
   // Balloons in the top ~40%; characters stand below them.
   balloonRegionFraction: 0.4,
   establishingShots: 'off',
+  // No solo-panel roll. §6.1 rolls a small chance that a long opening line gets
+  // a panel to itself, and a solo panel drops its addressees (`addToState` in
+  // compose.ts skips them when `solo`). Here every beat already *is* its own
+  // panel, so the roll's intended effect is unconditionally true already and
+  // the only thing left is the side effect: a character the author explicitly
+  // added to the frame silently not appearing. Deterministically, too — same
+  // seed, same roll — so the affected panel refuses that character every time.
+  // An authoring tool must not overrule an explicit instruction with a dice roll.
+  soloPanelProbability: 0,
 };
 
 // Size balloons against a slightly wider advance than the default (which is
