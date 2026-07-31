@@ -121,13 +121,31 @@ interface Pending {
   /** Emotion-wheel radius, 0–1. Captured for future per-intensity art. */
   intensity: number;
   gesture: Gesture;
-  addressee: string; // character id, or '' for none
+  /**
+   * Character ids to include in this beat's panel as addressees — the composer
+   * places every addressee in the panel alongside the speaker. Order matters
+   * only cosmetically (first shown → primary reply direction).
+   */
+  addressees: string[];
 }
 
 type LineKind = 'say' | 'think' | 'whisper' | 'shout' | 'action';
 
 const state: AppState = { cast: [], events: [], speaker: '', scene: '', seed: 1 };
-const pending: Pending = { kind: 'say', expression: 'neutral', intensity: 0, gesture: 'neutral', addressee: '' };
+const pending: Pending = { kind: 'say', expression: 'neutral', intensity: 0, gesture: 'neutral', addressees: [] };
+
+// Panel index (== content-event index) currently being edited, or -1 = append.
+// Panels map 1:1 to content events (message/action/reaction) because the event
+// list is interleaved with breaks, so `contentEventIndex(N)` finds the event
+// backing panel N in `state.events`.
+let editingPanel = -1;
+
+/** Returns state.events indices of every content event, in panel order. */
+function contentEventIndices(): number[] {
+  const out: number[] = [];
+  state.events.forEach((e, i) => { if (isContentEvent(e)) out.push(i); });
+  return out;
+}
 
 const colorOf = (id: string): string => speakerColor(Math.max(0, state.cast.indexOf(id)));
 
@@ -145,6 +163,22 @@ function castFor(authors: readonly string[], seed: number): Map<string, string> 
   return map;
 }
 
+const isContentEvent = (e: ChatEvent): boolean =>
+  e.type === 'message' || e.type === 'action' || e.type === 'reaction';
+
+/** Insert a `break` between every pair of content events, so panel i ↔ i-th beat. */
+function interleaveBreaks(events: ChatEvent[]): ChatEvent[] {
+  const out: ChatEvent[] = [];
+  for (const ev of events) {
+    const last = out[out.length - 1];
+    if (last && isContentEvent(last) && isContentEvent(ev)) {
+      out.push({ type: 'break', at: out.length });
+    }
+    out.push({ ...ev, at: out.length });
+  }
+  return out;
+}
+
 /** Turn a generated conversation into app events keyed by character id. */
 function starter(seed: number): { cast: string[]; events: ChatEvent[]; scene: string } {
   const { events, authors } = parseLog(generateConversation(seed));
@@ -158,9 +192,12 @@ function starter(seed: number): { cast: string[]; events: ChatEvent[]; scene: st
     mapped.push({ ...ev, author, addressees });
   }
   const scene = SCENES[seed % SCENES.length] ?? '';
+  // One beat per panel from the start: break between every line, so tapping
+  // panel N maps 1:1 to the N-th content event for editing.
+  const withBreaks = interleaveBreaks(mapped);
   // Keep the opening comic short — three square panels on a phone, not a
-  // scroll. Take the longest prefix of lines that still composes to ≤ 3 panels.
-  return { cast: castIds, events: capToPanels(mapped, castIds, scene, seed, 3), scene };
+  // scroll. Take the longest prefix of events that still composes to ≤ 3 panels.
+  return { cast: castIds, events: capToPanels(withBreaks, castIds, scene, seed, 3), scene };
 }
 
 /** Panels a set of events composes to (for the given cast/scene/seed). */
@@ -224,21 +261,32 @@ function composePanels(): Panel[] {
   return currentPanels;
 }
 
-const panelHtml = (p: Panel): string =>
-  `<figure class="panel">${renderPanelToSvg({ ...p, camera: FLAT_CAMERA }, renderOptions())}</figure>`;
+const panelHtml = (p: Panel, idx: number): string =>
+  `<figure class="panel" data-panel-idx="${idx}">${renderPanelToSvg({ ...p, camera: FLAT_CAMERA }, renderOptions())}</figure>`;
 
 const scrollToNewest = (): void => {
   const comic = $('comic');
   requestAnimationFrame(() => comic.scrollTo({ top: comic.scrollHeight, behavior: 'smooth' }));
 };
 
-/** Full rebuild — a fresh comic, an undo, anything that isn't a simple append. */
-function repaintAll(): void {
+/**
+ * Full rebuild — fresh comic, undo, or an edit.
+ *
+ * - `'newest'`: scroll to the newest panel (the default; correct for send, undo,
+ *   fresh seed).
+ * - `'preserve'`: keep the current scroll position (correct for edits — the
+ *   user is looking at panel N, we don't want to yank them to the bottom).
+ */
+function repaintAll(scroll: 'newest' | 'preserve' = 'newest'): void {
   const comic = $('comic');
+  const savedTop = comic.scrollTop;
   const panels = composePanels();
-  comic.innerHTML = panels.length ? panels.map(panelHtml).join('') : EMPTY_HTML;
+  comic.innerHTML = panels.length ? panels.map((p, i) => panelHtml(p, i)).join('') : EMPTY_HTML;
   renderedCount = panels.length;
-  if (panels.length) scrollToNewest();
+  if (editingPanel >= 0) highlightEditingPanel();
+  if (!panels.length) return;
+  if (scroll === 'preserve') comic.scrollTop = savedTop;
+  else scrollToNewest();
 }
 
 /** Append only the panels a new line produced. Existing panels are untouched. */
@@ -247,10 +295,19 @@ function appendPanels(): void {
   const panels = composePanels();
   if (renderedCount === 0) comic.innerHTML = ''; // clear the empty-state message
   for (let i = renderedCount; i < panels.length; i++) {
-    comic.insertAdjacentHTML('beforeend', panelHtml(panels[i]!));
+    comic.insertAdjacentHTML('beforeend', panelHtml(panels[i]!, i));
   }
   renderedCount = panels.length;
   if (panels.length) scrollToNewest();
+}
+
+function highlightEditingPanel(): void {
+  const comic = $('comic');
+  comic.querySelectorAll('.panel.is-editing').forEach((el) => el.classList.remove('is-editing'));
+  if (editingPanel < 0) return;
+  const el = comic.querySelector(`.panel[data-panel-idx="${editingPanel}"]`);
+  el?.classList.add('is-editing');
+  // No auto-scroll — the user tapped the panel they wanted; keep their view.
 }
 
 // ---- The compose bar ------------------------------------------------------
@@ -273,11 +330,40 @@ function renderCast(): void {
 function renderTray(): void {
   ($('kind') as HTMLSelectElement).value = pending.kind;
   ($('gesture') as HTMLSelectElement).value = pending.gesture;
-  const others = state.cast.filter((id) => id !== state.speaker);
-  ($('addressee') as HTMLSelectElement).innerHTML =
-    `<option value="">to everyone</option>` +
-    others.map((id) => `<option value="${id}"${id === pending.addressee ? ' selected' : ''}>to ${esc(castName(id, manifests[id]?.name))}</option>`).join('');
+  renderAddressees();
   updatePreview();
+}
+
+/**
+ * Chip strip of every cast member except the current speaker. Tap a chip to
+ * toggle whether that character is in the beat's panel — the composer places
+ * every addressee alongside the speaker, so this is how you add characters
+ * to the current panel.
+ */
+function renderAddressees(): void {
+  const others = state.cast.filter((id) => id !== state.speaker);
+  if (others.length === 0) {
+    $('addressees').innerHTML = '';
+    return;
+  }
+  const chips = others
+    .map((id) => {
+      const on = pending.addressees.includes(id);
+      return (
+        `<button class="chip addr${on ? ' is-on' : ''}" data-addr="${id}" ` +
+        `style="--c:${colorOf(id)}" aria-pressed="${on}" title="Toggle in panel">` +
+        `+ ${esc(castName(id, manifests[id]?.name))}</button>`
+      );
+    })
+    .join('');
+  $('addressees').innerHTML = chips;
+}
+
+function toggleAddressee(id: string): void {
+  const i = pending.addressees.indexOf(id);
+  if (i >= 0) pending.addressees.splice(i, 1);
+  else pending.addressees.push(id);
+  renderAddressees();
 }
 
 // ---- Live speaker preview -------------------------------------------------
@@ -308,52 +394,64 @@ function advanceSpeaker(): void {
   state.speaker = state.cast[(i + 1) % state.cast.length]!;
 }
 
-function send(): void {
-  if (!state.speaker) return;
-  const input = $('text') as HTMLInputElement;
-  const text = input.value.trim();
-  const addressees = pending.addressee ? [pending.addressee] : undefined;
-
-  // Nothing to send: no words and no chosen pose.
-  if (!text && pending.expression === 'neutral' && pending.gesture === 'neutral') return;
-
-  // Close the previous panel so this line starts its own — an already-drawn
-  // panel never recomposes when the next line arrives.
-  const last = state.events[state.events.length - 1];
-  if (last && last.type !== 'break') state.events.push({ type: 'break', at: state.events.length });
-
+/** Build a content event from the compose bar. Returns null if nothing to send. */
+function pendingEvent(at: number): ChatEvent | null {
+  const text = ($('text') as HTMLInputElement).value.trim();
+  // Filter out the speaker if they somehow ended up in the list (shouldn't
+  // happen — the picker excludes them — but events must never self-address).
+  const list = pending.addressees.filter((a) => a && a !== state.speaker);
+  const addressees = list.length ? list : undefined;
+  if (!text && pending.expression === 'neutral' && pending.gesture === 'neutral') return null;
   if (!text) {
-    // No words but a chosen pose → a wordless reaction.
-    state.events.push({
+    return {
       type: 'reaction',
       author: state.speaker,
       expression: pending.expression === 'neutral' ? undefined : pending.expression,
       gesture: pending.gesture === 'neutral' ? undefined : pending.gesture,
       addressees,
-      at: state.events.length,
-    });
-  } else {
-    const type = pending.kind === 'action' ? 'action' : 'message';
-    const kind: BalloonKind | undefined =
-      pending.kind === 'think' ? 'thought' : pending.kind === 'whisper' ? 'whisper' : pending.kind === 'shout' ? 'shout' : undefined;
-    state.events.push({
-      type,
-      author: state.speaker,
-      text,
-      addressees,
-      kind,
-      expressionOverride: pending.expression === 'neutral' ? undefined : pending.expression,
-      gestureOverride: pending.gesture === 'neutral' ? undefined : pending.gesture,
-      at: state.events.length,
-    });
+      at,
+    };
   }
+  const type = pending.kind === 'action' ? 'action' : 'message';
+  const kind: BalloonKind | undefined =
+    pending.kind === 'think' ? 'thought' : pending.kind === 'whisper' ? 'whisper' : pending.kind === 'shout' ? 'shout' : undefined;
+  return {
+    type,
+    author: state.speaker,
+    text,
+    addressees,
+    kind,
+    expressionOverride: pending.expression === 'neutral' ? undefined : pending.expression,
+    gestureOverride: pending.gesture === 'neutral' ? undefined : pending.gesture,
+    at,
+  };
+}
 
-  input.value = '';
+function resetComposer(): void {
+  ($('text') as HTMLInputElement).value = '';
   pending.expression = 'neutral';
   pending.intensity = 0;
   pending.gesture = 'neutral';
-  pending.addressee = '';
+  pending.addressees = [];
+  pending.kind = 'say';
   wheel.set({ emotion: 'neutral', intensity: 0 });
+}
+
+function send(): void {
+  if (editingPanel >= 0) return updateLine();
+  if (!state.speaker) return;
+  const input = $('text') as HTMLInputElement;
+  const ev = pendingEvent(state.events.length);
+  if (!ev) return;
+
+  // Close the previous panel so this line starts its own — an already-drawn
+  // panel never recomposes when the next line arrives.
+  const last = state.events[state.events.length - 1];
+  if (last && last.type !== 'break') state.events.push({ type: 'break', at: state.events.length });
+  ev.at = state.events.length;
+  state.events.push(ev);
+
+  resetComposer();
   advanceSpeaker();
   renderCast();
   renderTray();
@@ -363,12 +461,101 @@ function send(): void {
 
 function undo(): void {
   if (!state.events.length) return;
+  if (editingPanel >= 0) exitEditMode();
   state.events.pop(); // the line
   // ...and the break that preceded it, so we don't leave a dangling separator.
   while (state.events.length && state.events[state.events.length - 1]!.type === 'break') {
     state.events.pop();
   }
   repaintAll();
+}
+
+// ---- Editing an existing panel --------------------------------------------
+
+/** Load a beat into the compose bar and enter edit mode for that panel. */
+function enterEditMode(panelIdx: number): void {
+  const indices = contentEventIndices();
+  const evIdx = indices[panelIdx];
+  if (evIdx === undefined) return;
+  const ev = state.events[evIdx]!;
+
+  editingPanel = panelIdx;
+
+  if ('author' in ev) state.speaker = ev.author;
+
+  const input = $('text') as HTMLInputElement;
+  if (ev.type === 'reaction') {
+    pending.kind = 'say';
+    pending.expression = ev.expression ?? 'neutral';
+    pending.gesture = ev.gesture ?? 'neutral';
+    pending.addressees = [...(ev.addressees ?? [])];
+    input.value = '';
+  } else {
+    pending.kind = ev.type === 'action' ? 'action' :
+      ev.kind === 'thought' ? 'think' :
+      ev.kind === 'whisper' ? 'whisper' :
+      ev.kind === 'shout' ? 'shout' : 'say';
+    pending.expression = ev.expressionOverride ?? 'neutral';
+    pending.gesture = ev.gestureOverride ?? 'neutral';
+    pending.addressees = [...(ev.addressees ?? [])];
+    input.value = ev.text;
+  }
+  // No intensity is stored on events — show the wheel in the picked emotion at
+  // a mid detente so it reads as "set", not neutral.
+  pending.intensity = pending.expression === 'neutral' ? 0 : 0.7;
+  wheel.set({ emotion: pending.expression, intensity: pending.intensity });
+
+  $('tray').classList.add('open');
+  $('edit-bar').classList.add('open');
+  $('edit-label').textContent = `Editing panel ${panelIdx + 1}`;
+  $('send').classList.add('is-update');
+  $('send').setAttribute('aria-label', 'Update');
+  renderCast();
+  renderTray();
+  highlightEditingPanel();
+  input.focus();
+}
+
+function exitEditMode(): void {
+  editingPanel = -1;
+  $('comic').querySelectorAll('.panel.is-editing').forEach((el) => el.classList.remove('is-editing'));
+  $('edit-bar').classList.remove('open');
+  $('send').classList.remove('is-update');
+  $('send').setAttribute('aria-label', 'Send');
+  resetComposer();
+  renderTray();
+}
+
+function updateLine(): void {
+  if (editingPanel < 0) return;
+  const indices = contentEventIndices();
+  const evIdx = indices[editingPanel];
+  if (evIdx === undefined) { exitEditMode(); return; }
+  const at = state.events[evIdx]!.at;
+  const next = pendingEvent(at);
+  if (!next) return; // nothing to save; keep edit mode open
+  state.events[evIdx] = next;
+  exitEditMode();
+  repaintAll('preserve');
+}
+
+function deleteLine(): void {
+  if (editingPanel < 0) return;
+  const indices = contentEventIndices();
+  const evIdx = indices[editingPanel];
+  if (evIdx === undefined) { exitEditMode(); return; }
+  state.events.splice(evIdx, 1);
+  // Collapse any doubled-up breaks left behind, and trim leading/trailing breaks.
+  const compact: ChatEvent[] = [];
+  for (const ev of state.events) {
+    if (ev.type === 'break' && compact[compact.length - 1]?.type === 'break') continue;
+    compact.push(ev);
+  }
+  while (compact[0]?.type === 'break') compact.shift();
+  while (compact[compact.length - 1]?.type === 'break') compact.pop();
+  state.events = compact;
+  exitEditMode();
+  repaintAll('preserve');
 }
 
 // ---- Cast picker sheet ----------------------------------------------------
@@ -404,6 +591,7 @@ function loadSeed(seed: number): void {
   state.events = s.events;
   state.scene = s.scene;
   state.speaker = s.cast[0] ?? '';
+  if (editingPanel >= 0) exitEditMode();
   renderCast();
   renderTray();
   repaintAll();
@@ -443,13 +631,31 @@ $('gesture').addEventListener('change', (e) => {
   pending.gesture = (e.target as HTMLSelectElement).value as Gesture;
   updatePreview();
 });
-$('addressee').addEventListener('change', (e) => (pending.addressee = (e.target as HTMLSelectElement).value));
+$('addressees').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button.addr') as HTMLElement | null;
+  if (!btn) return;
+  const id = btn.dataset.addr;
+  if (id) toggleAddressee(id);
+});
 $('send').addEventListener('click', send);
 $('text').addEventListener('keydown', (e) => {
   if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); send(); }
 });
 $('undo').addEventListener('click', undo);
 $('dice').addEventListener('click', surprise);
+
+// Tap a panel to edit that beat. Tap the same panel again to cancel.
+$('comic').addEventListener('click', (e) => {
+  const fig = (e.target as HTMLElement).closest('figure.panel') as HTMLElement | null;
+  if (!fig) return;
+  const idx = Number(fig.dataset.panelIdx);
+  if (!Number.isFinite(idx)) return;
+  if (editingPanel === idx) exitEditMode();
+  else enterEditMode(idx);
+});
+$('edit-cancel').addEventListener('click', exitEditMode);
+$('edit-delete').addEventListener('click', deleteLine);
+
 $('sheet-close').addEventListener('click', closeSheet);
 $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
 $('sheet-body').addEventListener('click', (e) => {

@@ -103,6 +103,11 @@ const html = `<!doctype html>
   <footer class="composer">
     <div id="cast" class="cast"></div>
     <div class="speaking" id="speaking"></div>
+    <div id="edit-bar" class="edit-bar" role="region" aria-label="Editing panel">
+      <span id="edit-label" class="edit-label">Editing</span>
+      <button id="edit-delete" class="iconbtn del" aria-label="Delete panel" title="Delete panel">&#128465;</button>
+      <button id="edit-cancel" class="iconbtn" aria-label="Cancel edit" title="Cancel">&times;</button>
+    </div>
     <div class="inputrow">
       <button id="more" class="iconbtn round" aria-label="More options">+</button>
       <input id="text" class="text" type="text" autocomplete="off" autocapitalize="sentences"
@@ -117,8 +122,11 @@ const html = `<!doctype html>
       <div class="selects">
         <label>delivery<select id="kind">${kinds.map(([v, l]) => opt(v, l)).join('')}</select></label>
         <label>gesture<select id="gesture">${gestures.map((g) => opt(g, g)).join('')}</select></label>
-        <label>to<select id="addressee"><option value="">to everyone</option></select></label>
       </div>
+      <label class="addressees-row">
+        <span class="lbl">also in panel</span>
+        <div id="addressees" class="addressees"></div>
+      </label>
     </div>
   </footer>
 </div>
