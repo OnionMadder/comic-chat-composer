@@ -124,7 +124,14 @@ const html = `<!doctype html>
         <button id="edit-delete" class="iconbtn del" aria-label="Delete panel" title="Delete panel">&#128465;</button>
         <button id="edit-cancel" class="iconbtn" aria-label="Cancel edit" title="Cancel">&times;</button>
       </div>
-      <div id="in-scene" class="in-scene" role="toolbar" aria-label="Characters in panel"></div>
+      <label class="panelrow">
+        <span class="lbl">in this panel</span>
+        <div id="panel-cast" class="panel-cast" role="group" aria-label="Characters in this panel"></div>
+      </label>
+      <label class="panelrow" id="arrange-row">
+        <span class="lbl">arrange</span>
+        <div id="in-scene" class="in-scene" role="toolbar" aria-label="Arrange characters"></div>
+      </label>
     </div>
     <div class="inputrow">
       <button id="more" class="iconbtn round" aria-label="More options">+</button>
@@ -145,7 +152,7 @@ const html = `<!doctype html>
         <span class="lbl">gesture</span>
         <div id="gesture-chips" class="pickchips" role="radiogroup" aria-label="Gesture"></div>
       </label>
-      <label class="addressees-row">
+      <label class="addressees-row" id="addressees-row">
         <span class="lbl">also in panel</span>
         <div id="addressees" class="addressees"></div>
       </label>

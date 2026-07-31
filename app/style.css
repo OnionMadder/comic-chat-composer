@@ -221,6 +221,44 @@ body {
 .isc-face { color: var(--c); font-size: 11px; margin-left: 2px; }
 .isc button:active { transform: scale(0.94); }
 
+/* ---- "in this panel" / "arrange" rows in the edit bar ----
+   Who is in frame used to live at the bottom of the collapsed tray, which made
+   adding a second character a three-tap hunt. It belongs here, in front of you,
+   next to the controls that arrange the people it puts there. */
+.panelrow {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 10px; color: var(--muted);
+}
+/* The arrange row only earns its space once there are two people to order. */
+#arrange-row { display: none; }
+#arrange-row.is-shown { display: flex; }
+
+.panel-cast { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.panel-cast::-webkit-scrollbar { display: none; }
+.pcast {
+  flex: none;
+  font-family: var(--comic); font-size: 13px;
+  color: var(--muted); background: var(--panel2);
+  border: 1.5px dashed var(--edge); border-radius: 16px;
+  padding: 8px 12px; white-space: nowrap;
+  min-height: 36px;
+}
+.pcast.is-on {
+  color: var(--ink); background: var(--c);
+  border-style: solid; border-color: var(--c); font-weight: 700;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent);
+}
+/* The speaker is always in their own panel — shown for context, not toggleable. */
+.pcast.is-speaker {
+  color: var(--c); border: 1.5px solid var(--c); background: transparent;
+  display: inline-flex; align-items: center;
+}
+.pcast.add { color: var(--cyan); border-color: var(--cyan); }
+.pcast:active { transform: scale(0.96); }
+
+.addressees-row.is-hidden { display: none; }
+
 .edit-speaker-wrap {
   display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
   font-size: 10px; color: var(--muted);

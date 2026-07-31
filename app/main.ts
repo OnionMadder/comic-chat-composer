@@ -19,7 +19,9 @@ import type {
   ChatEvent,
   Expression,
   Gesture,
+  MessageEvent,
   Panel,
+  ReactionEvent,
   Rules,
 } from '../src/types.ts';
 import { generateConversation } from '../examples/generate.ts';
@@ -511,6 +513,9 @@ function renderGestureChips(): void {
  * to the current panel.
  */
 function renderAddressees(): void {
+  // While editing, the edit bar's "in this panel" row is the same control in a
+  // better place — don't show two of them.
+  $('addressees-row').classList.toggle('is-hidden', editingPanel >= 0);
   const others = state.cast.filter((id) => id !== state.speaker);
   if (others.length === 0) {
     $('addressees').innerHTML = '';
@@ -543,11 +548,80 @@ function toggleAddressee(id: string): void {
  * Only visible during edit mode; changes write to the overrides sidecar
  * and repaint immediately.
  */
+/**
+ * "In this panel" — every cast member as an in/out toggle for the beat being
+ * edited.
+ *
+ * A single-beat panel contains exactly its speaker plus the people that beat
+ * addresses, so putting someone in frame and directing the line at them are the
+ * same act. This is that one act, in the edit bar where you can see it, rather
+ * than buried at the bottom of the collapsed tray as "also in panel".
+ */
+function renderPanelCast(): void {
+  const host = $('panel-cast');
+  if (editingPanel < 0) { host.innerHTML = ''; return; }
+  const chips = state.cast
+    .map((id) => {
+      const name = esc(castName(id, manifests[id]?.name));
+      if (id === state.speaker) {
+        // The speaker is always in their own panel — shown for context, locked,
+        // and changed through the speaker menu instead.
+        return (
+          `<span class="pcast is-speaker" style="--c:${colorOf(id)}" ` +
+          `title="${name} is speaking in this panel">&#9679; ${name}</span>`
+        );
+      }
+      const on = pending.addressees.includes(id);
+      return (
+        `<button class="pcast${on ? ' is-on' : ''}" data-member="${id}" ` +
+        `style="--c:${colorOf(id)}" aria-pressed="${on}" ` +
+        `aria-label="${on ? 'Remove' : 'Add'} ${name} ${on ? 'from' : 'to'} this panel">` +
+        `${on ? '&#10003;' : '&#43;'} ${name}</button>`
+      );
+    })
+    .join('');
+  host.innerHTML =
+    chips +
+    `<button class="pcast add" id="panel-cast-add" aria-label="Add a new character to this panel">&#43;&hellip;</button>`;
+}
+
+/**
+ * Put a character in or out of the edited panel.
+ *
+ * Applies straight to the event rather than waiting for Update, so the panel
+ * redraws under your thumb — the same immediacy the arrange controls have. The
+ * text field still commits on Update.
+ */
+function togglePanelMember(id: string): void {
+  if (editingPanel < 0 || id === state.speaker) return;
+  const i = pending.addressees.indexOf(id);
+  if (i >= 0) pending.addressees.splice(i, 1);
+  else pending.addressees.push(id);
+
+  const indices = contentEventIndices();
+  const evIdx = indices[editingPanel];
+  if (evIdx === undefined) return;
+  const ev = state.events[evIdx]!;
+  if (ev.type === 'break' || ev.type === 'join' || ev.type === 'leave') return;
+  const list = pending.addressees.filter((a) => a !== state.speaker);
+  (ev as MessageEvent | ReactionEvent).addressees = list.length ? [...list] : undefined;
+
+  markEdited();
+  repaintAll('preserve');
+  renderPanelCast();
+  renderInScene();
+}
+
 function renderInScene(): void {
   const host = $('in-scene');
-  if (editingPanel < 0) { host.innerHTML = ''; return; }
+  const row = $('arrange-row');
+  const hide = (): void => { host.innerHTML = ''; row.classList.remove('is-shown'); };
+  if (editingPanel < 0) return hide();
   const panel = currentPanels[editingPanel];
-  if (!panel || panel.characters.length === 0) { host.innerHTML = ''; return; }
+  // Arranging is meaningless below two characters — the row stays out of the
+  // way until there is actually something to order.
+  if (!panel || panel.characters.length < 2) return hide();
+  row.classList.add('is-shown');
   const chars = panel.characters.slice().sort((a, b) => a.x - b.x);
   host.innerHTML = chars
     .map((c, i) => {
@@ -767,7 +841,11 @@ function enterEditMode(panelIdx: number): void {
   pending.intensity = pending.expression === 'neutral' ? 0 : 0.7;
   wheel.set({ emotion: pending.expression, intensity: pending.intensity });
 
-  $('tray').classList.add('open');
+  // The tray is no longer forced open on edit. It had to be, back when the
+  // addressee control lived at the bottom of it; now that "in this panel" sits
+  // in the edit bar, forcing it open only cost the comic ~250px of height —
+  // leaving barely a sliver of the panel you're editing. Leave it as the user
+  // set it; the wheel and delivery chips are one tap away on `+`.
   $('edit-bar').classList.add('open');
   $('edit-label').textContent = `Editing panel ${panelIdx + 1}`;
   $('send').classList.add('is-update');
@@ -775,6 +853,7 @@ function enterEditMode(panelIdx: number): void {
   renderCast();
   renderTray();
   renderEditSpeaker();
+  renderPanelCast();
   renderInScene();
   highlightEditingPanel();
   input.focus();
@@ -786,7 +865,11 @@ function exitEditMode(): void {
   $('edit-bar').classList.remove('open');
   $('send').classList.remove('is-update');
   $('send').setAttribute('aria-label', 'Send');
-  $('in-scene').innerHTML = '';
+  // Clear both edit-bar character rows through their renderers (editingPanel is
+  // already -1, so each empties itself) rather than leaving stale chips to
+  // flash on the next open.
+  renderPanelCast();
+  renderInScene();
   resetComposer();
   renderTray();
 }
@@ -897,8 +980,15 @@ function addCharacter(id: string): void {
   markEdited();
   renderCast();
   renderTray();
-  // No repaint: adding a character to the cast doesn't change any drawn panel —
-  // they only appear once they speak, in a new panel.
+  // Picking a character *while editing a panel* means you want them in that
+  // panel — otherwise you'd have to hunt for a second control to put them
+  // there, which is what made adding a second character so tedious.
+  if (editingPanel >= 0 && id !== state.speaker) {
+    togglePanelMember(id);
+    return;
+  }
+  // Otherwise no repaint: adding to the cast doesn't change any drawn panel —
+  // they appear once they speak, in a new panel.
 }
 
 // ---- Surprise -------------------------------------------------------------
@@ -1608,6 +1698,14 @@ $('edit-delete').addEventListener('click', deleteLine);
 $('edit-dup').addEventListener('click', duplicatePanel);
 $('edit-ins-before').addEventListener('click', () => insertPanel('before'));
 $('edit-ins-after').addEventListener('click', () => insertPanel('after'));
+$('panel-cast').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button') as HTMLElement | null;
+  if (!btn) return;
+  if (btn.id === 'panel-cast-add') return openCharPicker();
+  const id = btn.dataset.member;
+  if (id) togglePanelMember(id);
+});
+
 $('in-scene').addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
   const chip = target.closest('.isc') as HTMLElement | null;
