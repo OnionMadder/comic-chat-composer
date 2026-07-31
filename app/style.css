@@ -49,6 +49,7 @@ body {
   padding: 0.05em 0.28em; border-radius: 6px; box-shadow: 0 0 12px rgba(182, 255, 61, 0.5);
 }
 .spacer { flex: 1; }
+.build { font-family: var(--comic); font-size: 10px; color: var(--muted); opacity: 0.55; margin-left: 8px; }
 
 .iconbtn {
   font-family: var(--comic);

@@ -75,6 +75,9 @@ const kinds: Array<[string, string]> = [
 
 const balloonIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-4 4v-4H4z"/></svg>`;
 
+// A visible build stamp (dev aid) so we can confirm the device has the latest.
+const BUILD = new Date().toLocaleTimeString('en-US', { hour12: false });
+
 const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -88,6 +91,7 @@ const html = `<!doctype html>
 <div class="app">
   <header class="appbar">
     <span class="wordmark"><span class="m">m</span><span class="c">Comic</span><span class="yr">'96</span></span>
+    <span class="build" aria-hidden="true">b${BUILD}</span>
     <span class="spacer"></span>
     <button id="undo" class="iconbtn" aria-label="Undo last line" title="Undo">&#8630;</button>
     <button id="dice" class="iconbtn" aria-label="Surprise me" title="Surprise me">&#127922;</button>

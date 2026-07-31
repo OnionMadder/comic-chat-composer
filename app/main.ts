@@ -158,7 +158,33 @@ function starter(seed: number): { cast: string[]; events: ChatEvent[]; scene: st
     mapped.push({ ...ev, author, addressees });
   }
   const scene = SCENES[seed % SCENES.length] ?? '';
-  return { cast: castIds, events: mapped, scene };
+  // Keep the opening comic short — three square panels on a phone, not a
+  // scroll. Take the longest prefix of lines that still composes to ≤ 3 panels.
+  return { cast: castIds, events: capToPanels(mapped, castIds, scene, seed, 3), scene };
+}
+
+/** Panels a set of events composes to (for the given cast/scene/seed). */
+function panelCountFor(events: ChatEvent[], castIds: string[], scene: string, seed: number): number {
+  if (!events.some((e) => e.type !== 'join' && e.type !== 'break')) return 0;
+  const castMap: Record<string, CastEntry> = {};
+  for (const id of castIds) castMap[id] = { characterId: id };
+  return compose({
+    events,
+    cast: castMap,
+    characterAssets: manifests,
+    backdrops: scene ? [scene] : Object.keys(backdrops),
+    seed,
+    metrics: METRICS,
+    rules: RULES,
+  }).length;
+}
+
+/** The longest leading run of events that still composes to at most `max` panels. */
+function capToPanels(events: ChatEvent[], castIds: string[], scene: string, seed: number, max: number): ChatEvent[] {
+  for (let k = 1; k <= events.length; k++) {
+    if (panelCountFor(events.slice(0, k), castIds, scene, seed) > max) return events.slice(0, k - 1);
+  }
+  return events;
 }
 
 // ---- Painting the comic ---------------------------------------------------
