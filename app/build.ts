@@ -96,6 +96,7 @@ const html = `<!doctype html>
     <span class="wordmark"><span class="m">m</span><span class="c">Comic</span><span class="yr">'96</span></span>
     <span class="build" aria-hidden="true">b${BUILD}</span>
     <span class="spacer"></span>
+    <button id="library" class="iconbtn" aria-label="Your comics" title="Your comics">&#128218;</button>
     <button id="undo" class="iconbtn" aria-label="Undo last line" title="Undo">&#8630;</button>
     <button id="dice" class="iconbtn" aria-label="Surprise me" title="Surprise me">&#127922;</button>
     <button id="export" class="iconbtn" aria-label="Export your comic" title="Export">&#8681;</button>
@@ -155,13 +156,24 @@ const html = `<!doctype html>
   </div>
 </div>
 
-<div id="confirm-roll" class="sheet" role="dialog" aria-label="Start a new comic?">
+<div id="library-sheet" class="sheet" role="dialog" aria-label="Your comics">
   <div class="sheet-panel">
-    <div class="sheet-head"><span>Start a new comic?</span></div>
-    <p class="confirm-copy">This replaces the comic you&rsquo;ve been working on. It can&rsquo;t be undone.</p>
+    <div class="sheet-head">
+      <span>Your comics</span>
+      <button id="library-close" class="iconbtn" aria-label="Close">&times;</button>
+    </div>
+    <button id="library-new" class="newcomic">+ New comic</button>
+    <div id="library-list" class="library-list"></div>
+  </div>
+</div>
+
+<div id="confirm" class="sheet" role="dialog" aria-label="Confirm">
+  <div class="sheet-panel">
+    <div class="sheet-head"><span id="confirm-title">Are you sure?</span></div>
+    <p id="confirm-copy" class="confirm-copy"></p>
     <div class="confirm-actions">
-      <button id="confirm-keep" class="confirm-btn keep">Keep this one</button>
-      <button id="confirm-roll-go" class="confirm-btn go">Roll anyway</button>
+      <button id="confirm-cancel" class="confirm-btn keep">Cancel</button>
+      <button id="confirm-go" class="confirm-btn go">Continue</button>
     </div>
   </div>
 </div>

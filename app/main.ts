@@ -31,7 +31,18 @@ import { createApproximateMetrics } from '../src/text.ts';
 import { castName } from './cast-names.ts';
 import { speakerColor } from './branding.ts';
 import { createWheel, type WheelApi } from './wheel.ts';
-import { loadSession, saveSession, type SavedComic } from './storage.ts';
+import {
+  autoName,
+  deleteDraft,
+  getCurrentId,
+  listDrafts,
+  loadDraft,
+  migrateLegacySession,
+  newDraftId,
+  saveDraft,
+  setCurrentId,
+  type SavedComic,
+} from './storage.ts';
 
 declare const __MANIFESTS__: Record<string, CharacterManifest>;
 declare const __SPRITES__: Record<string, Record<string, string>>;
@@ -902,11 +913,12 @@ function rollNewComic(): void {
  */
 function surprise(): void {
   if (!touched) return rollNewComic();
-  $('confirm-roll').classList.add('open');
-}
-
-function closeConfirmRoll(): void {
-  $('confirm-roll').classList.remove('open');
+  askConfirm({
+    title: 'Reroll this comic?',
+    body: 'This replaces the comic you’ve been working on. To keep it, use New comic in your library instead.',
+    go: 'Roll anyway',
+    onGo: rollNewComic,
+  });
 }
 
 // ---- Export ---------------------------------------------------------------
@@ -1082,11 +1094,22 @@ let touched = false;
 /** Character ids the bundled art actually has — used to prune a stale save. */
 const KNOWN_CHARACTERS = new Set(Object.keys(manifests));
 
+/** Which draft the compose screen is currently editing. */
+let currentId = newDraftId();
+/** The draft's filing label, and whether the user set it by hand. */
+let currentName = '';
+let nameIsCustom = false;
+
 let saveTimer: number | null = null;
 
 function snapshot(): SavedComic {
   return {
     v: 1,
+    id: currentId,
+    // An untouched name tracks the opening line, so drafts stay tellable apart
+    // without the user ever having to name one.
+    name: nameIsCustom && currentName ? currentName : autoName(state.events),
+    nameIsCustom,
     cast: state.cast,
     events: state.events,
     scene: state.scene,
@@ -1109,7 +1132,7 @@ function scheduleSave(): void {
   if (saveTimer !== null) clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
-    saveSession(snapshot());
+    saveDraft(snapshot());
   }, 400);
 }
 
@@ -1119,7 +1142,7 @@ function flushSave(): void {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  saveSession(snapshot());
+  saveDraft(snapshot());
 }
 
 /** Mark the comic edited and queue a save. Called from every mutator. */
@@ -1130,6 +1153,10 @@ function markEdited(): void {
 
 /** Restore a saved comic into app state and paint it. */
 function hydrate(saved: SavedComic): void {
+  currentId = saved.id;
+  currentName = saved.name;
+  nameIsCustom = saved.nameIsCustom;
+  setCurrentId(saved.id);
   state.cast = saved.cast;
   state.events = saved.events;
   state.scene = saved.scene;
@@ -1164,6 +1191,177 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) flushSave();
 });
 window.addEventListener('pagehide', flushSave);
+
+// ---- Confirm sheet --------------------------------------------------------
+
+let confirmAction: (() => void) | null = null;
+
+/**
+ * Ask before something destructive. A sheet rather than `window.confirm`: the
+ * native dialog looks alien inside an APK and some WebViews suppress it.
+ */
+function askConfirm(opts: { title: string; body: string; go: string; onGo: () => void }): void {
+  $('confirm-title').textContent = opts.title;
+  $('confirm-copy').textContent = opts.body;
+  $('confirm-go').textContent = opts.go;
+  confirmAction = opts.onGo;
+  $('confirm').classList.add('open');
+}
+
+function closeConfirm(): void {
+  $('confirm').classList.remove('open');
+  confirmAction = null;
+}
+
+// ---- The draft library ----------------------------------------------------
+
+/** Switch to another draft, saving the current one first. */
+function openDraft(id: string): void {
+  if (id === currentId) return closeLibrary();
+  flushSave();
+  const draft = loadDraft(id, KNOWN_CHARACTERS);
+  if (!draft) { renderLibrary(); return; } // vanished under us; just refresh
+  if (editingPanel >= 0) exitEditMode();
+  hydrate(draft);
+  closeLibrary();
+}
+
+/** Start a fresh comic as its own draft, leaving the current one filed away. */
+function newDraft(): void {
+  flushSave();
+  if (editingPanel >= 0) exitEditMode();
+  currentId = newDraftId();
+  currentName = '';
+  nameIsCustom = false;
+  setCurrentId(currentId);
+  // A random starter rather than a blank page: an empty comic has no cast, so
+  // there'd be nobody to type as. The dice reroll is one tap away from here.
+  loadSeed(Math.floor(1 + Math.random() * 99999));
+  closeLibrary();
+}
+
+function removeDraft(id: string): void {
+  deleteDraft(id);
+  if (id !== currentId) { renderLibrary(); return; }
+  // Deleted the comic we're looking at — fall to the newest survivor, or start
+  // fresh if that was the last one.
+  const rest = listDrafts(KNOWN_CHARACTERS).filter((d) => d.id !== id);
+  if (editingPanel >= 0) exitEditMode();
+  const next = rest[0];
+  if (next) hydrate(next);
+  else {
+    currentId = newDraftId();
+    currentName = '';
+    nameIsCustom = false;
+    setCurrentId(currentId);
+    loadSeed(7);
+  }
+  renderLibrary();
+}
+
+function duplicateDraft(id: string): void {
+  const src = loadDraft(id, KNOWN_CHARACTERS);
+  if (!src) return;
+  saveDraft({
+    ...src,
+    id: newDraftId(),
+    name: `${src.name} copy`,
+    nameIsCustom: true,
+    savedAt: Date.now(),
+  });
+  renderLibrary();
+}
+
+function renameDraft(id: string, name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) { renderLibrary(); return; }
+  if (id === currentId) {
+    currentName = trimmed;
+    nameIsCustom = true;
+    flushSave();
+  } else {
+    const draft = loadDraft(id, KNOWN_CHARACTERS);
+    if (draft) saveDraft({ ...draft, name: trimmed, nameIsCustom: true });
+  }
+  renderLibrary();
+}
+
+/** How many panels a stored draft composes to — the library's "3 panels" line. */
+function draftPanelCount(d: SavedComic): number {
+  return d.events.filter(isContentEvent).length;
+}
+
+function relativeTime(ms: number): string {
+  if (!ms) return '';
+  const mins = Math.floor((Date.now() - ms) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return days === 1 ? 'yesterday' : `${days}d ago`;
+}
+
+function renderLibrary(): void {
+  // The in-memory comic is newer than its stored copy, so show live values for
+  // the current draft rather than whatever the last debounce happened to write.
+  const drafts = listDrafts(KNOWN_CHARACTERS).map((d) =>
+    d.id === currentId ? { ...d, ...snapshot() } : d,
+  );
+  if (!drafts.some((d) => d.id === currentId)) drafts.unshift(snapshot());
+  drafts.sort((a, b) => b.savedAt - a.savedAt);
+
+  $('library-list').innerHTML = drafts
+    .map((d) => {
+      const active = d.id === currentId ? ' is-current' : '';
+      const panels = draftPanelCount(d);
+      const when = relativeTime(d.savedAt);
+      return `<div class="draft${active}" data-draft="${esc(d.id)}">
+        <button class="draft-open" data-act="open" data-draft="${esc(d.id)}">
+          <span class="draft-name" data-act="rename" data-draft="${esc(d.id)}">${esc(d.name)}</span>
+          <span class="draft-meta">${panels} panel${panels === 1 ? '' : 's'}${when ? ` · ${when}` : ''}${active ? ' · open now' : ''}</span>
+        </button>
+        <button class="draft-btn" data-act="dupe" data-draft="${esc(d.id)}" aria-label="Duplicate ${esc(d.name)}" title="Duplicate">&#128203;</button>
+        <button class="draft-btn del" data-act="del" data-draft="${esc(d.id)}" aria-label="Delete ${esc(d.name)}" title="Delete">&#128465;</button>
+      </div>`;
+    })
+    .join('');
+}
+
+function openLibrary(): void {
+  flushSave();
+  renderLibrary();
+  $('library-sheet').classList.add('open');
+}
+
+function closeLibrary(): void {
+  $('library-sheet').classList.remove('open');
+}
+
+/** Swap a draft's name for an input, committing on Enter or blur. */
+function beginRename(id: string, nameEl: HTMLElement): void {
+  const current = nameEl.textContent ?? '';
+  const input = document.createElement('input');
+  input.className = 'draft-rename';
+  input.value = current;
+  input.setAttribute('aria-label', 'Comic name');
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+  const commit = (save: boolean): void => {
+    if (done) return;
+    done = true;
+    if (save) renameDraft(id, input.value);
+    else renderLibrary();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+    if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+  });
+  input.addEventListener('blur', () => commit(true));
+}
 
 // ---- Wire up --------------------------------------------------------------
 
@@ -1438,10 +1636,50 @@ for (const id of ['exp-title', 'exp-subtitle']) {
 }
 $('exp-credits').addEventListener('change', scheduleSave);
 
-$('confirm-keep').addEventListener('click', closeConfirmRoll);
-$('confirm-roll-go').addEventListener('click', () => { closeConfirmRoll(); rollNewComic(); });
-$('confirm-roll').addEventListener('click', (e) => {
-  if (e.target === $('confirm-roll')) closeConfirmRoll();
+$('confirm-cancel').addEventListener('click', closeConfirm);
+$('confirm-go').addEventListener('click', () => {
+  const act = confirmAction;
+  closeConfirm();
+  act?.();
+});
+$('confirm').addEventListener('click', (e) => {
+  if (e.target === $('confirm')) closeConfirm();
+});
+
+$('library').addEventListener('click', openLibrary);
+$('library-close').addEventListener('click', closeLibrary);
+$('library-new').addEventListener('click', newDraft);
+$('library-sheet').addEventListener('click', (e) => {
+  if (e.target === $('library-sheet')) closeLibrary();
+});
+$('library-list').addEventListener('click', (e) => {
+  const el = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
+  if (!el) return;
+  const id = el.dataset.draft;
+  if (!id) return;
+  switch (el.dataset.act) {
+    case 'rename':
+      // Renaming sits inside the open button, so stop it opening the draft too.
+      e.stopPropagation();
+      beginRename(id, el);
+      break;
+    case 'open':
+      openDraft(id);
+      break;
+    case 'dupe':
+      duplicateDraft(id);
+      break;
+    case 'del': {
+      const name = loadDraft(id, KNOWN_CHARACTERS)?.name ?? 'this comic';
+      askConfirm({
+        title: 'Delete this comic?',
+        body: `“${name}” will be gone for good. This can’t be undone.`,
+        go: 'Delete',
+        onGo: () => removeDraft(id),
+      });
+      break;
+    }
+  }
 });
 
 $('sheet-close').addEventListener('click', closeSheet);
@@ -1451,9 +1689,16 @@ $('sheet-body').addEventListener('click', (e) => {
   if (btn?.dataset.pick) addCharacter(btn.dataset.pick);
 });
 
-// First paint: pick up wherever the last session left off. Failing that — a
-// first run, cleared storage, or a save too damaged to trust — a fixed welcome
-// comic, so a genuine first launch is the same every time (the dice rerolls).
-const restored = loadSession(KNOWN_CHARACTERS);
+// First paint: pick up wherever the last session left off — the draft that was
+// open, or failing that the most recently saved one. If there's nothing to
+// restore (a genuine first run, cleared storage, or saves too damaged to trust)
+// a fixed welcome comic, so a first launch is the same every time.
+migrateLegacySession(KNOWN_CHARACTERS);
+const openId = getCurrentId();
+const restored =
+  (openId ? loadDraft(openId, KNOWN_CHARACTERS) : null) ?? listDrafts(KNOWN_CHARACTERS)[0] ?? null;
 if (restored) hydrate(restored);
-else loadSeed(7);
+else {
+  setCurrentId(currentId);
+  loadSeed(7);
+}

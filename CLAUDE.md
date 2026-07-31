@@ -273,8 +273,8 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   `www/index.html`. Cache-bust `app.js?v=<Date.now()>` + a faint header build
   stamp `b<HH:MM:SS>` (**dev aid — remove before release**). `www/` is
   gitignored (generated). Run: `cd app && npm run build`.
-- `storage.ts` — session persistence. The `SavedComic` envelope, `saveSession` /
-  `loadSession`, and the defensive `parseSaved` (see Persistence, below).
+- `storage.ts` — saved comics. The `SavedComic` envelope, the per-draft
+  load/save/list/delete API, and the defensive `parseSaved` (see Persistence).
 - `style.css` — mobile neon layout (pinned compose bar, webtoon comic scroll).
 - `devserve.py` — a **no-cache** static server (`python devserve.py 8973`,
   binds 0.0.0.0) so a phone on the same wifi loads `http://<PC-LAN-IP>:8973`
@@ -325,11 +325,12 @@ first on PATH and fails with "invalid source release: 21").
 **Milestones:** M1 foundation ✅ · M2 compose UI ✅ · M3 emotion wheel ✅ ·
 native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
 **editable panels + the compose/edit authoring pass ✅** (see Authoring, below) ·
-**M4 export ✅** (see Export, below). Remaining: M5 onboarding (the app now has
-enough hidden verbs — long-press to reorder, tap to edit — to warrant a
-first-launch coach-mark run), M6 PWA (installable/offline), M7 store assets +
-release signing, M8 release polish (remove the build stamp; framing nudges —
-head a touch lower, two-shot spacing; rein in the bold color avatars).
+**M4 export ✅** (see Export, below) · **persistence + the draft library ✅**.
+Remaining: M5 onboarding (the app now has enough hidden verbs — long-press to
+reorder, tap to edit — to warrant a first-launch coach-mark run), M6 PWA
+(installable/offline), M7 store assets + release signing, M8 release polish
+(remove the build stamp; framing nudges — head a touch lower, two-shot spacing;
+rein in the bold color avatars).
 
 ### Export (built)
 
@@ -391,11 +392,32 @@ tick, or the hold timer fires and you get a drag instead of a tap.
 comic scroll is a flex column, and the default `flex-shrink: 1` was compressing
 older panels instead of letting the container scroll.
 
-### Persistence (built)
+### Persistence + the draft library (built)
 
-The working comic autosaves to `localStorage` under `mcomic96:session:v1` and
-restores on launch; boot is `loadSession()` first, `loadSeed(7)` only as the
-fallback. `app/storage.ts` owns the format, `main.ts` owns when to write.
+Comics autosave to `localStorage` and restore on launch, and the app keeps a
+library of them. `app/storage.ts` owns the format, `main.ts` owns when to write.
+
+**Layout: one key per draft** — `mcomic96:draft:<id>`, plus `mcomic96:current`
+naming the open one. Per-draft keys rather than a single array so the autosave
+rewrites only the comic you're working on (a bad write can't take the library
+with it), and **the draft list is a scan of the key prefix** — no separate index
+that could drift out of sync with the drafts themselves.
+
+Boot order is `migrateLegacySession()` → the `mcomic96:current` draft → the
+newest draft → `loadSeed(7)`. **`migrateLegacySession` folds the pre-library
+`mcomic96:session:v1` key into a draft**, because persistence shipped one commit
+before the library did and an existing user has real work under the old key.
+`parseSaved` fills a missing `id`/`name` rather than rejecting, which is what
+lets a legacy payload migrate straight through it.
+
+Drafts **auto-name from their opening line** and keep doing so until the user
+renames one by hand (`nameIsCustom`), so the library is legible without anyone
+having to name anything. Renaming is an inline input in the row, not a
+`window.prompt`.
+
+Deleting has two paths worth keeping intact: deleting the **open** draft falls
+to the newest survivor, and deleting the **last** one starts a fresh welcome
+comic — never a blank screen.
 
 - **`localStorage`, not Capacitor Preferences** — no extra plugin, no async API
   to thread through every mutator, identical under `devserve.py` and in the APK.
@@ -414,13 +436,16 @@ fallback. `app/storage.ts` owns the format, `main.ts` owns when to write.
   dies with the page.
 - **`touched`** tracks edits since the last dice roll. The dice rolls freely on
   an untouched starter (cycling it is how you browse for one) and opens a
-  confirm sheet once you've made changes — rolling now destroys saved work.
-  It's a `.sheet`, not `window.confirm`, which looks alien in an APK and is
-  suppressed outright in some WebViews.
+  confirm once you've made changes — rolling destroys that draft's contents
+  (*New comic* in the library is the non-destructive path). `askConfirm()` is
+  the shared destructive-action dialog, used by the dice and by delete; it's a
+  `.sheet`, not `window.confirm`, which looks alien in an APK and is suppressed
+  outright in some WebViews.
 
-**▶ NEXT.** Compose, edit, export, and persistence are done. The remaining
-"own the document" pieces are a **draft library** (several named comics — the
-envelope already carries `savedAt` for sorting) and **share links** (the web
-demo's `#c=<base64url JSON>` helpers in `examples/demo/main.ts` are liftable,
-though note its `s` field is a *script* string and won't round-trip `reaction`
-events). Then **M5 onboarding**.
+**▶ NEXT.** Compose, edit, export, persistence, and the draft library are done.
+The last "own the document" piece is **share links** — the web demo's
+`#c=<base64url JSON>` helpers in `examples/demo/main.ts` are liftable, but note
+its `s` field is a *script* string that won't round-trip `reaction` events or
+the app's `BeatOverrides`, so the app should pack its own `events` instead.
+Then **M5 onboarding**, which the app has been overdue for since the authoring
+verbs went in.

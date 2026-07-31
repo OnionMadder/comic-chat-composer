@@ -319,7 +319,50 @@ body {
 .pick:disabled { opacity: 0.35; }
 .pick:active { transform: scale(0.96); }
 
-/* ---- Confirm dialog (dice over an edited comic) ----
+/* ---- Draft library ---- */
+.newcomic {
+  font-family: var(--comic); font-size: 15px;
+  color: var(--ink); background: var(--cyan); border: none;
+  border-radius: 12px; padding: 12px; margin-bottom: 12px; width: 100%;
+  font-weight: 700; box-shadow: 0 0 16px rgba(44, 255, 230, 0.35);
+}
+.newcomic:active { transform: scale(0.98); }
+
+.library-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.draft {
+  display: flex; align-items: stretch; gap: 6px;
+  background: var(--panel2); border: 1px solid var(--edge); border-radius: 12px;
+  padding: 4px 6px 4px 4px;
+}
+.draft.is-current { border-color: var(--cyan); box-shadow: 0 0 12px rgba(44, 255, 230, 0.18); }
+.draft-open {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+  font-family: var(--comic); text-align: left;
+  background: transparent; border: none; color: var(--text); padding: 9px 8px;
+}
+.draft-name {
+  font-size: 15px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.draft.is-current .draft-name { color: var(--cyan); }
+.draft-meta { font-size: 11px; color: var(--muted); }
+.draft-btn {
+  flex: none; width: 38px;
+  font-family: var(--comic); font-size: 15px;
+  background: transparent; color: var(--text);
+  border: 1px solid var(--edge); border-radius: 9px;
+}
+.draft-btn.del { color: var(--pink); border-color: rgba(255, 61, 154, 0.4); }
+.draft-btn:active { transform: scale(0.94); }
+.draft-rename {
+  font-family: var(--comic); font-size: 15px; width: 100%;
+  color: var(--text); background: var(--panel);
+  border: 1px solid var(--cyan); border-radius: 8px; padding: 4px 7px;
+}
+.draft-rename:focus { outline: none; box-shadow: 0 0 0 1px var(--cyan); }
+
+/* ---- Confirm dialog (destructive actions) ----
    A sheet rather than window.confirm: the native dialog looks alien inside an
    APK, and some WebViews suppress it outright. */
 .confirm-copy { margin: 0 0 16px; font-size: 14px; color: var(--muted); line-height: 1.45; }

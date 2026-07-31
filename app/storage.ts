@@ -1,19 +1,20 @@
 /**
- * Session persistence for mComic '96.
+ * Saved comics for mComic '96.
  *
- * The app had none: every launch started from a fresh dice roll and whatever
- * you wrote last time was gone. This keeps the working comic in `localStorage`
- * so closing the app — or Android killing a backgrounded WebView, which it does
- * without warning — costs nothing.
+ * Started as a single autosaved session; now a small library of drafts. Each
+ * draft lives under its own `mcomic96:draft:<id>` key, with the active one
+ * named by `mcomic96:current`. Per-draft keys rather than one array because
+ * the autosave then rewrites only the comic you're working on — a bad write
+ * can't take the whole library with it — and the draft list needs no separate
+ * index to drift out of sync, since it's just a scan of the key prefix.
  *
  * `localStorage` rather than Capacitor Preferences: no extra plugin, no async
  * API to thread through every mutator, and identical behaviour under
  * `devserve.py` and in the packaged APK. What we store is text and ids — the
- * sprites live in the bundle, not in app state — so a comic is kilobytes
- * against a budget of about five megabytes.
+ * sprites live in the bundle — so a comic is well under a kilobyte.
  */
 
-import type { ChatEvent } from '../src/types.ts';
+import type { ChatEvent, MessageEvent } from '../src/types.ts';
 
 /** Per-beat character placement overrides. Mirrors the type in `main.ts`. */
 export interface StoredOverrides {
@@ -38,6 +39,11 @@ export interface StoredExport {
  */
 export interface SavedComic {
   v: 1;
+  id: string;
+  /** Filing label shown in the library. Distinct from the export title band. */
+  name: string;
+  /** True once the user renames by hand, which stops the auto-naming. */
+  nameIsCustom: boolean;
   cast: string[];
   events: ChatEvent[];
   scene: string;
@@ -55,13 +61,33 @@ export interface SavedComic {
   savedAt: number;
 }
 
-const KEY = 'mcomic96:session:v1';
+const DRAFT_PREFIX = 'mcomic96:draft:';
+const CURRENT_KEY = 'mcomic96:current';
+/** The pre-library single-session key, migrated on first launch then removed. */
+const LEGACY_KEY = 'mcomic96:session:v1';
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Event types the app puts in `state.events`. Anything else is discarded. */
 const EVENT_TYPES = new Set(['message', 'action', 'reaction', 'break', 'join', 'leave']);
+
+export function newDraftId(): string {
+  return Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+}
+
+/**
+ * A filing label taken from the comic's opening line, so drafts are
+ * distinguishable without the user having to name anything.
+ */
+export function autoName(events: readonly ChatEvent[]): string {
+  for (const e of events) {
+    if (e.type !== 'message' && e.type !== 'action') continue;
+    const text = (e as MessageEvent).text?.trim();
+    if (text) return text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text;
+  }
+  return 'Untitled comic';
+}
 
 /**
  * Parse and sanity-check a stored payload.
@@ -73,6 +99,9 @@ const EVENT_TYPES = new Set(['message', 'action', 'reaction', 'break', 'join', '
  *
  * `knownCharacters` is the live manifest key set — a character dropped from the
  * art set between releases is pruned rather than left to fail at render.
+ *
+ * Missing `id` / `name` are filled rather than rejected, which is what lets a
+ * pre-library session payload migrate straight through this function.
  */
 export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): SavedComic | null {
   let data: unknown;
@@ -138,8 +167,14 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
       }
     : undefined;
 
+  const nameIsCustom = data['nameIsCustom'] === true;
+  const storedName = typeof data['name'] === 'string' ? data['name'].trim() : '';
+
   return {
     v: 1,
+    id: typeof data['id'] === 'string' && data['id'] ? data['id'] : newDraftId(),
+    name: storedName || autoName(events),
+    nameIsCustom: nameIsCustom && storedName !== '',
     cast,
     events,
     scene: typeof data['scene'] === 'string' ? data['scene'] : '',
@@ -152,33 +187,94 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
   };
 }
 
-/** Read the saved comic, or `null` if there isn't a usable one. */
-export function loadSession(knownCharacters: ReadonlySet<string>): SavedComic | null {
-  let raw: string | null;
+// ---- localStorage plumbing ------------------------------------------------
+
+const get = (key: string): string | null => {
   try {
-    raw = localStorage.getItem(KEY);
+    return localStorage.getItem(key);
   } catch {
     return null; // storage disabled (private mode, locked-down WebView)
   }
-  if (!raw) return null;
-  const parsed = parseSaved(raw, knownCharacters);
-  if (!parsed) clearSession(); // don't re-parse a bad payload on every launch
-  return parsed;
-}
+};
 
-/** Write the comic. Silently gives up if storage is unavailable or full. */
-export function saveSession(comic: SavedComic): void {
+const put = (key: string, value: string): void => {
   try {
-    localStorage.setItem(KEY, JSON.stringify(comic));
+    localStorage.setItem(key, value);
   } catch {
     // Quota or disabled storage. Losing a save is not worth breaking the UI over.
   }
-}
+};
 
-export function clearSession(): void {
+const drop = (key: string): void => {
   try {
-    localStorage.removeItem(KEY);
+    localStorage.removeItem(key);
   } catch {
     // nothing to do
   }
+};
+
+/** Every draft key currently present, unparsed. */
+function draftKeys(): string[] {
+  const out: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(DRAFT_PREFIX)) out.push(k);
+    }
+  } catch {
+    return [];
+  }
+  return out;
+}
+
+// ---- The library ----------------------------------------------------------
+
+/** Every readable draft, newest first. Unreadable ones are dropped, not thrown. */
+export function listDrafts(knownCharacters: ReadonlySet<string>): SavedComic[] {
+  const out: SavedComic[] = [];
+  for (const key of draftKeys()) {
+    const raw = get(key);
+    const parsed = raw ? parseSaved(raw, knownCharacters) : null;
+    if (parsed) out.push(parsed);
+    else drop(key); // don't re-parse a bad payload on every launch
+  }
+  return out.sort((a, b) => b.savedAt - a.savedAt);
+}
+
+export function loadDraft(id: string, knownCharacters: ReadonlySet<string>): SavedComic | null {
+  const raw = get(DRAFT_PREFIX + id);
+  return raw ? parseSaved(raw, knownCharacters) : null;
+}
+
+export function saveDraft(comic: SavedComic): void {
+  put(DRAFT_PREFIX + comic.id, JSON.stringify(comic));
+}
+
+export function deleteDraft(id: string): void {
+  drop(DRAFT_PREFIX + id);
+}
+
+export function getCurrentId(): string | null {
+  return get(CURRENT_KEY);
+}
+
+export function setCurrentId(id: string): void {
+  put(CURRENT_KEY, id);
+}
+
+/**
+ * Fold a pre-library session into the draft library, once.
+ *
+ * Persistence shipped before the library did, so an existing user has real work
+ * under the old single-session key. Move it across rather than stranding it.
+ */
+export function migrateLegacySession(knownCharacters: ReadonlySet<string>): void {
+  const raw = get(LEGACY_KEY);
+  if (!raw) return;
+  const parsed = parseSaved(raw, knownCharacters);
+  if (parsed) {
+    saveDraft(parsed);
+    setCurrentId(parsed.id);
+  }
+  drop(LEGACY_KEY);
 }
