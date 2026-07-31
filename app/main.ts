@@ -104,6 +104,18 @@ const POOL = [
   ...ALL.filter((id) => !isExpressive(manifests[id]!)),
 ];
 
+/**
+ * The three v2.5 colour avatars. They're fully saturated against a cast that is
+ * otherwise flat black-and-white line art, so one of them dropped into a random
+ * starter pulls the whole panel toward itself.
+ *
+ * They stay in the `+` picker — they're good art and worth choosing on purpose.
+ * They're just kept out of the seed roll's casting, so an unasked-for comic
+ * looks like Comic Chat instead of like a cartoon crashed into it.
+ */
+const LOUD = new Set(['buck', 'kirby', 'veronica']);
+const CASTABLE = POOL.filter((id) => !LOUD.has(id));
+
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -227,8 +239,11 @@ let wheel: WheelApi;
 
 /** Resolve generic log authors to real characters, expressive first. */
 function castFor(authors: readonly string[], seed: number): Map<string, string> {
-  const expressive = POOL.filter((id) => isExpressive(manifests[id]!));
-  const roster = authors.length <= expressive.length ? expressive : POOL;
+  // Note the roster is CASTABLE, not POOL: the index is `(i + seed) % length`,
+  // which draws uniformly, so merely sorting the loud avatars to the back would
+  // not make them any rarer. They have to be off the roster entirely.
+  const expressive = CASTABLE.filter((id) => isExpressive(manifests[id]!));
+  const roster = authors.length <= expressive.length ? expressive : CASTABLE;
   const map = new Map<string, string>();
   authors.forEach((a, i) => map.set(a, roster[(i + seed) % roster.length]!));
   return map;
@@ -447,6 +462,10 @@ function renderCast(): void {
   $('cast').innerHTML = chips + `<button class="chip add" id="add-char" aria-label="Add a character">+</button>`;
   const who = state.speaker ? castName(state.speaker, manifests[state.speaker]?.name) : '—';
   $('speaking').textContent = state.cast.length ? `${who} is speaking` : 'Add characters to begin';
+  // The edit bar's speaker menu is the same cast list in another shape, so it
+  // refreshes here rather than only when edit mode opens — otherwise adding a
+  // character mid-edit leaves them missing from the menu until you reopen it.
+  renderEditSpeaker();
 }
 
 const KINDS: readonly LineKind[] = ['say', 'think', 'whisper', 'shout', 'action'];

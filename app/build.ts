@@ -78,8 +78,12 @@ await esbuild.build({
 
 const balloonIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-4 4v-4H4z"/></svg>`;
 
-// A visible build stamp (dev aid) so we can confirm the device has the latest.
+// A visible build stamp so we can confirm a device actually has the latest
+// bundle — genuinely useful while sideloading, and noise in a shipped app.
+// `--release` drops it (see the `build:release` script); a plain build keeps it.
+const RELEASE = process.argv.includes('--release');
 const BUILD = new Date().toLocaleTimeString('en-US', { hour12: false });
+const buildStamp = RELEASE ? '' : `<span class="build" aria-hidden="true">b${BUILD}</span>`;
 
 const html = `<!doctype html>
 <html lang="en">
@@ -94,7 +98,7 @@ const html = `<!doctype html>
 <div class="app">
   <header class="appbar">
     <span class="wordmark"><span class="m">m</span><span class="c">Comic</span><span class="yr">'96</span></span>
-    <span class="build" aria-hidden="true">b${BUILD}</span>
+    ${buildStamp}
     <span class="spacer"></span>
     <button id="library" class="iconbtn" aria-label="Your comics" title="Your comics">&#128218;</button>
     <button id="undo" class="iconbtn" aria-label="Undo last line" title="Undo">&#8630;</button>

@@ -271,8 +271,16 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
 - `build.ts` — esbuild bundles `main.ts`→`www/app.js` (assets inlined), inlines
   **Comic Neue (OFL) as a data-URI** into `www/style.css`, generates
   `www/index.html`. Cache-bust `app.js?v=<Date.now()>` + a faint header build
-  stamp `b<HH:MM:SS>` (**dev aid — remove before release**). `www/` is
-  gitignored (generated). Run: `cd app && npm run build`.
+  stamp `b<HH:MM:SS>` — kept in a plain `npm run build` (it's how you confirm a
+  sideloaded device has the bundle you think it has) and **dropped by
+  `npm run build:release`**, which passes `--release`. `www/` is gitignored
+  (generated). Run: `cd app && npm run build`.
+- `make-icon.py` — generates the launcher icons from the app's own wordmark
+  (pink `m`, cyan `Comic`, tilted lime `'96` badge, neon glow as a blurred
+  under-layer), at all five densities × legacy/round/adaptive-foreground. Type
+  is Comic Neue, converted woff2→TTF into gitignored `.iconfonts/` because
+  Pillow can't read woff2. `cap sync` does **not** regenerate these — rerun the
+  script and rebuild the APK. Needs `fonttools` + `brotli`.
 - `storage.ts` — saved comics. The `SavedComic` envelope, the per-draft
   load/save/list/delete API, and the defensive `parseSaved` (see Persistence).
 - `style.css` — mobile neon layout (pinned compose bar, webtoon comic scroll).
@@ -306,6 +314,12 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
 - **Scenes curated** to clean backdrops (`room`/`field`/`pastoral`); the busy
   color rooms are held back (`buckroom` hides a genuine, apparently-undocumented
   bootleg-**Cyclops** poster easter egg high on the wall — real decoded MS art).
+- **The three v2.5 colour avatars are off the auto-cast** (`LOUD` in `main.ts`):
+  fully saturated against an otherwise black-and-white cast, one of them pulls a
+  random starter toward itself. They stay in the `+` picker — worth choosing on
+  purpose, just not unasked-for. Note `castFor` indexes `(i + seed) % length`,
+  which draws **uniformly**, so sorting them to the back of the pool would not
+  have made them rarer; they had to leave the roster (`CASTABLE`) entirely.
 - **Opening comic defaults to 3 panels** (`capToPanels` keeps the longest line
   prefix that composes to ≤3).
 - **Transcript / append-only:** a drawn panel must **never recompose** when the
@@ -321,6 +335,13 @@ targetSdk 36, minSdk 24. Builds a real APK: `cd app && npx cap sync && cd
 android && ./gradlew assembleDebug`. **Requires JDK 21** — pinned via
 `org.gradle.java.home` in `android/gradle.properties` (Temurin 21; JDK 17 is
 first on PATH and fails with "invalid source release: 21").
+
+**Sideloading, and the one trap:** build → `cap sync` → `assembleDebug` → copy
+the APK out **last**. Never leave an APK sitting in `www/`: the next `cap sync`
+copies it into the app's own assets and you get an APK containing the previous
+APK (spotted once at 15MB). Stage it outside the project, or delete it before
+the next sync. With no device on USB, serving it off `devserve.py` and
+downloading it on the phone works well — just remember to clear it afterwards.
 
 **Milestones:** M1 foundation ✅ · M2 compose UI ✅ · M3 emotion wheel ✅ ·
 native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
