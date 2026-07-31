@@ -4,13 +4,15 @@
   "private": true,
   "description": "mComic '96 — a chat-to-comic app. Capacitor shell around the comic-chat-composer engine.",
   "scripts": {
-    "sync": "cap sync",
+    "build": "node --experimental-strip-types build.ts",
+    "sync": "npm run build && cap sync",
     "open:android": "cap open android",
-    "run:android": "cap run android"
+    "run:android": "npm run build && cap run android"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
     "@capacitor/cli": "^8.4.2",
-    "@capacitor/core": "^8.4.2"
+    "@capacitor/core": "^8.4.2",
+    "@fontsource/comic-neue": "^5.3.0"
   }
 }
