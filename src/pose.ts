@@ -24,6 +24,21 @@ export interface Pose {
    * leaves the pose entirely neutral. Renderers may ignore this.
    */
   neutralVariant: number;
+  /**
+   * Which slot the *strongest* matching rule filled, when one clearly outranks
+   * the other. `undefined` on a tie, or when only one slot was filled at all.
+   *
+   * A layered character never needs this — the head takes the expression and
+   * the torso takes the gesture, independently, so the two cannot compete. A
+   * whole-figure character has one drawing for both, and {@link figureFor}
+   * previously resolved that by always preferring the gesture. That inverts the
+   * table's own priorities: "I am still waiting" matches `still waiting`
+   * (angry, strength 8) *and* the bare sentence-initial `I` (point-self,
+   * strength 3), and the strength-3 gesture took the drawing. Carrying the
+   * winner through lets the figure honour the same ordering the rest of
+   * inference already obeys.
+   */
+  dominant?: 'gesture' | 'expression';
 }
 
 /**
@@ -329,10 +344,33 @@ export function inferPose(text: string, options: InferPoseOptions = {}): Pose {
 
   let expression: Expression | undefined;
   let gesture: Gesture | undefined;
+  let expressionStrength = -Infinity;
+  let gestureStrength = -Infinity;
   for (const rule of candidates) {
-    if (expression === undefined && rule.expression !== undefined) expression = rule.expression;
-    if (gesture === undefined && rule.gesture !== undefined) gesture = rule.gesture;
+    if (expression === undefined && rule.expression !== undefined) {
+      expression = rule.expression;
+      expressionStrength = rule.strength;
+    }
+    if (gesture === undefined && rule.gesture !== undefined) {
+      gesture = rule.gesture;
+      gestureStrength = rule.strength;
+    }
     if (expression !== undefined && gesture !== undefined) break;
+  }
+
+  // Which slot won outright. A tie stays `undefined`, so whole-figure art keeps
+  // its long-standing gesture-first behaviour except where the table really
+  // does rank the expression higher. An explicit override is a deliberate act
+  // and outranks anything inferred.
+  let dominant: 'gesture' | 'expression' | undefined;
+  if (options.expressionOverride !== undefined && options.gestureOverride === undefined) {
+    dominant = 'expression';
+  } else if (options.gestureOverride !== undefined && options.expressionOverride === undefined) {
+    dominant = 'gesture';
+  } else if (expressionStrength > gestureStrength) {
+    dominant = 'expression';
+  } else if (gestureStrength > expressionStrength) {
+    dominant = 'gesture';
   }
 
   const neutralCount = Math.max(1, options.neutralPoseCount ?? 1);
@@ -349,5 +387,6 @@ export function inferPose(text: string, options: InferPoseOptions = {}): Pose {
     gesture: options.gestureOverride ?? gesture ?? 'neutral',
     expression: options.expressionOverride ?? expression ?? 'neutral',
     neutralVariant,
+    dominant,
   };
 }

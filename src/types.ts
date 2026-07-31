@@ -237,6 +237,13 @@ export interface PanelCharacter {
    * pass this to `bodyForPose` / `figureFor`; it wraps by list length.
    */
   poseVariant: number;
+  /**
+   * Which of `gesture` / `expression` the stronger inference rule filled, when
+   * one clearly outranked the other. Only whole-figure characters need it —
+   * they have a single drawing to satisfy both — and renderers pass it straight
+   * to `figureFor`. See `Pose.dominant`.
+   */
+  dominant?: 'gesture' | 'expression';
 }
 
 /** A balloon tail, routed from balloon body down toward the speaker (§5.4). */

@@ -10,3 +10,7 @@ coverage/
 
 # Local, machine-specific staging target for `npm run deploy:stage`
 examples/demo/.stage-dir
+
+# Python bytecode from the asset tools
+__pycache__/
+*.pyc

@@ -60,7 +60,10 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   answers the priority question the paper leaves open); `EXTRA_POSE_RULES` adds
   emoji, later acronyms, more openers, and rules for angry/scared/bored, which
   **no released version could trigger from text at all**. Callers can pass
-  their own table via `inferPose(text, { rules })`.
+  their own table via `inferPose(text, { rules })`, or through the composer
+  with `ComposeInput.poseRules`. `Pose.dominant` records which slot the
+  *stronger* rule filled, so whole-figure art can honour the table's own
+  priorities (see `figureFor`).
 - `manifest.ts` — character asset schema + validation. Two kinds: **layered**
   (heads-by-emotion × bodies keyed by **gesture or expression** — the original
   art ships emotional torsos: angry stances, laughing slumps, scared cowers)
@@ -70,6 +73,16 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   Panels carry `poseVariant` so renderers actually draw the §4.1 neutral
   cycling. Other helpers: `headForExpression`, `bodyForGesture` (legacy),
   `figureFor`, `isFigureManifest`, `isExpressive`, `characterProportions`.
+  `figureFor` picks a whole-figure pose gesture-first, but falls through the
+  same `BODY_FALLBACK` table `bodyForPose` uses (so `shouting` reaches an
+  `angry` drawing instead of collapsing to neutral), and defers to `dominant`
+  when inference ranked the expression higher — without which a strength-3
+  pronoun rule outranks a strength-8 emotion. That matters enormously to a
+  cast whose only emotional channel *is* the stance.
+  `characterProportions(manifest, pose?)` measures the art actually being
+  drawn rather than always the neutral pose; a wide gesture needs a wider
+  frame, and understating it is what lets the §6.2 camera cut a character off
+  at the panel edge.
 - `rng.ts` — seeded mulberry32 (`createRandom`) + `seededIndex` (fmix32) for
   well-distributed one-shot seed picks (scene, corpus selection).
 - `text.ts` — font-metric approximation + word wrapping.
@@ -115,6 +128,13 @@ embedded name really is "Greg" upstream; we display it as-is.
 - `import-bgb.py` — decodes `.bgb` backdrops (zlib + 4/8-bit indexed) → PNG.
 - Regenerate: sparse-clone `microsoft/comic-chat`, point the tools at
   `v1.0/client/comicart/avatars` and `v2.5-beta-1/{comicart,artpack1}`.
+- `import-character.py` — the **hand-drawn** intake: a folder of PNGs → a
+  validated `character.json`. Layered by default; `--figures` for whole-figure
+  art, `--headless` for a figure with no head. See "Custom character art".
+- `vectorize-character.py` — traces a character's sprites to SVG in place and
+  repoints the manifest. Needs OpenCV.
+- `placeholder-character.py` — crude stand-in art in the importer's input
+  format, so a cast member can exist before anyone has drawn anything.
 
 ## Conventions
 
@@ -231,3 +251,52 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   visible payoff until the asset set has per-intensity sprites — deferred.
 - Seeds now procedurally generate (`generate.ts`, 23 templates) — ~903 distinct
   comics per 1000 seeds — so repeats are rare. Add templates/pools to widen more.
+
+## Custom character art — the intake pipeline
+
+Everything under `assets/comic-chat/` came out of Microsoft's binaries, which
+carry explicit registration crosshairs. Hand-drawn art has none, so
+`tools/import-character.py` gets them one of two ways, and the difference
+matters: **place the markers.**
+
+- **Marker pixels** (preferred). One opaque pixel of a reserved colour:
+  magenta `#FF00FF` at the neck join (a head's `attach`, a body's `headAttach`),
+  cyan `#00FFFF` at the face centre (a head's `tailAnchor`, §5.4). The importer
+  reads them, repaints them to their surroundings, and **reports by filename**
+  which sprites it had to guess on — that list is the QA pass.
+- **Derivation** (fallback). Measured against the decoded cast, whose crosshairs
+  are ground truth: median error ~3px on a torso but **up to 128px** on a wave,
+  because a raised hand fools any rule that looks at the top of the silhouette.
+  No heuristic tried beat that, and a head attached 60px off is instantly visible.
+
+A marker must be **opaque, few, and clustered** — exported art carries
+near-invisible `alpha=1` stragglers that land on exactly these RGB values,
+scattered across the whole image, and averaging them puts the anchor nowhere.
+
+**Two traps, both found the hard way:**
+
+- **Never upscale at import.** The renderer scales every character to the
+  panel's `characterHeightFraction` (`scale = characterHeight / bounds.height`),
+  so sprite pixels buy **resolution and nothing else** — on-screen size is
+  identical either way. Normalising art *up* to a target height costs sharpness
+  for no gain, and costs it twice on a close-up. `MAX_FIGURE_HEIGHT` only ever
+  scales *down*.
+- **Luma needs int32.** `255 * 587` overflows 16 bits, so `astype(np.uint16)`
+  makes white compute as luma 58 and every threshold reads paper as ink. This
+  bit both the quantizer and the tracer.
+
+**Vectorising** (`tools/vectorize-character.py`) is the answer when the source
+art is smaller than its largest close-up and no higher-resolution original
+exists. Comic Chat never looked soft because its ~345px sprites were always
+being *downscaled* into ~200px panels; art that starts at ~290px has no such
+luxury. Tracing to SVG makes the sprite resolution-independent, and needs no
+change anywhere else — `src` is opaque to the composer, `load-assets.ts`
+already inlines `.svg`, and the trace preserves the source's pixel coordinates
+so every anchor and bound stays valid. On real line art it also came out
+**60–70% smaller** than the PNGs.
+
+Two findings worth keeping: **smoothing traced contours makes them worse**
+(Catmull-Rom overshoots on an unevenly-spaced polygon and shreds 2px fold lines
+into spikes — ink IoU 0.965 → 0.929), so the tracer emits polylines; and **IoU
+against your own threshold mask proves nothing** — it only shows the tracer
+matched the threshold. Score the reconstruction against the *original image*.

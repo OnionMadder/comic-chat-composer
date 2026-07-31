@@ -295,18 +295,48 @@ export function bodyForPose(
  * that, a pose matching the expression; failing that, `neutral`. When several
  * poses share a key (some characters have three neutrals), `variant` cycles
  * through them so repeated poses do not look identical.
+ *
+ * Two refinements on that rule, both of which matter far more to a *headless*
+ * cast — where the stance is the only channel emotion has — than to the
+ * original avatars:
+ *
+ *  - A key with no art falls back through {@link BODY_FALLBACK}, exactly as
+ *    {@link bodyForPose} does. Without it, `shouting`, `smile` and the rest
+ *    silently became `neutral` even when a perfectly good `angry` or `happy`
+ *    pose was sitting in the manifest.
+ *  - `dominant` (from {@link Pose}) overrides the gesture-first preference when
+ *    the expression was matched by a stronger rule. Gesture-first is right when
+ *    the two are comparable, but it should not let a strength-3 pronoun outrank
+ *    a strength-8 emotion.
+ *
+ * @param dominant - Which slot inference ranked higher; omit for gesture-first.
  */
 export function figureFor(
   manifest: CharacterManifest,
   expression: Expression,
   gesture: Gesture,
   variant = 0,
+  dominant?: 'gesture' | 'expression',
 ): FigureSprite {
   const figures = manifest.figures!;
   const matching = (key: string): FigureSprite[] => figures.filter((f) => f.key === key);
+
+  /** Poses for a key, or for the nearest stance that reads the same way. */
+  const lookup = (key: BodyKey): FigureSprite[] | undefined => {
+    if (matching(key).length) return matching(key);
+    const alt = BODY_FALLBACK[key];
+    return alt && matching(alt).length ? matching(alt) : undefined;
+  };
+
+  const byGesture = () => (gesture !== 'neutral' ? lookup(gesture) : undefined);
+  const byExpression = () => (expression !== 'neutral' ? lookup(expression) : undefined);
+
+  // Normally the gesture wins, as it always has. When inference says the
+  // expression was matched by a stronger rule, it goes first instead.
   const pick =
-    (gesture !== 'neutral' && matching(gesture).length ? matching(gesture) : null) ??
-    (matching(expression).length ? matching(expression) : null) ??
+    (dominant === 'expression'
+      ? (byExpression() ?? byGesture())
+      : (byGesture() ?? byExpression())) ??
     (matching('neutral').length ? matching('neutral') : null) ??
     figures;
   return pick[((variant % pick.length) + pick.length) % pick.length]!;
@@ -322,15 +352,40 @@ export interface CharacterProportions {
   kneeFraction: number;
 }
 
+/** The pose to measure, when a character's width depends on what they're doing. */
+export interface PoseSelector {
+  expression: Expression;
+  gesture: Gesture;
+  variant?: number;
+  /** See {@link figureFor}; ignored for layered characters. */
+  dominant?: 'gesture' | 'expression';
+}
+
 /**
- * Derive the proportions the camera uses to frame a character, from its neutral
- * pose's bounds and its {@link CharacterFraming} (or the default). Works for
- * both layered and whole-figure characters.
+ * Derive the proportions the camera uses to frame a character, from its
+ * {@link CharacterFraming} (or the default) and the bounds of the art actually
+ * being drawn. Works for both layered and whole-figure characters.
+ *
+ * Pass `pose` whenever it is known. A gesture can change a character's width
+ * dramatically — an arms-out shrug in the mComic Court cast is 1.75x the width
+ * of the same character standing — and measuring the neutral pose instead
+ * understates the horizontal extent of every other one. The §6.2 camera sizes
+ * its frame from this, so an understated width means it does not pull back far
+ * enough and the character is cut off by the panel edge.
+ *
+ * Omitting `pose` keeps the original neutral-pose measurement, which is what a
+ * caller that only has a manifest can offer.
  */
-export function characterProportions(manifest: CharacterManifest): CharacterProportions {
+export function characterProportions(
+  manifest: CharacterManifest,
+  pose?: PoseSelector,
+): CharacterProportions {
+  const expression = pose?.expression ?? 'neutral';
+  const gesture = pose?.gesture ?? 'neutral';
+  const variant = pose?.variant ?? 0;
   const bounds = isFigureManifest(manifest)
-    ? figureFor(manifest, 'neutral', 'neutral').bounds
-    : manifest.bodies!.neutral[0]!.bounds;
+    ? figureFor(manifest, expression, gesture, variant, pose?.dominant).bounds
+    : bodyForPose(manifest, expression, gesture, variant).bounds;
   const framing = manifest.framing ?? DEFAULT_FRAMING;
   const aspect = bounds.height > 0 ? bounds.width / bounds.height : 0.5;
   return {

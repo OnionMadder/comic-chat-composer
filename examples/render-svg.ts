@@ -56,6 +56,20 @@ export interface RenderOptions {
   /** Draw the balloon-region boundary and speaker labels. */
   debug?: boolean;
   /**
+   * Draw the §6.1 white halo around characters. Default true. It uses an SVG
+   * `feMorphology` filter nested under the camera zoom, which some mobile
+   * browsers render unreliably on close-ups; set false for a filter-free,
+   * maximally-portable render (clean line art, no aura).
+   */
+  halo?: boolean;
+  /**
+   * Fraction of panel height at which the characters' feet land. Default 1 (the
+   * panel bottom, feet on the ground). Values above 1 push the feet *below* the
+   * panel, cropping the legs so a larger character reads as a waist-up shot —
+   * the visual-novel framing used for small vertical (mobile) panels.
+   */
+  characterBaselineFraction?: number;
+  /**
    * Metrics used to measure line widths when fitting the balloon outline.
    * Should match whatever the composer laid the text out with, or the outline
    * will not agree with the text inside it.
@@ -226,7 +240,7 @@ function renderFigure(
   characterHeight: number,
   haloId: string,
 ): string {
-  const figure = figureFor(manifest, c.expression, c.gesture, c.poseVariant);
+  const figure = figureFor(manifest, c.expression, c.gesture, c.poseVariant, c.dominant);
   const scale = characterHeight / figure.bounds.height;
   const tx = c.x - scale * figure.tailAnchor.x;
   const ty = groundY - scale * figure.bounds.height;
@@ -234,8 +248,9 @@ function renderFigure(
 
   const markup = options.sprite(figure.src, c.characterId);
 
+  const halo = haloId ? ` filter="url(#${haloId})"` : '';
   return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-  <g filter="url(#${haloId})">${markup}</g>
+  <g${halo}>${markup}</g>
 </g>`;
 }
 
@@ -288,8 +303,9 @@ function renderCharacter(
   // The halo filter runs over the whole head+body group, so the white aura
   // follows the assembled silhouette as one shape — no seam where the head
   // meets the body.
+  const halo = haloId ? ` filter="url(#${haloId})"` : '';
   return `<g transform="${flip}translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-  <g filter="url(#${haloId})">
+  <g${halo}>
     <g>${bodyMarkup}</g>
     ${headGroup(headMarkup)}
   </g>
@@ -316,16 +332,18 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   const metrics = options.metrics ?? createApproximateMetrics();
   const lineHeight = metrics.lineHeight;
 
-  // The character world the composer's camera assumes: feet at the panel
-  // bottom, full standing height a fixed fraction of the panel.
-  const groundY = h;
+  // The character world the composer's camera assumes: feet on the ground line,
+  // full standing height a fixed fraction of the panel. The ground can sit below
+  // the panel (baseline > 1) to crop the legs for a waist-up shot.
+  const groundY = h * (options.characterBaselineFraction ?? 1);
   const characterHeight = h * (options.characterHeightFraction ?? 0.82);
 
   // Map the camera's world window onto the panel viewport.
   const cam = panel.camera;
   const camScale = w / cam.width;
   const clipId = `clip-${panel.panelIndex}`;
-  const haloId = `halo-${panel.panelIndex}`;
+  const useHalo = options.halo !== false;
+  const haloId = useHalo ? `halo-${panel.panelIndex}` : '';
 
   const backdropArt = options.backdrops?.[panel.backdrop];
   const characterLayer = panel.characters
@@ -344,12 +362,14 @@ export function renderPanelToSvg(panel: Panel, options: RenderOptions): string {
   parts.push(
     `<defs>` +
       `<clipPath id="${clipId}"><rect x="3" y="3" width="${w - 6}" height="${h - 6}"/></clipPath>` +
-      `<filter id="${haloId}" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">` +
-      `<feMorphology in="SourceAlpha" operator="dilate" radius="${HALO_RADIUS}" result="d"/>` +
-      `<feFlood flood-color="#ffffff" result="w"/>` +
-      `<feComposite in="w" in2="d" operator="in" result="halo"/>` +
-      `<feMerge><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge>` +
-      `</filter>` +
+      (useHalo
+        ? `<filter id="${haloId}" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">` +
+          `<feMorphology in="SourceAlpha" operator="dilate" radius="${HALO_RADIUS}" result="d"/>` +
+          `<feFlood flood-color="#ffffff" result="w"/>` +
+          `<feComposite in="w" in2="d" operator="in" result="halo"/>` +
+          `<feMerge><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge>` +
+          `</filter>`
+        : '') +
       `</defs>`,
   );
   parts.push(

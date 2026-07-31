@@ -30,7 +30,7 @@ import {
   type CharacterManifest,
 } from './manifest.ts';
 import { placeCharacters, type Placement } from './placement.ts';
-import { inferPose, isShoutText, type Pose } from './pose.ts';
+import { inferPose, isShoutText, type Pose, type PoseRule } from './pose.ts';
 import { createRandom, seededIndex, type Random } from './rng.ts';
 import { createApproximateMetrics, type FontMetrics } from './text.ts';
 import { isPresenceEvent, isReactionEvent } from './types.ts';
@@ -96,6 +96,17 @@ export interface ComposeInput {
   characterAssets?: Record<string, CharacterManifest>;
   /** Text metrics for balloon layout. Defaults to a built-in approximation. */
   metrics?: FontMetrics;
+  /**
+   * Rule table the §4.1 gesture and expression inference reads from. Defaults
+   * to {@link DEFAULT_POSE_RULES}.
+   *
+   * The original's table lived in localizable string resources precisely so it
+   * could be swapped, and {@link inferPose} has always accepted one; this is
+   * the seam that lets a caller reach it without inferring poses separately and
+   * overriding every message by hand. A table tuned to a domain's vocabulary
+   * changes what the comic is *about* — see `court/pose-rules.ts`.
+   */
+  poseRules?: readonly PoseRule[];
   /** Seed for all layout randomness. Same seed → same panels. */
   seed?: number;
 }
@@ -281,8 +292,15 @@ export function compose(input: ComposeInput): Panel[] {
     // them are "required" and must stay within the panel sides.
     const cameraCharacters: CameraCharacter[] = characters.map((c) => {
       const manifest = input.characterAssets?.[c.characterId];
+      // Measure the pose actually being drawn: a wide gesture needs a wider
+      // frame, and the neutral stance does not predict it.
       const proportions = manifest
-        ? characterProportions(manifest)
+        ? characterProportions(manifest, {
+            expression: c.expression,
+            gesture: c.gesture,
+            variant: c.poseVariant,
+            dominant: c.dominant,
+          })
         : { aspect: 0.5, ...DEFAULT_FRAMING };
       return {
         x: c.x,
@@ -412,6 +430,13 @@ export function compose(input: ComposeInput): Panel[] {
         // Silent bystanders hold their most recent variant so they don't
         // snap back to pose 0 whenever someone else is talking.
         poseVariant: utterance?.pose.neutralVariant ?? neutralVariantOf.get(p.author) ?? 0,
+        // A wordless reaction is a deliberately-chosen pose, so whichever slot
+        // it actually names is the one a whole-figure character should draw.
+        dominant: reaction
+          ? reaction.gesture !== undefined && reaction.gesture !== 'neutral'
+            ? ('gesture' as const)
+            : ('expression' as const)
+          : utterance?.pose.dominant,
       };
     });
 
@@ -519,6 +544,7 @@ export function compose(input: ComposeInput): Panel[] {
       gestureOverride: msg.gestureOverride,
       previousNeutralVariant: neutralVariantOf.get(msg.author),
       neutralPoseCount,
+      rules: input.poseRules,
     });
     neutralVariantOf.set(msg.author, pose.neutralVariant);
 
