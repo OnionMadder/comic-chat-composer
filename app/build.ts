@@ -105,6 +105,10 @@ const html = `<!doctype html>
     <div class="speaking" id="speaking"></div>
     <div id="edit-bar" class="edit-bar" role="region" aria-label="Editing panel">
       <span id="edit-label" class="edit-label">Editing</span>
+      <label class="edit-speaker-wrap" aria-label="Panel speaker">
+        <span class="lbl">speaker</span>
+        <select id="edit-speaker" class="edit-speaker"></select>
+      </label>
       <button id="edit-delete" class="iconbtn del" aria-label="Delete panel" title="Delete panel">&#128465;</button>
       <button id="edit-cancel" class="iconbtn" aria-label="Cancel edit" title="Cancel">&times;</button>
     </div>

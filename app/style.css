@@ -164,6 +164,17 @@ body {
 .edit-bar .iconbtn { width: 34px; height: 34px; font-size: 16px; border-color: var(--cyan); color: var(--cyan); }
 .edit-bar .iconbtn.del { color: var(--pink); border-color: var(--pink); }
 
+.edit-speaker-wrap {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  font-size: 10px; color: var(--muted);
+}
+.edit-speaker {
+  font-family: var(--comic); font-size: 13px;
+  color: var(--text); background: var(--panel2);
+  border: 1px solid var(--cyan); border-radius: 8px;
+  padding: 4px 6px; max-width: 140px;
+}
+
 .tray { display: none; flex-direction: column; gap: 12px; }
 .tray.open { display: flex; }
 

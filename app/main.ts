@@ -366,6 +366,21 @@ function toggleAddressee(id: string): void {
   renderAddressees();
 }
 
+/**
+ * Populate the edit-bar's speaker <select> with every cast member, with the
+ * current speaker preselected. Changing it swaps the beat's author on Update.
+ */
+function renderEditSpeaker(): void {
+  const sel = $('edit-speaker') as HTMLSelectElement;
+  sel.innerHTML = state.cast
+    .map((id) => {
+      const label = castName(id, manifests[id]?.name);
+      const selected = id === state.speaker ? ' selected' : '';
+      return `<option value="${id}"${selected}>${esc(label)}</option>`;
+    })
+    .join('');
+}
+
 // ---- Live speaker preview -------------------------------------------------
 
 /** Draw the active speaker on its own, in the pending pose (identity camera). */
@@ -512,6 +527,7 @@ function enterEditMode(panelIdx: number): void {
   $('send').setAttribute('aria-label', 'Update');
   renderCast();
   renderTray();
+  renderEditSpeaker();
   highlightEditingPanel();
   input.focus();
 }
@@ -655,6 +671,19 @@ $('comic').addEventListener('click', (e) => {
 });
 $('edit-cancel').addEventListener('click', exitEditMode);
 $('edit-delete').addEventListener('click', deleteLine);
+$('edit-speaker').addEventListener('change', (e) => {
+  const id = (e.target as HTMLSelectElement).value;
+  if (!id) return;
+  state.speaker = id;
+  // A message can't address its own speaker — drop the new speaker from the
+  // addressee list if they were on it before the swap.
+  pending.addressees = pending.addressees.filter((a) => a !== id);
+  // A speaker swap can add/remove a chip from the addressee strip, so re-
+  // render both surfaces.
+  renderCast();
+  renderTray();
+  updatePreview();
+});
 
 $('sheet-close').addEventListener('click', closeSheet);
 $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
