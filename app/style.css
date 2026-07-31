@@ -30,6 +30,10 @@ body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  /* Nothing in the app should ever scroll the page sideways — strips that are
+     too wide scroll inside themselves. A guard, not a licence: if a row starts
+     overflowing, fix the row. */
+  overflow-x: hidden;
 }
 
 /* ---- App bar ---- */
@@ -182,7 +186,10 @@ body {
   border-radius: 12px;
   background: color-mix(in srgb, var(--cyan) 10%, var(--panel2));
 }
-.edit-bar.open { display: flex; }
+/* Wrapping matters: the character rows below are full-width flex items, and
+   without wrap they'd sit beside the label and buttons and push the bar wider
+   than the screen. */
+.edit-bar.open { display: flex; flex-wrap: wrap; }
 .edit-label { flex: 1; font-size: 13px; color: var(--cyan); }
 .edit-bar .iconbtn { width: 34px; height: 34px; font-size: 15px; border-color: var(--cyan); color: var(--cyan); }
 .edit-bar .iconbtn.del { color: var(--pink); border-color: var(--pink); }
@@ -193,9 +200,7 @@ body {
    facing (with the little ◀ / ▶ badge showing the current direction). */
 .in-scene {
   display: flex; flex-wrap: wrap; gap: 6px;
-  width: 100%;
-  padding-top: 4px;
-  border-top: 1px dashed color-mix(in srgb, var(--cyan) 30%, transparent);
+  width: 100%; min-width: 0;
 }
 .in-scene:empty { display: none; }
 .isc {
@@ -226,7 +231,12 @@ body {
    adding a second character a three-tap hunt. It belongs here, in front of you,
    next to the controls that arrange the people it puts there. */
 .panelrow {
-  grid-column: 1 / -1;
+  /* Take a whole line of the wrapping edit bar. `min-width: 0` is the load-
+     bearing part: a flex item defaults to `min-width: auto`, which refuses to
+     shrink below its content, so the chip strip's `overflow-x` never engages
+     and the row drags the whole page wider than the screen instead. */
+  flex: 1 0 100%;
+  min-width: 0;
   display: flex; flex-direction: column; gap: 5px;
   font-size: 10px; color: var(--muted);
 }
@@ -234,7 +244,13 @@ body {
 #arrange-row { display: none; }
 #arrange-row.is-shown { display: flex; }
 
-.panel-cast { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.panel-cast {
+  display: flex; gap: 6px; padding-bottom: 2px;
+  /* Scrolls sideways within the bar rather than widening it. Needs the
+     `min-width: 0` here as well as on the parent row. */
+  overflow-x: auto; min-width: 0;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
 .panel-cast::-webkit-scrollbar { display: none; }
 .pcast {
   flex: none;
@@ -442,6 +458,15 @@ body {
 }
 .exp-go:active { transform: scale(0.98); }
 .exp-go:disabled { opacity: 0.5; box-shadow: none; }
+
+/* Very narrow phones (~320px): the app bar runs out of room, and on a dev build
+   the b<time> stamp is the ~53px that pushes Export off the edge. Tighten up and
+   drop the stamp — it's a dev aid, not worth an unreachable button. */
+@media (max-width: 360px) {
+  .appbar { gap: 6px; padding-left: 10px; padding-right: 10px; }
+  .appbar .iconbtn { width: 34px; }
+  .build { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .comic { scroll-behavior: auto; }
