@@ -35,20 +35,6 @@ for (const [cid, { manifest, sprites: s }] of Object.entries(loaded)) {
 const backdrops = loadBackdrops(join(assets, 'backdrops'));
 console.log(`inlining ${Object.keys(manifests).length} characters, ${Object.keys(backdrops).length} backdrops`);
 
-await esbuild.build({
-  entryPoints: [join(here, 'main.ts')],
-  bundle: true,
-  format: 'esm',
-  target: 'es2022',
-  minify: true,
-  outfile: join(www, 'app.js'),
-  define: {
-    __MANIFESTS__: JSON.stringify(manifests),
-    __SPRITES__: JSON.stringify(sprites),
-    __BACKDROPS__: JSON.stringify(backdrops),
-  },
-});
-
 // Inline Comic Neue (OFL) as data URIs, prepended to the stylesheet. Android
 // ships no comic font and the composer sizes balloons against one, so shipping
 // a known face is what keeps balloon text inside its balloon. Inlining (rather
@@ -66,6 +52,26 @@ const fonts =
   face(400, 'comic-neue-latin-400-normal.woff2') + '\n' +
   face(700, 'comic-neue-latin-700-normal.woff2') + '\n';
 writeFileSync(join(www, 'style.css'), fonts + readFileSync(join(here, 'style.css'), 'utf8'));
+
+// The same font CSS goes into the bundle as well, because export rasterises the
+// strip SVG through an <img>. That SVG is an isolated document — it cannot see
+// this page's @font-face, so without its own copy the balloon text falls back
+// to a wide serif and clips (the exact failure headless Chrome shows). Costs a
+// duplicated ~50KB of base64; correctness of the thing users actually keep.
+await esbuild.build({
+  entryPoints: [join(here, 'main.ts')],
+  bundle: true,
+  format: 'esm',
+  target: 'es2022',
+  minify: true,
+  outfile: join(www, 'app.js'),
+  define: {
+    __MANIFESTS__: JSON.stringify(manifests),
+    __SPRITES__: JSON.stringify(sprites),
+    __BACKDROPS__: JSON.stringify(backdrops),
+    __FONT_CSS__: JSON.stringify(fonts),
+  },
+});
 
 // The chip strips populate on load from these lists via renderer functions in
 // main.ts; keep the ids stable so the wire-up stays trivial.
@@ -92,7 +98,7 @@ const html = `<!doctype html>
     <span class="spacer"></span>
     <button id="undo" class="iconbtn" aria-label="Undo last line" title="Undo">&#8630;</button>
     <button id="dice" class="iconbtn" aria-label="Surprise me" title="Surprise me">&#127922;</button>
-    <button id="export" class="iconbtn" aria-label="Export" title="Export (coming soon)" disabled>&#8681;</button>
+    <button id="export" class="iconbtn" aria-label="Export your comic" title="Export">&#8681;</button>
   </header>
 
   <main id="comic" class="comic" aria-label="Your comic"></main>
@@ -146,6 +152,34 @@ const html = `<!doctype html>
   <div class="sheet-panel">
     <div class="sheet-head"><span>Add a character</span><button id="sheet-close" class="iconbtn" aria-label="Close">&times;</button></div>
     <div id="sheet-body" class="sheet-body"></div>
+  </div>
+</div>
+
+<div id="export-sheet" class="sheet" role="dialog" aria-label="Export your comic">
+  <div class="sheet-panel">
+    <div class="sheet-head"><span>Export your comic</span><button id="export-close" class="iconbtn" aria-label="Close">&times;</button></div>
+    <div class="export-body">
+      <label class="exp-field">
+        <span class="lbl">title</span>
+        <input id="exp-title" class="text" type="text" maxlength="80" autocomplete="off"
+               placeholder="Untitled" aria-label="Comic title">
+      </label>
+      <label class="exp-field">
+        <span class="lbl">subtitle</span>
+        <input id="exp-subtitle" class="text" type="text" maxlength="100" autocomplete="off"
+               placeholder="optional" aria-label="Comic subtitle">
+      </label>
+      <div class="exp-field">
+        <span class="lbl">columns</span>
+        <div id="exp-columns" class="pickchips" role="radiogroup" aria-label="Panels per row"></div>
+      </div>
+      <label class="exp-toggle">
+        <input id="exp-credits" type="checkbox">
+        <span>Add a &ldquo;starring&rdquo; cast panel</span>
+      </label>
+      <div id="exp-status" class="exp-status" role="status"></div>
+      <button id="exp-go" class="exp-go">Download</button>
+    </div>
   </div>
 </div>
 

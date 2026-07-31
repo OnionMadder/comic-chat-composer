@@ -322,13 +322,34 @@ first on PATH and fails with "invalid source release: 21").
 
 **Milestones:** M1 foundation ✅ · M2 compose UI ✅ · M3 emotion wheel ✅ ·
 native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
-**editable panels + the compose/edit authoring pass ✅** (see Authoring, below).
-Remaining: **M4** export & share (wire `strip.ts` to a PNG/Web-Share), M5
-onboarding (the app now has enough hidden verbs — long-press to reorder, tap to
-edit — to warrant a first-launch coach-mark run), M6 PWA (installable/offline),
-M7 store assets + release signing, M8 release polish (remove the build stamp;
-framing nudges — head a touch lower, two-shot spacing; rein in the bold color
-avatars).
+**editable panels + the compose/edit authoring pass ✅** (see Authoring, below) ·
+**M4 export ✅** (see Export, below). Remaining: M5 onboarding (the app now has
+enough hidden verbs — long-press to reorder, tap to edit — to warrant a
+first-launch coach-mark run), M6 PWA (installable/offline), M7 store assets +
+release signing, M8 release polish (remove the build stamp; framing nudges —
+head a touch lower, two-shot spacing; rein in the bold color avatars).
+
+### Export (built)
+
+The ⭳ button opens a sheet with **title**, **subtitle**, **columns** (1–4), and
+the "starring" cast-panel toggle, then renders the comic through
+`renderStripSvg` (`examples/strip.ts` — it already had `title`/`subtitle`/
+`columns`/`credit`/`credits`) and rasterises to PNG. Delivery prefers
+`navigator.share({files})` so Android's share sheet gets it; an `<a download>`
+is the fallback. A dismissed share sheet is **not** treated as a failure — it
+returns quietly rather than surprising the user with a download.
+
+Two traps worth knowing before touching this:
+- **The exported SVG needs its own `@font-face`.** An SVG rasterised through an
+  `<img>` is an isolated document and cannot see the page's stylesheet, so
+  balloon text silently falls back to a wider serif and overflows balloons the
+  composer had fitted. `build.ts` therefore passes the Comic Neue base64 into
+  the bundle as **`__FONT_CSS__`** (as well as into `style.css`), and
+  `embedFont()` injects it into the strip before rasterising.
+- **Go through a data URI, not a blob URL.** Some browsers treat an SVG blob
+  URL as cross-origin and taint the canvas, so `toBlob()` throws a security
+  error at the final step. `toBase64()` is chunked because
+  `String.fromCharCode(...)` blows the argument limit on a large strip.
 
 ### Authoring — the editing model (built)
 
@@ -369,10 +390,10 @@ comic scroll is a flex column, and the default `flex-shrink: 1` was compressing
 older panels instead of letting the container scroll.
 
 **▶ NEXT — the phase after this** (plan file:
-`~/.claude/plans/clever-singing-ladybug.md` covers what shipped). Compose + edit
-are done; the natural next phase is **"you own the document"**: persistent state
-(localStorage — nothing persists today, every launch is a fresh dice roll), a
-draft library, in-app title/subtitle (the fields exist in `strip.ts` but aren't
-wired on mobile), and share links (the web demo's `#c=<base64url JSON>` envelope
-in `examples/demo/main.ts` is liftable). Then **M4 export** — the biggest
-remaining gap, since comics can't leave the phone yet.
+`~/.claude/plans/clever-singing-ladybug.md` covers the authoring pass). Compose,
+edit, and export are done; the natural next phase is **"you own the document"**:
+persistent state (localStorage — nothing persists today, every launch is a fresh
+dice roll), a draft library, and share links (the web demo's `#c=<base64url
+JSON>` envelope in `examples/demo/main.ts` is liftable). Note the export title
+lives only in the export sheet — persisting it belongs with that work. Then
+**M5 onboarding**.

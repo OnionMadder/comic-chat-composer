@@ -26,6 +26,7 @@ import { generateConversation } from '../examples/generate.ts';
 import { parseLog } from '../examples/parse-log.ts';
 import { isMessageEvent } from '../src/types.ts';
 import { renderPanelToSvg, type RenderOptions } from '../examples/render-svg.ts';
+import { renderStripSvg } from '../examples/strip.ts';
 import { createApproximateMetrics } from '../src/text.ts';
 import { castName } from './cast-names.ts';
 import { speakerColor } from './branding.ts';
@@ -34,6 +35,7 @@ import { createWheel, type WheelApi } from './wheel.ts';
 declare const __MANIFESTS__: Record<string, CharacterManifest>;
 declare const __SPRITES__: Record<string, Record<string, string>>;
 declare const __BACKDROPS__: Record<string, string>;
+declare const __FONT_CSS__: string;
 
 const manifests = __MANIFESTS__;
 const spritesByChar = __SPRITES__;
@@ -879,6 +881,166 @@ function surprise(): void {
   loadSeed(Math.floor(1 + Math.random() * 99999));
 }
 
+// ---- Export ---------------------------------------------------------------
+
+const EXPORT_CREDIT = 'onionmadder.com/comic-chat-composer';
+const COLUMN_CHOICES = [1, 2, 3, 4] as const;
+/** Panels per row on the exported sheet. 2 suits a phone-shot comic. */
+let exportColumns = 2;
+
+function renderColumnChips(): void {
+  $('exp-columns').innerHTML = COLUMN_CHOICES
+    .map((n) => {
+      const on = n === exportColumns;
+      return (
+        `<button class="pickchip${on ? ' is-on' : ''}" data-cols="${n}" ` +
+        `role="radio" aria-checked="${on}">${n}</button>`
+      );
+    })
+    .join('');
+}
+
+function openExport(): void {
+  if (!currentPanels.length) return;
+  if (editingPanel >= 0) exitEditMode();
+  renderColumnChips();
+  $('exp-status').textContent = '';
+  $('export-sheet').classList.add('open');
+}
+
+function closeExport(): void {
+  $('export-sheet').classList.remove('open');
+}
+
+/**
+ * Embed the bundled Comic Neue face into a standalone SVG.
+ *
+ * An SVG rasterised through an `<img>` is its own document: it cannot reach
+ * this page's stylesheet, so without its own `@font-face` the balloon text
+ * renders in a fallback serif that is wider than what the composer measured —
+ * and overflows the balloons it was fitted to. Everything else in the SVG is
+ * already inlined, so this is the last external dependency to close off.
+ */
+function embedFont(svg: string): string {
+  const style = `<defs><style type="text/css">${__FONT_CSS__}</style></defs>`;
+  return svg.replace(/^(<svg[^>]*>)/, (m) => m + style);
+}
+
+/** UTF-8-safe base64 — `btoa` alone throws on any non-Latin-1 codepoint. */
+function toBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  const CHUNK = 0x8000; // avoid blowing the argument limit on big strips
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+/**
+ * Rasterise an SVG string to a PNG blob at `scale`×.
+ *
+ * Goes through a data URI rather than a blob URL: some browsers treat an
+ * SVG blob URL as cross-origin and taint the canvas, which makes `toBlob`
+ * throw a security error at the very last step.
+ */
+async function rasterize(svg: string, scale: number): Promise<Blob> {
+  const dims = svg.match(/<svg[^>]*\bwidth="([\d.]+)"[^>]*\bheight="([\d.]+)"/);
+  if (!dims) throw new Error('strip SVG has no width/height');
+  const w = Number(dims[1]);
+  const h = Number(dims[2]);
+
+  const img = new Image();
+  img.decoding = 'sync';
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('could not load the strip image'));
+    img.src = `data:image/svg+xml;base64,${toBase64(svg)}`;
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('no 2d canvas context');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encode failed'))), 'image/png');
+  });
+}
+
+/** Filename-safe slug of the title, for the saved file. */
+function slug(title: string): string {
+  const s = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s || 'mcomic';
+}
+
+/**
+ * Hand the PNG to the OS. Web Share puts it straight into the share sheet
+ * (the useful path on a phone); the anchor download is the desktop/browser
+ * fallback.
+ */
+async function deliver(png: Blob, filename: string): Promise<string> {
+  const file = new File([png], filename, { type: 'image/png' });
+  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+  if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+    try {
+      await nav.share({ files: [file] });
+      return 'Shared.';
+    } catch (err) {
+      // A user dismissing the share sheet is not a failure — don't fall
+      // through to a surprise download they didn't ask for.
+      if (err instanceof DOMException && err.name === 'AbortError') return '';
+      // Anything else (unsupported payload, transient failure): save instead.
+    }
+  }
+  const url = URL.createObjectURL(png);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return `Saved ${filename}`;
+}
+
+async function runExport(): Promise<void> {
+  const btn = $('exp-go') as HTMLButtonElement;
+  const status = $('exp-status');
+  if (!currentPanels.length) { status.textContent = 'Nothing to export yet.'; return; }
+
+  const title = ($('exp-title') as HTMLInputElement).value.trim();
+  const subtitle = ($('exp-subtitle') as HTMLInputElement).value.trim();
+  const credits = ($('exp-credits') as HTMLInputElement).checked;
+
+  btn.disabled = true;
+  status.textContent = 'Drawing…';
+  try {
+    const svg = renderStripSvg(
+      currentPanels.map((p) => ({ ...p, camera: FLAT_CAMERA })),
+      renderOptions(),
+      {
+        columns: exportColumns,
+        title: title || undefined,
+        subtitle: subtitle || undefined,
+        // Match the demo: the credit line only rides along on a titled export.
+        credit: title || subtitle ? EXPORT_CREDIT : undefined,
+        credits,
+      },
+    );
+    const png = await rasterize(embedFont(svg), 2);
+    const message = await deliver(png, `${slug(title)}.png`);
+    status.textContent = message;
+    if (message) setTimeout(closeExport, 1200);
+  } catch (err) {
+    status.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ---- Wire up --------------------------------------------------------------
 
 $('cast').addEventListener('click', (e) => {
@@ -1131,6 +1293,18 @@ $('edit-speaker').addEventListener('change', (e) => {
   renderTray();
   updatePreview();
 });
+
+$('export').addEventListener('click', openExport);
+$('export-close').addEventListener('click', closeExport);
+$('export-sheet').addEventListener('click', (e) => { if (e.target === $('export-sheet')) closeExport(); });
+$('exp-columns').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button.pickchip') as HTMLElement | null;
+  const n = Number(btn?.dataset.cols);
+  if (!Number.isFinite(n) || n < 1) return;
+  exportColumns = n;
+  renderColumnChips();
+});
+$('exp-go').addEventListener('click', () => { void runExport(); });
 
 $('sheet-close').addEventListener('click', closeSheet);
 $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
