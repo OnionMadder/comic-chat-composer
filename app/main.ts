@@ -31,6 +31,7 @@ import { createApproximateMetrics } from '../src/text.ts';
 import { castName } from './cast-names.ts';
 import { speakerColor } from './branding.ts';
 import { createWheel, type WheelApi } from './wheel.ts';
+import { loadSession, saveSession, type SavedComic } from './storage.ts';
 
 declare const __MANIFESTS__: Record<string, CharacterManifest>;
 declare const __SPRITES__: Record<string, Record<string, string>>;
@@ -558,6 +559,7 @@ function flipCharacterFacing(charId: string): void {
   if (!char) return;
   const ov = overridesFor(at);
   ov.facing = { ...(ov.facing ?? {}), [charId]: char.facing === 'left' ? 'right' : 'left' };
+  markEdited();
   repaintAll('preserve');
   renderInScene();
 }
@@ -574,6 +576,7 @@ function nudgeCharacter(charId: string, dir: 'left' | 'right'): void {
   [orderIds[i], orderIds[j]] = [orderIds[j]!, orderIds[i]!];
   const ov = overridesFor(at);
   ov.order = orderIds;
+  markEdited();
   repaintAll('preserve');
   renderInScene();
 }
@@ -680,6 +683,7 @@ function send(): void {
 
   resetComposer();
   advanceSpeaker();
+  markEdited();
   renderCast();
   renderTray();
   appendPanels();
@@ -694,6 +698,7 @@ function undo(): void {
   while (state.events.length && state.events[state.events.length - 1]!.type === 'break') {
     state.events.pop();
   }
+  markEdited();
   repaintAll();
 }
 
@@ -765,6 +770,7 @@ function updateLine(): void {
   const next = pendingEvent(at);
   if (!next) return; // nothing to save; keep edit mode open
   state.events[evIdx] = next;
+  markEdited();
   exitEditMode();
   repaintAll('preserve');
 }
@@ -776,6 +782,7 @@ function deleteLine(): void {
   const removed = list.splice(editingPanel, 1)[0];
   if (removed) overrides.delete(removed.at);
   rebuildEvents(list);
+  markEdited();
   exitEditMode();
   repaintAll('preserve');
 }
@@ -814,6 +821,7 @@ function duplicatePanel(): void {
   }
   list.splice(editingPanel + 1, 0, copy);
   rebuildEvents(list);
+  markEdited();
   // Slide the edit focus onto the new panel so the user can tweak it right away.
   const newPanel = editingPanel + 1;
   exitEditMode();
@@ -832,6 +840,7 @@ function insertPanel(where: 'before' | 'after'): void {
   const insertAt = where === 'before' ? editingPanel : editingPanel + 1;
   list.splice(insertAt, 0, blankBeat());
   rebuildEvents(list);
+  markEdited();
   exitEditMode();
   repaintAll('preserve');
   enterEditMode(insertAt);
@@ -855,6 +864,7 @@ function addCharacter(id: string): void {
   state.cast.push(id);
   if (!state.speaker) state.speaker = id;
   closeSheet();
+  markEdited();
   renderCast();
   renderTray();
   // No repaint: adding a character to the cast doesn't change any drawn panel —
@@ -872,13 +882,31 @@ function loadSeed(seed: number): void {
   state.speaker = s.cast[0] ?? '';
   overrides.clear();
   if (editingPanel >= 0) exitEditMode();
+  // A freshly-rolled starter is disposable again — the dice stops asking.
+  touched = false;
+  scheduleSave();
   renderCast();
   renderTray();
   repaintAll();
 }
 
-function surprise(): void {
+function rollNewComic(): void {
   loadSeed(Math.floor(1 + Math.random() * 99999));
+}
+
+/**
+ * The dice used to be free — nothing was saved, so nothing could be lost.
+ * Now that work persists, rolling over an edited comic destroys it, so ask
+ * first. An untouched starter still rolls immediately: cycling the dice is
+ * how you browse for one, and a confirm on every tap would be in the way.
+ */
+function surprise(): void {
+  if (!touched) return rollNewComic();
+  $('confirm-roll').classList.add('open');
+}
+
+function closeConfirmRoll(): void {
+  $('confirm-roll').classList.remove('open');
 }
 
 // ---- Export ---------------------------------------------------------------
@@ -1041,6 +1069,102 @@ async function runExport(): Promise<void> {
   }
 }
 
+// ---- Persistence ----------------------------------------------------------
+
+/**
+ * Has the user changed anything since the last dice roll?
+ *
+ * Guards the roll: an untouched starter is disposable (rolling repeatedly is
+ * how you browse for one), but a comic you've worked on is not.
+ */
+let touched = false;
+
+/** Character ids the bundled art actually has — used to prune a stale save. */
+const KNOWN_CHARACTERS = new Set(Object.keys(manifests));
+
+let saveTimer: number | null = null;
+
+function snapshot(): SavedComic {
+  return {
+    v: 1,
+    cast: state.cast,
+    events: state.events,
+    scene: state.scene,
+    seed: state.seed,
+    speaker: state.speaker,
+    overrides: [...overrides.entries()],
+    export: {
+      title: ($('exp-title') as HTMLInputElement).value,
+      subtitle: ($('exp-subtitle') as HTMLInputElement).value,
+      columns: exportColumns,
+      credits: ($('exp-credits') as HTMLInputElement).checked,
+    },
+    touched,
+    savedAt: Date.now(),
+  };
+}
+
+/** Persist shortly — coalesces the burst of calls a drag or a keystroke makes. */
+function scheduleSave(): void {
+  if (saveTimer !== null) clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    saveTimer = null;
+    saveSession(snapshot());
+  }, 400);
+}
+
+/** Persist right now. For the moments we might not get another chance. */
+function flushSave(): void {
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  saveSession(snapshot());
+}
+
+/** Mark the comic edited and queue a save. Called from every mutator. */
+function markEdited(): void {
+  touched = true;
+  scheduleSave();
+}
+
+/** Restore a saved comic into app state and paint it. */
+function hydrate(saved: SavedComic): void {
+  state.cast = saved.cast;
+  state.events = saved.events;
+  state.scene = saved.scene;
+  state.seed = saved.seed;
+  state.speaker = saved.speaker;
+  touched = saved.touched;
+
+  overrides.clear();
+  for (const [at, ov] of saved.overrides) overrides.set(at, { ...ov });
+
+  if (saved.export) {
+    ($('exp-title') as HTMLInputElement).value = saved.export.title ?? '';
+    ($('exp-subtitle') as HTMLInputElement).value = saved.export.subtitle ?? '';
+    ($('exp-credits') as HTMLInputElement).checked = saved.export.credits ?? false;
+    const cols = saved.export.columns;
+    if (cols && COLUMN_CHOICES.includes(cols as (typeof COLUMN_CHOICES)[number])) {
+      exportColumns = cols;
+    }
+  }
+
+  renderCast();
+  renderTray();
+  repaintAll();
+}
+
+/**
+ * Android kills backgrounded WebViews without warning, and a pending debounce
+ * dies with the page. Flush on the way out — this is the save that matters on
+ * a real device.
+ */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) flushSave();
+});
+window.addEventListener('pagehide', flushSave);
+
 // ---- Wire up --------------------------------------------------------------
 
 $('cast').addEventListener('click', (e) => {
@@ -1181,6 +1305,7 @@ function movePanel(from: number, to: number): void {
   if (moved === undefined) return;
   list.splice(to, 0, moved);
   rebuildEvents(list);
+  markEdited();
   if (editingPanel >= 0) exitEditMode();
   repaintAll('preserve');
 }
@@ -1303,8 +1428,21 @@ $('exp-columns').addEventListener('click', (e) => {
   if (!Number.isFinite(n) || n < 1) return;
   exportColumns = n;
   renderColumnChips();
+  scheduleSave();
 });
 $('exp-go').addEventListener('click', () => { void runExport(); });
+// Export settings are part of the comic, not of one export run — remember them.
+// Not `markEdited`: naming your comic shouldn't make the dice start asking.
+for (const id of ['exp-title', 'exp-subtitle']) {
+  $(id).addEventListener('input', scheduleSave);
+}
+$('exp-credits').addEventListener('change', scheduleSave);
+
+$('confirm-keep').addEventListener('click', closeConfirmRoll);
+$('confirm-roll-go').addEventListener('click', () => { closeConfirmRoll(); rollNewComic(); });
+$('confirm-roll').addEventListener('click', (e) => {
+  if (e.target === $('confirm-roll')) closeConfirmRoll();
+});
 
 $('sheet-close').addEventListener('click', closeSheet);
 $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
@@ -1313,6 +1451,9 @@ $('sheet-body').addEventListener('click', (e) => {
   if (btn?.dataset.pick) addCharacter(btn.dataset.pick);
 });
 
-// First paint: a fixed welcome comic, so the first launch is the same every
-// time (the dice rerolls). Later this becomes the persisted last session.
-loadSeed(7);
+// First paint: pick up wherever the last session left off. Failing that — a
+// first run, cleared storage, or a save too damaged to trust — a fixed welcome
+// comic, so a genuine first launch is the same every time (the dice rerolls).
+const restored = loadSession(KNOWN_CHARACTERS);
+if (restored) hydrate(restored);
+else loadSeed(7);

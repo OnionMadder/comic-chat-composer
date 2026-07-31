@@ -155,6 +155,17 @@ const html = `<!doctype html>
   </div>
 </div>
 
+<div id="confirm-roll" class="sheet" role="dialog" aria-label="Start a new comic?">
+  <div class="sheet-panel">
+    <div class="sheet-head"><span>Start a new comic?</span></div>
+    <p class="confirm-copy">This replaces the comic you&rsquo;ve been working on. It can&rsquo;t be undone.</p>
+    <div class="confirm-actions">
+      <button id="confirm-keep" class="confirm-btn keep">Keep this one</button>
+      <button id="confirm-roll-go" class="confirm-btn go">Roll anyway</button>
+    </div>
+  </div>
+</div>
+
 <div id="export-sheet" class="sheet" role="dialog" aria-label="Export your comic">
   <div class="sheet-panel">
     <div class="sheet-head"><span>Export your comic</span><button id="export-close" class="iconbtn" aria-label="Close">&times;</button></div>

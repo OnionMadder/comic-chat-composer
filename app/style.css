@@ -319,6 +319,25 @@ body {
 .pick:disabled { opacity: 0.35; }
 .pick:active { transform: scale(0.96); }
 
+/* ---- Confirm dialog (dice over an edited comic) ----
+   A sheet rather than window.confirm: the native dialog looks alien inside an
+   APK, and some WebViews suppress it outright. */
+.confirm-copy { margin: 0 0 16px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-btn {
+  flex: 1;
+  font-family: var(--comic); font-size: 15px;
+  border-radius: 12px; padding: 13px 10px;
+}
+.confirm-btn.keep {
+  color: var(--text); background: var(--panel2); border: 1px solid var(--edge);
+}
+.confirm-btn.go {
+  color: var(--ink); background: var(--pink); border: none; font-weight: 700;
+  box-shadow: 0 0 16px rgba(255, 61, 154, 0.4);
+}
+.confirm-btn:active { transform: scale(0.97); }
+
 /* ---- Export sheet ---- */
 .export-body {
   overflow-y: auto;

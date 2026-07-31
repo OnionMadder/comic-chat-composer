@@ -273,6 +273,8 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   `www/index.html`. Cache-bust `app.js?v=<Date.now()>` + a faint header build
   stamp `b<HH:MM:SS>` (**dev aid — remove before release**). `www/` is
   gitignored (generated). Run: `cd app && npm run build`.
+- `storage.ts` — session persistence. The `SavedComic` envelope, `saveSession` /
+  `loadSession`, and the defensive `parseSaved` (see Persistence, below).
 - `style.css` — mobile neon layout (pinned compose bar, webtoon comic scroll).
 - `devserve.py` — a **no-cache** static server (`python devserve.py 8973`,
   binds 0.0.0.0) so a phone on the same wifi loads `http://<PC-LAN-IP>:8973`
@@ -389,11 +391,36 @@ tick, or the hold timer fires and you get a drag instead of a tap.
 comic scroll is a flex column, and the default `flex-shrink: 1` was compressing
 older panels instead of letting the container scroll.
 
-**▶ NEXT — the phase after this** (plan file:
-`~/.claude/plans/clever-singing-ladybug.md` covers the authoring pass). Compose,
-edit, and export are done; the natural next phase is **"you own the document"**:
-persistent state (localStorage — nothing persists today, every launch is a fresh
-dice roll), a draft library, and share links (the web demo's `#c=<base64url
-JSON>` envelope in `examples/demo/main.ts` is liftable). Note the export title
-lives only in the export sheet — persisting it belongs with that work. Then
-**M5 onboarding**.
+### Persistence (built)
+
+The working comic autosaves to `localStorage` under `mcomic96:session:v1` and
+restores on launch; boot is `loadSession()` first, `loadSeed(7)` only as the
+fallback. `app/storage.ts` owns the format, `main.ts` owns when to write.
+
+- **`localStorage`, not Capacitor Preferences** — no extra plugin, no async API
+  to thread through every mutator, identical under `devserve.py` and in the APK.
+  A comic is well under a kilobyte (text and ids; the sprites are in the bundle).
+- **`overrides` serialises as an array of pairs.** The `Map` is keyed by numeric
+  `event.at`, and JSON object keys are always strings — an object round-trip
+  would quietly turn every key into `"12"` and break every lookup.
+- **`parseSaved` validates rather than trusts**, and any failure returns `null`
+  so boot falls back to a fresh comic: the payload is hand-editable in devtools
+  and version-skewed across releases, and a corrupt save must never strand the
+  user on a blank screen. It also prunes cast ids missing from `manifests`, so a
+  future change to the art set degrades instead of failing to render.
+- **Saves are debounced ~400ms, but flushed immediately on `visibilitychange` →
+  hidden and on `pagehide`.** That flush is the one that matters on device:
+  Android kills backgrounded WebViews without warning and a pending debounce
+  dies with the page.
+- **`touched`** tracks edits since the last dice roll. The dice rolls freely on
+  an untouched starter (cycling it is how you browse for one) and opens a
+  confirm sheet once you've made changes — rolling now destroys saved work.
+  It's a `.sheet`, not `window.confirm`, which looks alien in an APK and is
+  suppressed outright in some WebViews.
+
+**▶ NEXT.** Compose, edit, export, and persistence are done. The remaining
+"own the document" pieces are a **draft library** (several named comics — the
+envelope already carries `savedAt` for sorting) and **share links** (the web
+demo's `#c=<base64url JSON>` helpers in `examples/demo/main.ts` are liftable,
+though note its `s` field is a *script* string and won't round-trip `reaction`
+events). Then **M5 onboarding**.
