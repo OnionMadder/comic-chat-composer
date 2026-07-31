@@ -67,11 +67,8 @@ const fonts =
   face(700, 'comic-neue-latin-700-normal.woff2') + '\n';
 writeFileSync(join(www, 'style.css'), fonts + readFileSync(join(here, 'style.css'), 'utf8'));
 
-const opt = (v: string, label: string): string => `<option value="${v}">${label}</option>`;
-const gestures = ['neutral', 'wave', 'point-self', 'point-other', 'smile', 'shrug'];
-const kinds: Array<[string, string]> = [
-  ['say', 'say'], ['think', 'think'], ['whisper', 'whisper'], ['shout', 'shout'], ['action', 'action'],
-];
+// The chip strips populate on load from these lists via renderer functions in
+// main.ts; keep the ids stable so the wire-up stays trivial.
 
 const balloonIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-4 4v-4H4z"/></svg>`;
 
@@ -109,8 +106,14 @@ const html = `<!doctype html>
         <span class="lbl">speaker</span>
         <select id="edit-speaker" class="edit-speaker"></select>
       </label>
-      <button id="edit-delete" class="iconbtn del" aria-label="Delete panel" title="Delete panel">&#128465;</button>
-      <button id="edit-cancel" class="iconbtn" aria-label="Cancel edit" title="Cancel">&times;</button>
+      <div class="edit-actions">
+        <button id="edit-ins-before" class="iconbtn" aria-label="Insert a blank panel before this one" title="Insert before">&#43;&#8593;</button>
+        <button id="edit-ins-after" class="iconbtn" aria-label="Insert a blank panel after this one" title="Insert after">&#43;&#8595;</button>
+        <button id="edit-dup" class="iconbtn" aria-label="Duplicate this panel" title="Duplicate">&#10697;</button>
+        <button id="edit-delete" class="iconbtn del" aria-label="Delete panel" title="Delete panel">&#128465;</button>
+        <button id="edit-cancel" class="iconbtn" aria-label="Cancel edit" title="Cancel">&times;</button>
+      </div>
+      <div id="in-scene" class="in-scene" role="toolbar" aria-label="Characters in panel"></div>
     </div>
     <div class="inputrow">
       <button id="more" class="iconbtn round" aria-label="More options">+</button>
@@ -123,10 +126,14 @@ const html = `<!doctype html>
         <div id="preview" class="preview" aria-label="Speaker preview"></div>
         <div id="wheel" class="wheel"></div>
       </div>
-      <div class="selects">
-        <label>delivery<select id="kind">${kinds.map(([v, l]) => opt(v, l)).join('')}</select></label>
-        <label>gesture<select id="gesture">${gestures.map((g) => opt(g, g)).join('')}</select></label>
-      </div>
+      <label class="pickrow">
+        <span class="lbl">delivery</span>
+        <div id="kind-chips" class="pickchips" role="radiogroup" aria-label="Delivery"></div>
+      </label>
+      <label class="pickrow">
+        <span class="lbl">gesture</span>
+        <div id="gesture-chips" class="pickchips" role="radiogroup" aria-label="Gesture"></div>
+      </label>
       <label class="addressees-row">
         <span class="lbl">also in panel</span>
         <div id="addressees" class="addressees"></div>

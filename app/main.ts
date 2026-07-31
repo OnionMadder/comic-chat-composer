@@ -134,6 +134,21 @@ type LineKind = 'say' | 'think' | 'whisper' | 'shout' | 'action';
 const state: AppState = { cast: [], events: [], speaker: '', scene: '', seed: 1 };
 const pending: Pending = { kind: 'say', expression: 'neutral', intensity: 0, gesture: 'neutral', addressees: [] };
 
+/**
+ * Per-beat character overrides — applied AFTER the composer produces panels,
+ * so the library stays pixel-free and its placement algorithm untouched.
+ *
+ * Keyed by the content event's `at` (monotonic, preserved through edits,
+ * duplication, reorder). Only stores what deviates from the default:
+ *   - `facing`: characterId → 'left' | 'right' (flip a character's direction)
+ *   - `order`:  characterId[] (left-to-right sequence, x-positions preserved)
+ */
+interface BeatOverrides {
+  facing?: Record<string, 'left' | 'right'>;
+  order?: string[];
+}
+const overrides = new Map<number, BeatOverrides>();
+
 // Panel index (== content-event index) currently being edited, or -1 = append.
 // Panels map 1:1 to content events (message/action/reaction) because the event
 // list is interleaved with breaks, so `contentEventIndex(N)` finds the event
@@ -145,6 +160,39 @@ function contentEventIndices(): number[] {
   const out: number[] = [];
   state.events.forEach((e, i) => { if (isContentEvent(e)) out.push(i); });
   return out;
+}
+
+/**
+ * Rewrite `state.events` from a new sequence of content events. `next` is
+ * the desired panels in order; each entry is either an existing content
+ * event (its `at` is preserved) or a brand-new one. Breaks are re-
+ * interleaved between them so panel N ↔ content-event N stays true.
+ *
+ * All the mutating verbs — reorder (§1), duplicate + insert (§3a),
+ * delete (existing) — reduce to "compute the new content-event list and
+ * hand it to this helper."
+ */
+function rebuildEvents(next: ChatEvent[]): void {
+  const out: ChatEvent[] = [];
+  next.forEach((ev, i) => {
+    if (i > 0) out.push({ type: 'break', at: -1 });
+    out.push(ev);
+  });
+  // Renumber the break `at` fields so they stay monotonic relative to the
+  // content events that surround them. Content events keep their own `at`
+  // (durable identity — used as the key for the overrides sidecar in §2).
+  let maxAt = 0;
+  for (const e of out) if (e.type !== 'break') maxAt = Math.max(maxAt, e.at);
+  let bumper = maxAt + 1;
+  for (const e of out) if (e.type === 'break' && e.at === -1) e.at = bumper++;
+  state.events = out;
+}
+
+/** The next monotonic `at` for a freshly-minted content event. */
+function nextAt(): number {
+  let m = 0;
+  for (const e of state.events) if (e.at > m) m = e.at;
+  return m + 1;
 }
 
 const colorOf = (id: string): string => speakerColor(Math.max(0, state.cast.indexOf(id)));
@@ -249,7 +297,7 @@ function composePanels(): Panel[] {
   }
   const castMap: Record<string, CastEntry> = {};
   for (const id of state.cast) castMap[id] = { characterId: id };
-  currentPanels = compose({
+  const raw = compose({
     events: state.events,
     cast: castMap,
     characterAssets: manifests,
@@ -258,7 +306,58 @@ function composePanels(): Panel[] {
     metrics: METRICS,
     rules: RULES,
   });
+  currentPanels = applyBeatOverrides(raw);
   return currentPanels;
+}
+
+/**
+ * Overlay per-beat character overrides onto the composed panels. Applies
+ * `order` (rearranges left↔right, preserving the composer's x-spacing) and
+ * `facing` (flips a character's direction). Balloon tails follow the
+ * speaker's new x so tails don't point at empty air.
+ */
+function applyBeatOverrides(panels: Panel[]): Panel[] {
+  const indices = contentEventIndices();
+  return panels.map((p, i) => {
+    const evIdx = indices[i];
+    if (evIdx === undefined) return p;
+    const ev = state.events[evIdx];
+    if (!ev) return p;
+    const ov = overrides.get(ev.at);
+    if (!ov || (!ov.facing && !ov.order)) return p;
+
+    let chars = p.characters.map((c) => ({ ...c }));
+
+    if (ov.order && ov.order.length && chars.length > 1) {
+      // Preserve the composer's chosen x-positions (they respect §4.3
+      // spacing); we only permute WHICH character sits at each one.
+      const xs = chars.map((c) => c.x).sort((a, b) => a - b);
+      const byId = new Map(chars.map((c) => [c.characterId, c]));
+      const reordered: typeof chars = [];
+      for (const id of ov.order) {
+        const c = byId.get(id);
+        if (c && !reordered.includes(c)) reordered.push(c);
+      }
+      for (const c of chars) if (!reordered.includes(c)) reordered.push(c);
+      reordered.forEach((c, k) => { c.x = xs[k]!; });
+      chars = reordered;
+    }
+
+    if (ov.facing) {
+      for (const c of chars) {
+        const f = ov.facing[c.characterId];
+        if (f) c.facing = f;
+      }
+    }
+
+    const balloons = p.balloons.map((b) => {
+      const speaker = chars.find((c) => c.author === b.speaker);
+      if (!speaker || !b.tail) return b;
+      return { ...b, tail: { ...b.tail, toX: speaker.x } };
+    });
+
+    return { ...p, characters: chars, balloons };
+  });
 }
 
 const panelHtml = (p: Panel, idx: number): string =>
@@ -327,11 +426,40 @@ function renderCast(): void {
   $('speaking').textContent = state.cast.length ? `${who} is speaking` : 'Add characters to begin';
 }
 
+const KINDS: readonly LineKind[] = ['say', 'think', 'whisper', 'shout', 'action'];
+const GESTURES: readonly Gesture[] = ['neutral', 'wave', 'point-self', 'point-other', 'smile', 'shrug'];
+
 function renderTray(): void {
-  ($('kind') as HTMLSelectElement).value = pending.kind;
-  ($('gesture') as HTMLSelectElement).value = pending.gesture;
+  renderKindChips();
+  renderGestureChips();
   renderAddressees();
   updatePreview();
+}
+
+/** Delivery chip strip — one tap sets `pending.kind`. */
+function renderKindChips(): void {
+  $('kind-chips').innerHTML = KINDS
+    .map((k) => {
+      const on = k === pending.kind;
+      return (
+        `<button class="pickchip${on ? ' is-on' : ''}" data-kind="${k}" ` +
+        `role="radio" aria-checked="${on}">${k}</button>`
+      );
+    })
+    .join('');
+}
+
+/** Gesture chip strip — one tap sets `pending.gesture`. */
+function renderGestureChips(): void {
+  $('gesture-chips').innerHTML = GESTURES
+    .map((g) => {
+      const on = g === pending.gesture;
+      return (
+        `<button class="pickchip${on ? ' is-on' : ''}" data-gesture="${g}" ` +
+        `role="radio" aria-checked="${on}">${g}</button>`
+      );
+    })
+    .join('');
 }
 
 /**
@@ -364,6 +492,79 @@ function toggleAddressee(id: string): void {
   if (i >= 0) pending.addressees.splice(i, 1);
   else pending.addressees.push(id);
   renderAddressees();
+}
+
+/**
+ * In-scene character chip strip: one chip per character currently in the
+ * edited panel, in left-to-right order. Each chip has ‹ / › nudge buttons
+ * to swap position with a neighbor, and the name itself flips facing.
+ * Only visible during edit mode; changes write to the overrides sidecar
+ * and repaint immediately.
+ */
+function renderInScene(): void {
+  const host = $('in-scene');
+  if (editingPanel < 0) { host.innerHTML = ''; return; }
+  const panel = currentPanels[editingPanel];
+  if (!panel || panel.characters.length === 0) { host.innerHTML = ''; return; }
+  const chars = panel.characters.slice().sort((a, b) => a.x - b.x);
+  host.innerHTML = chars
+    .map((c, i) => {
+      const facingArrow = c.facing === 'left' ? '&#9664;' : '&#9654;';
+      const canL = i > 0;
+      const canR = i < chars.length - 1;
+      const name = esc(castName(c.characterId, manifests[c.characterId]?.name));
+      return (
+        `<div class="isc" data-cid="${c.characterId}" style="--c:${colorOf(c.author)}">` +
+        `<button class="isc-nudge" data-nudge="left" ${canL ? '' : 'disabled'} aria-label="Move ${name} left">&#8249;</button>` +
+        `<button class="isc-name" data-flip="1" aria-label="Flip ${name}">${name} <span class="isc-face">${facingArrow}</span></button>` +
+        `<button class="isc-nudge" data-nudge="right" ${canR ? '' : 'disabled'} aria-label="Move ${name} right">&#8250;</button>` +
+        `</div>`
+      );
+    })
+    .join('');
+}
+
+/** The current beat's `at` value, or null if not editing. */
+function currentBeatAt(): number | null {
+  if (editingPanel < 0) return null;
+  const evIdx = contentEventIndices()[editingPanel];
+  if (evIdx === undefined) return null;
+  return state.events[evIdx]?.at ?? null;
+}
+
+function overridesFor(at: number): BeatOverrides {
+  let ov = overrides.get(at);
+  if (!ov) { ov = {}; overrides.set(at, ov); }
+  return ov;
+}
+
+function flipCharacterFacing(charId: string): void {
+  const at = currentBeatAt();
+  if (at === null) return;
+  const panel = currentPanels[editingPanel];
+  if (!panel) return;
+  const char = panel.characters.find((c) => c.characterId === charId);
+  if (!char) return;
+  const ov = overridesFor(at);
+  ov.facing = { ...(ov.facing ?? {}), [charId]: char.facing === 'left' ? 'right' : 'left' };
+  repaintAll('preserve');
+  renderInScene();
+}
+
+function nudgeCharacter(charId: string, dir: 'left' | 'right'): void {
+  const at = currentBeatAt();
+  if (at === null) return;
+  const panel = currentPanels[editingPanel];
+  if (!panel || panel.characters.length < 2) return;
+  const orderIds = panel.characters.slice().sort((a, b) => a.x - b.x).map((c) => c.characterId);
+  const i = orderIds.indexOf(charId);
+  const j = dir === 'left' ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= orderIds.length) return;
+  [orderIds[i], orderIds[j]] = [orderIds[j]!, orderIds[i]!];
+  const ov = overridesFor(at);
+  ov.order = orderIds;
+  repaintAll('preserve');
+  renderInScene();
 }
 
 /**
@@ -528,6 +729,7 @@ function enterEditMode(panelIdx: number): void {
   renderCast();
   renderTray();
   renderEditSpeaker();
+  renderInScene();
   highlightEditingPanel();
   input.focus();
 }
@@ -538,6 +740,7 @@ function exitEditMode(): void {
   $('edit-bar').classList.remove('open');
   $('send').classList.remove('is-update');
   $('send').setAttribute('aria-label', 'Send');
+  $('in-scene').innerHTML = '';
   resetComposer();
   renderTray();
 }
@@ -557,21 +760,70 @@ function updateLine(): void {
 
 function deleteLine(): void {
   if (editingPanel < 0) return;
-  const indices = contentEventIndices();
-  const evIdx = indices[editingPanel];
-  if (evIdx === undefined) { exitEditMode(); return; }
-  state.events.splice(evIdx, 1);
-  // Collapse any doubled-up breaks left behind, and trim leading/trailing breaks.
-  const compact: ChatEvent[] = [];
-  for (const ev of state.events) {
-    if (ev.type === 'break' && compact[compact.length - 1]?.type === 'break') continue;
-    compact.push(ev);
-  }
-  while (compact[0]?.type === 'break') compact.shift();
-  while (compact[compact.length - 1]?.type === 'break') compact.pop();
-  state.events = compact;
+  const list = contentEvents();
+  if (editingPanel >= list.length) { exitEditMode(); return; }
+  const removed = list.splice(editingPanel, 1)[0];
+  if (removed) overrides.delete(removed.at);
+  rebuildEvents(list);
   exitEditMode();
   repaintAll('preserve');
+}
+
+/** Content events in panel order (the useful projection of state.events). */
+function contentEvents(): ChatEvent[] {
+  return state.events.filter(isContentEvent);
+}
+
+/** A fresh empty message event authored by the current speaker. */
+function blankBeat(): ChatEvent {
+  return {
+    type: 'message',
+    author: state.speaker,
+    text: '',
+    at: nextAt(),
+  };
+}
+
+/** Clone the beat at panel `panelIdx` and open the copy for editing. */
+function duplicatePanel(): void {
+  if (editingPanel < 0) return;
+  const list = contentEvents();
+  const src = list[editingPanel];
+  if (!src) return;
+  const copy: ChatEvent = { ...src, at: nextAt() } as ChatEvent;
+  // Clone the source beat's overrides too, so a duplicated panel arrives with
+  // its facing / order intact — otherwise the copy would silently revert to
+  // the composer's defaults, surprising the user.
+  const srcOv = overrides.get(src.at);
+  if (srcOv) {
+    overrides.set(copy.at, {
+      facing: srcOv.facing ? { ...srcOv.facing } : undefined,
+      order: srcOv.order ? [...srcOv.order] : undefined,
+    });
+  }
+  list.splice(editingPanel + 1, 0, copy);
+  rebuildEvents(list);
+  // Slide the edit focus onto the new panel so the user can tweak it right away.
+  const newPanel = editingPanel + 1;
+  exitEditMode();
+  repaintAll('preserve');
+  enterEditMode(newPanel);
+}
+
+/**
+ * Splice a blank editable beat next to the currently-edited panel.
+ * `where` = 'before' → new panel takes the current index; the edited one shifts.
+ * `where` = 'after'  → new panel takes the next index.
+ */
+function insertPanel(where: 'before' | 'after'): void {
+  if (editingPanel < 0) return;
+  const list = contentEvents();
+  const insertAt = where === 'before' ? editingPanel : editingPanel + 1;
+  list.splice(insertAt, 0, blankBeat());
+  rebuildEvents(list);
+  exitEditMode();
+  repaintAll('preserve');
+  enterEditMode(insertAt);
 }
 
 // ---- Cast picker sheet ----------------------------------------------------
@@ -607,6 +859,7 @@ function loadSeed(seed: number): void {
   state.events = s.events;
   state.scene = s.scene;
   state.speaker = s.cast[0] ?? '';
+  overrides.clear();
   if (editingPanel >= 0) exitEditMode();
   renderCast();
   renderTray();
@@ -642,9 +895,19 @@ $('more').addEventListener('click', () => {
   $('tray').classList.toggle('open');
   updatePreview();
 });
-$('kind').addEventListener('change', (e) => (pending.kind = (e.target as HTMLSelectElement).value as LineKind));
-$('gesture').addEventListener('change', (e) => {
-  pending.gesture = (e.target as HTMLSelectElement).value as Gesture;
+$('kind-chips').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button.pickchip') as HTMLElement | null;
+  const k = btn?.dataset.kind as LineKind | undefined;
+  if (!k) return;
+  pending.kind = k;
+  renderKindChips();
+});
+$('gesture-chips').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button.pickchip') as HTMLElement | null;
+  const g = btn?.dataset.gesture as Gesture | undefined;
+  if (!g) return;
+  pending.gesture = g;
+  renderGestureChips();
   updatePreview();
 });
 $('addressees').addEventListener('click', (e) => {
@@ -660,17 +923,192 @@ $('text').addEventListener('keydown', (e) => {
 $('undo').addEventListener('click', undo);
 $('dice').addEventListener('click', surprise);
 
-// Tap a panel to edit that beat. Tap the same panel again to cancel.
-$('comic').addEventListener('click', (e) => {
-  const fig = (e.target as HTMLElement).closest('figure.panel') as HTMLElement | null;
+// ---- Panel tap-vs-hold gesture (edit on tap, reorder on long-press) --------
+//
+// A short tap opens the beat for editing (same as the old click handler); a
+// hold-then-drag lifts the panel and reorders it. Both flows share one
+// pointer stream so scroll and edit never fight each other:
+//
+//   pointerdown → arm a 350ms hold timer
+//   pointermove > 10px before the timer → this was a scroll; cancel the timer
+//   timer fires with the finger still down → activate drag (capture, halo, no scroll)
+//   pointerup (short + still) → tap → enter/exit edit mode
+//   pointerup (during active drag) → compute drop target, movePanel, cleanup
+
+interface PanelGesture {
+  panelIdx: number;
+  panelEl: HTMLElement;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startTime: number;
+  moved: boolean;
+  activated: boolean;
+  holdTimer: number | null;
+  targetIdx: number;
+  panelHeight: number;
+  panelGap: number;
+}
+
+let gesture: PanelGesture | null = null;
+const DRAG_HOLD_MS = 350;
+const DRAG_MOVE_THRESHOLD = 10;   // px before the hold timer aborts
+const TAP_MAX_MS = 500;
+
+function panelStep(g: PanelGesture): number {
+  return g.panelHeight + g.panelGap;
+}
+
+/** During drag, shift every non-dragged panel to open a slot at `targetIdx`. */
+function reflowSiblings(g: PanelGesture): void {
+  const step = panelStep(g);
+  const panels = Array.from($('comic').querySelectorAll('figure.panel')) as HTMLElement[];
+  panels.forEach((el, i) => {
+    if (i === g.panelIdx) return;
+    let displayPos = i > g.panelIdx ? i - 1 : i;
+    if (displayPos >= g.targetIdx) displayPos += 1;
+    const shift = (displayPos - i) * step;
+    el.style.transform = shift ? `translateY(${shift}px)` : '';
+  });
+}
+
+function clearSiblingReflow(): void {
+  const panels = Array.from($('comic').querySelectorAll('figure.panel')) as HTMLElement[];
+  panels.forEach((el) => { el.style.transform = ''; });
+}
+
+function activatePanelDrag(): void {
+  if (!gesture || gesture.moved) return;
+  gesture.activated = true;
+  gesture.holdTimer = null;
+  // Visuals first — safe even if pointer capture is unavailable (some
+  // synthetic events, some browsers on obscure input paths).
+  gesture.panelEl.classList.add('is-dragging');
+  $('comic').classList.add('is-drag-active');
+  try { gesture.panelEl.setPointerCapture(gesture.pointerId); } catch { /* not fatal */ }
+  if ('vibrate' in navigator) navigator.vibrate?.(15);
+  reflowSiblings(gesture);
+}
+
+function endGesture(): void {
+  if (!gesture) return;
+  if (gesture.holdTimer !== null) clearTimeout(gesture.holdTimer);
+  if (gesture.activated) {
+    try { gesture.panelEl.releasePointerCapture(gesture.pointerId); } catch { /* already released */ }
+    gesture.panelEl.classList.remove('is-dragging');
+    gesture.panelEl.style.transform = '';
+    $('comic').classList.remove('is-drag-active');
+    clearSiblingReflow();
+  }
+  gesture = null;
+}
+
+function movePanel(from: number, to: number): void {
+  if (from === to) return;
+  const list = contentEvents();
+  const [moved] = list.splice(from, 1);
+  if (moved === undefined) return;
+  list.splice(to, 0, moved);
+  rebuildEvents(list);
+  if (editingPanel >= 0) exitEditMode();
+  repaintAll('preserve');
+}
+
+$('comic').addEventListener('pointerdown', (e) => {
+  const pe = e as PointerEvent;
+  if (pe.button !== 0 && pe.pointerType === 'mouse') return;
+  const fig = (pe.target as HTMLElement).closest('figure.panel') as HTMLElement | null;
   if (!fig) return;
-  const idx = Number(fig.dataset.panelIdx);
-  if (!Number.isFinite(idx)) return;
-  if (editingPanel === idx) exitEditMode();
-  else enterEditMode(idx);
+  if (gesture) endGesture();
+  const rect = fig.getBoundingClientRect();
+  gesture = {
+    panelIdx: Number(fig.dataset.panelIdx),
+    panelEl: fig,
+    pointerId: pe.pointerId,
+    startX: pe.clientX,
+    startY: pe.clientY,
+    startTime: performance.now(),
+    moved: false,
+    activated: false,
+    holdTimer: window.setTimeout(activatePanelDrag, DRAG_HOLD_MS),
+    targetIdx: Number(fig.dataset.panelIdx),
+    panelHeight: rect.height,
+    panelGap: 14, // matches .comic { gap: 14px } in style.css
+  };
 });
+
+$('comic').addEventListener('pointermove', (e) => {
+  const pe = e as PointerEvent;
+  if (!gesture || pe.pointerId !== gesture.pointerId) return;
+  const dx = pe.clientX - gesture.startX;
+  const dy = pe.clientY - gesture.startY;
+  if (!gesture.activated) {
+    // Still deciding — a real move means scroll, so abort the hold-to-drag.
+    if (Math.hypot(dx, dy) > DRAG_MOVE_THRESHOLD) {
+      if (gesture.holdTimer !== null) clearTimeout(gesture.holdTimer);
+      gesture.holdTimer = null;
+      gesture.moved = true;
+    }
+    return;
+  }
+  pe.preventDefault();
+  gesture.panelEl.style.transform = `translateY(${dy}px)`;
+  // Recompute drop target from the finger's current Y.
+  const centerY = pe.clientY;
+  const panels = Array.from($('comic').querySelectorAll('figure.panel')) as HTMLElement[];
+  let count = 0;
+  panels.forEach((el, i) => {
+    if (i === gesture!.panelIdx) return;
+    const r = el.getBoundingClientRect();
+    if (r.top + r.height / 2 < centerY) count++;
+  });
+  if (count !== gesture.targetIdx) {
+    gesture.targetIdx = count;
+    reflowSiblings(gesture);
+  }
+});
+
+$('comic').addEventListener('pointerup', (e) => {
+  const pe = e as PointerEvent;
+  if (!gesture || pe.pointerId !== gesture.pointerId) return;
+  const wasActive = gesture.activated;
+  const wasMoved = gesture.moved;
+  const duration = performance.now() - gesture.startTime;
+  const from = gesture.panelIdx;
+  const to = gesture.targetIdx;
+  endGesture();
+  if (wasActive) {
+    if (from !== to) movePanel(from, to);
+    return;
+  }
+  // Not a drag — treat as tap if quick and still.
+  if (!wasMoved && duration < TAP_MAX_MS) {
+    if (editingPanel === from) exitEditMode();
+    else enterEditMode(from);
+  }
+});
+
+$('comic').addEventListener('pointercancel', endGesture);
+$('comic').addEventListener('lostpointercapture', endGesture);
 $('edit-cancel').addEventListener('click', exitEditMode);
 $('edit-delete').addEventListener('click', deleteLine);
+$('edit-dup').addEventListener('click', duplicatePanel);
+$('edit-ins-before').addEventListener('click', () => insertPanel('before'));
+$('edit-ins-after').addEventListener('click', () => insertPanel('after'));
+$('in-scene').addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const chip = target.closest('.isc') as HTMLElement | null;
+  if (!chip) return;
+  const cid = chip.dataset.cid;
+  if (!cid) return;
+  const nudge = target.closest('.isc-nudge') as HTMLElement | null;
+  if (nudge) {
+    if (nudge.hasAttribute('disabled')) return;
+    nudgeCharacter(cid, nudge.dataset.nudge === 'left' ? 'left' : 'right');
+    return;
+  }
+  if (target.closest('.isc-name')) flipCharacterFacing(cid);
+});
 $('edit-speaker').addEventListener('change', (e) => {
   const id = (e.target as HTMLSelectElement).value;
   if (!id) return;

@@ -85,11 +85,34 @@ body {
   flex: none;
 }
 .panel svg { display: block; width: 100%; height: auto; }
-.panel { cursor: pointer; transition: border-color 120ms, box-shadow 120ms, transform 120ms; }
+.panel {
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms, transform 160ms ease;
+  /* Allow the browser its normal vertical scroll on a plain drag inside a
+     panel; the hold-then-drag grabs pointer capture to override this once
+     activated. Without this, a slow scroll from within a panel could get
+     misread as a hold. */
+  touch-action: pan-y;
+}
 .panel.is-editing {
   border-color: var(--cyan);
   box-shadow: 0 0 0 2px var(--cyan), 0 0 24px rgba(44, 255, 230, 0.4);
 }
+/* Long-press drag: the lifted panel follows the finger; siblings slide to
+   open a slot. `transition: none` on the dragged one so it tracks 1:1. */
+.panel.is-dragging {
+  z-index: 10;
+  opacity: 0.94;
+  transition: none;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 2px var(--cyan),
+    0 0 30px rgba(44, 255, 230, 0.55);
+  cursor: grabbing;
+}
+/* While a drag is active, disable page scroll and touch gestures on the
+   comic so the finger controls the panel, not the viewport. */
+.comic.is-drag-active { touch-action: none; overflow: hidden; }
 /* Force the bundled comic face on balloon text (overrides the renderer's inline
    font-family), so the balloons the composer sized always render in that font. */
 .panel svg text { font-family: "Comic Neue", "Comic Sans MS", cursive; }
@@ -161,8 +184,42 @@ body {
 }
 .edit-bar.open { display: flex; }
 .edit-label { flex: 1; font-size: 13px; color: var(--cyan); }
-.edit-bar .iconbtn { width: 34px; height: 34px; font-size: 16px; border-color: var(--cyan); color: var(--cyan); }
+.edit-bar .iconbtn { width: 34px; height: 34px; font-size: 15px; border-color: var(--cyan); color: var(--cyan); }
 .edit-bar .iconbtn.del { color: var(--pink); border-color: var(--pink); }
+.edit-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* In-scene chip strip: one chip per character IN the panel being edited.
+   Nudge left / right to swap positions with a neighbor; the name flips
+   facing (with the little ◀ / ▶ badge showing the current direction). */
+.in-scene {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  width: 100%;
+  padding-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, var(--cyan) 30%, transparent);
+}
+.in-scene:empty { display: none; }
+.isc {
+  display: flex; align-items: stretch; overflow: hidden;
+  border: 1.5px solid var(--c, var(--edge)); border-radius: 14px;
+  background: var(--panel2);
+}
+.isc button {
+  font-family: var(--comic);
+  border: none; background: transparent; color: var(--text);
+  padding: 4px 8px;
+}
+.isc-nudge {
+  font-size: 16px; line-height: 1; color: var(--c);
+  border-right: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+}
+.isc-nudge:last-child {
+  border-right: none;
+  border-left: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+}
+.isc-nudge:disabled { opacity: 0.25; }
+.isc-name { font-size: 13px; padding: 4px 10px; }
+.isc-face { color: var(--c); font-size: 11px; margin-left: 2px; }
+.isc button:active { transform: scale(0.94); }
 
 .edit-speaker-wrap {
   display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
@@ -189,16 +246,29 @@ body {
 .wheel svg { width: 130px; height: 130px; touch-action: none; cursor: grab; }
 .wheel svg:active { cursor: grabbing; }
 
-.selects { display: flex; gap: 8px 10px; flex-wrap: wrap; }
-.selects label {
-  display: flex; flex-direction: column; gap: 3px;
-  font-size: 11px; color: var(--muted); flex: 1 1 30%;
+/* Delivery + gesture chip strips — one tap per choice, no dropdown. Same
+   visual language as the addressee and cast chips, so the tray reads as one
+   uniform surface. */
+.pickrow { display: flex; flex-direction: column; gap: 4px; }
+.pickrow .lbl { font-size: 11px; color: var(--muted); }
+.pickchips {
+  display: flex; flex-wrap: wrap; gap: 6px;
 }
-.selects select {
-  font-family: var(--comic); font-size: 14px;
+.pickchip {
+  flex: none;
+  font-family: var(--comic); font-size: 13px;
   color: var(--text); background: var(--panel2);
-  border: 1px solid var(--edge); border-radius: 10px; padding: 8px 10px;
+  border: 1.5px solid var(--edge); border-radius: 14px;
+  padding: 5px 12px; white-space: nowrap;
+  opacity: 0.7;
 }
+.pickchip.is-on {
+  background: var(--cyan); color: var(--ink);
+  border-color: var(--cyan);
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(44, 255, 230, 0.35);
+}
+.pickchip:active { transform: scale(0.96); }
 
 /* Who else is in this panel — tap a chip to include a cast member as an
    addressee, which puts them in frame beside the speaker. */
