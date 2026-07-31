@@ -12,7 +12,8 @@ Owner: **Onion Madder** (Kellye Strickland). Not affiliated with Microsoft.
 > (default branch `main`). **Not on npm**, deliberately — **don't `npm publish`
 > without being asked** (the name is confirmed free). Git workflow: branch off
 > `main`, then merge back and `git push origin main`. The demo is live at both
-> mirrors (see Deploying, below).
+> mirrors (see Deploying, below). **Active work: the `mComic '96` mobile app on
+> branch `mcomic96-app`** (see "The mComic '96 app" section) — not yet merged.
 
 ## Commands
 
@@ -176,7 +177,15 @@ gesture buttons, Builder/Script tabs) → color-coded cast with a Comic-Chat
 cards** on exports → the demo **split into an ES-module set** (`index.html` /
 `app.js` / `style.css`) → a **procedural conversation generator** (`generate.ts`,
 near-infinite unique seeds) → **published to GitHub** and **deployed to two
-mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror).
+mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror) → the
+full **31-character cast** (Artpack 1 + v2.5 color avatars, both `.avb`
+containers decoded) → **emotional torsos** (`bodyForPose`) → a **paper-fidelity
++ C++ archaeology pass** (cloned `microsoft/comic-chat`; adopted the shipped
+`chat.rc` emotion **rule table** with real strength priorities, fixed two §4.3
+placement bugs, added **wordless reactions** / **explicit breaks** / a
+**"starring" credits panel**, rewrote `docs/ALGORITHM.md` around paper-vs-port-
+vs-shipped-program) → **the mComic '96 mobile app** (Capacitor chat-to-comic —
+see the section below; this is the active workstream).
 
 ## The conversation builder — built, and what's left
 
@@ -231,3 +240,95 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   visible payoff until the asset set has per-intensity sprites — deferred.
 - Seeds now procedurally generate (`generate.ts`, 23 templates) — ~903 distinct
   comics per 1000 seeds — so repeats are rare. Add templates/pools to widen more.
+
+## The mComic '96 app (`app/`) — the mobile product
+
+A separate consumer app that wraps the composer + renderer: **mComic '96**, a
+single-device **chat-to-comic messenger** for Android (you role-play a
+conversation on one phone and it draws itself into a comic). Lives in `app/`,
+its own Capacitor project with its **own `package.json`/`node_modules`** — the
+faithful library root stays zero-dependency and untouched. Homage name, not a
+claim (evokes Comic Chat 1996 without the trademark; carries the "not
+affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
+
+**App files** (`app/`):
+- `branding.ts` — the onionized identity as data: name, tagline, Comic Sans
+  stack, the neon palette (`--void #08080B`, cyan `#2CFFE6`, pink `#FF3D9A`,
+  lime `#B6FF3D`), and stable per-speaker neon colors.
+- `cast-names.ts` — an **app-only** overlay renaming all 31 characters, keyed by
+  the internal id (Anna→Cleo, Bolo→Ren, glenda→Dawn fixing the "Greg" quirk,
+  Maynard→Warren the rabbit, lance→Manila the paper bag, etc.). The **library
+  keeps the original names** — only the app relabels, via `castName(id)`.
+- `main.ts` — app state (`events`/`cast`/`speaker`/`scene`/`seed`) + the compose
+  UI + the append-only render loop (see below). Reuses `compose()` +
+  `renderPanelToSvg()` end to end.
+- `wheel.ts` — the press-drag emotion wheel (8 emotions + neutral centre, radius
+  = intensity, `<0.2` snaps neutral — the shipped body-cam detente), driving the
+  pending pose + a live speaker preview.
+- `build.ts` — esbuild bundles `main.ts`→`www/app.js` (assets inlined), inlines
+  **Comic Neue (OFL) as a data-URI** into `www/style.css`, generates
+  `www/index.html`. Cache-bust `app.js?v=<Date.now()>` + a faint header build
+  stamp `b<HH:MM:SS>` (**dev aid — remove before release**). `www/` is
+  gitignored (generated). Run: `cd app && npm run build`.
+- `style.css` — mobile neon layout (pinned compose bar, webtoon comic scroll).
+- `devserve.py` — a **no-cache** static server (`python devserve.py 8973`,
+  binds 0.0.0.0) so a phone on the same wifi loads `http://<PC-LAN-IP>:8973`
+  and every refresh is fresh. Capacitor `android/` project builds a real APK.
+
+**⚠️ Device rendering — the hard-won lessons (read before touching the render):**
+- **Headless Chrome cannot render this app faithfully** and its screenshots are
+  useless for judging it: it drops SVG-`filter`ed groups (the §6.1 halo), it
+  mis-renders nested camera-zoom transforms (characters vanish / land wrong),
+  and it won't apply an inline `@font-face` (balloon text falls back to a wide
+  serif and clips). **Trust only** the Browser-pane `getBBox` geometry (real
+  Chromium = the device) and the **user's actual phone**.
+- **The device's Chrome won't paint the §6.2 zoom-camera transform** on the
+  character layer, nor the `feMorphology` halo nested under it → characters were
+  invisible. Fix: the app renders at an **identity camera** (no zoom) with the
+  **halo off** — both via opt-in `RenderOptions` (`halo`,
+  `characterBaselineFraction`, added to `render-svg.ts`, defaults keep the
+  faithful demo unchanged). Characters are posed directly.
+- **Font:** Android ships no comic font, so the app bundles **Comic Neue**
+  inlined as a data-URI, and gives the composer a width margin
+  (`createApproximateMetrics({ advanceRatio: 0.7 })`) so balloon text never
+  clips.
+
+**Mobile framing** (settled with the user, on-device):
+- **Square panels (400×400)** matching the square backdrops (no crop/stretch,
+  room to stand characters — the original's shape).
+- Characters **stand in the scene** at identity camera (`characterHeightFraction`
+  ≈0.72, feet on the ground, balloons in the top ~40%), up to 3 per panel.
+- **Scenes curated** to clean backdrops (`room`/`field`/`pastoral`); the busy
+  color rooms are held back (`buckroom` hides a genuine, apparently-undocumented
+  bootleg-**Cyclops** poster easter egg high on the wall — real decoded MS art).
+- **Opening comic defaults to 3 panels** (`capToPanels` keeps the longest line
+  prefix that composes to ≤3).
+- **Transcript / append-only:** a drawn panel must **never recompose** when the
+  next line arrives. Each send emits a `PanelBreakEvent`; `composePanels()` +
+  `appendPanels()` add only new panels, `repaintAll()` is only for a fresh comic
+  or undo. Verified: a new line adds one panel and leaves every existing panel's
+  DOM byte-identical.
+
+**Native shell (Capacitor 8 + Android):** `appId com.onionmadder.mcomic96`,
+targetSdk 36, minSdk 24. Builds a real APK: `cd app && npx cap sync && cd
+android && ./gradlew assembleDebug`. **Requires JDK 21** — pinned via
+`org.gradle.java.home` in `android/gradle.properties` (Temurin 21; JDK 17 is
+first on PATH and fails with "invalid source release: 21").
+
+**Milestones:** M1 foundation ✅ · M2 compose UI ✅ · M3 emotion wheel ✅ ·
+native shell ✅ (APK builds; store assets pending) · mobile framing ✅.
+Remaining: **M4** export & share (wire `strip.ts` to a PNG/Web-Share), M5
+onboarding, M6 PWA (installable/offline), M7 store assets + release signing, M8
+release polish (remove the build stamp; framing nudges — head a touch lower,
+two-shot spacing; rein in the bold color avatars).
+
+**▶ IMMEDIATE NEXT TASK — make panels editable** (this is where a fresh session
+resumes). It's not an authoring tool until you can fix a typo, change the
+speaker, or delete a beat. The user chose the model: **tap a panel → edit that
+beat.** Plan: move to **one line per panel** throughout (starter = the first 3
+lines, a `break` between every line, so panel `i` ↔ the `i`-th content event —
+trivial mapping), then tapping a panel loads that line into the compose bar as
+an editor (speaker / text / emotion wheel / gesture / delivery / addressee) with
+Send becoming **Update**, plus **delete**. Trade-off the user accepted: panels
+become single-beat (speaker + addressee two-shots stay; 3-in-one-panel grouping
+goes). Not started.
