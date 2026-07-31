@@ -184,8 +184,11 @@ containers decoded) → **emotional torsos** (`bodyForPose`) → a **paper-fidel
 `chat.rc` emotion **rule table** with real strength priorities, fixed two §4.3
 placement bugs, added **wordless reactions** / **explicit breaks** / a
 **"starring" credits panel**, rewrote `docs/ALGORITHM.md` around paper-vs-port-
-vs-shipped-program) → **the mComic '96 mobile app** (Capacitor chat-to-comic —
-see the section below; this is the active workstream).
+vs-shipped-program) → **the mComic '96 mobile app** (Capacitor chat-to-comic) →
+the app's **compose + edit authoring pass** — tap a panel to rewrite that beat,
+long-press to drag it into a new order, rearrange and flip the characters inside
+a frame, duplicate/insert beats (see the section below; this is the active
+workstream).
 
 ## The conversation builder — built, and what's left
 
@@ -260,8 +263,8 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   Maynard→Warren the rabbit, lance→Manila the paper bag, etc.). The **library
   keeps the original names** — only the app relabels, via `castName(id)`.
 - `main.ts` — app state (`events`/`cast`/`speaker`/`scene`/`seed`) + the compose
-  UI + the append-only render loop (see below). Reuses `compose()` +
-  `renderPanelToSvg()` end to end.
+  UI + the append-only render loop + the whole editing model (see "Authoring"
+  below). Reuses `compose()` + `renderPanelToSvg()` end to end.
 - `wheel.ts` — the press-drag emotion wheel (8 emotions + neutral centre, radius
   = intensity, `<0.2` snaps neutral — the shipped body-cam detente), driving the
   pending pose + a live speaker preview.
@@ -305,9 +308,11 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   prefix that composes to ≤3).
 - **Transcript / append-only:** a drawn panel must **never recompose** when the
   next line arrives. Each send emits a `PanelBreakEvent`; `composePanels()` +
-  `appendPanels()` add only new panels, `repaintAll()` is only for a fresh comic
-  or undo. Verified: a new line adds one panel and leaves every existing panel's
-  DOM byte-identical.
+  `appendPanels()` add only new panels. Verified: a new line adds one panel and
+  leaves every existing panel's DOM byte-identical. Editing is the deliberate
+  exception — it *is* a recompose, via `repaintAll('preserve')`, which keeps the
+  scroll position so a change doesn't yank you to the newest panel.
+  (`repaintAll('newest')` is for a fresh comic, undo, or a seed roll.)
 
 **Native shell (Capacitor 8 + Android):** `appId com.onionmadder.mcomic96`,
 targetSdk 36, minSdk 24. Builds a real APK: `cd app && npx cap sync && cd
@@ -316,19 +321,58 @@ android && ./gradlew assembleDebug`. **Requires JDK 21** — pinned via
 first on PATH and fails with "invalid source release: 21").
 
 **Milestones:** M1 foundation ✅ · M2 compose UI ✅ · M3 emotion wheel ✅ ·
-native shell ✅ (APK builds; store assets pending) · mobile framing ✅.
+native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
+**editable panels + the compose/edit authoring pass ✅** (see Authoring, below).
 Remaining: **M4** export & share (wire `strip.ts` to a PNG/Web-Share), M5
-onboarding, M6 PWA (installable/offline), M7 store assets + release signing, M8
-release polish (remove the build stamp; framing nudges — head a touch lower,
-two-shot spacing; rein in the bold color avatars).
+onboarding (the app now has enough hidden verbs — long-press to reorder, tap to
+edit — to warrant a first-launch coach-mark run), M6 PWA (installable/offline),
+M7 store assets + release signing, M8 release polish (remove the build stamp;
+framing nudges — head a touch lower, two-shot spacing; rein in the bold color
+avatars).
 
-**▶ IMMEDIATE NEXT TASK — make panels editable** (this is where a fresh session
-resumes). It's not an authoring tool until you can fix a typo, change the
-speaker, or delete a beat. The user chose the model: **tap a panel → edit that
-beat.** Plan: move to **one line per panel** throughout (starter = the first 3
-lines, a `break` between every line, so panel `i` ↔ the `i`-th content event —
-trivial mapping), then tapping a panel loads that line into the compose bar as
-an editor (speaker / text / emotion wheel / gesture / delivery / addressee) with
-Send becoming **Update**, plus **delete**. Trade-off the user accepted: panels
-become single-beat (speaker + addressee two-shots stay; 3-in-one-panel grouping
-goes). Not started.
+### Authoring — the editing model (built)
+
+**One beat per panel.** `interleaveBreaks()` puts a `break` between every
+content event, so **panel `i` ↔ the `i`-th content event** — the mapping every
+editing verb relies on. `contentEventIndices()` / `contentEvents()` project it;
+**`rebuildEvents(list)`** is the one writer — hand it the content events in the
+order you want and it re-interleaves the break scaffold. Every mutator (reorder,
+duplicate, insert, delete) funnels through it, so the invariant can't drift.
+Trade-off the user accepted when choosing this: panels are single-beat (speaker
++ addressee two-shots stay; 3-lines-in-one-panel grouping goes).
+
+**Tap a panel → edit that beat.** `enterEditMode(i)` loads the beat into the
+compose bar (speaker / text / emotion wheel / gesture / delivery / addressees);
+Send becomes **Update** (lime, `.is-update`). The edit bar carries a **speaker
+dropdown**, insert-before / insert-after / duplicate / delete, and the in-scene
+strip. Tap the same panel again to cancel.
+
+**Character placement overrides** — the app's one deviation from "compose is the
+whole truth". `BeatOverrides` (`{ facing?, order? }`) live in a `Map` keyed by
+the event's **`at`** (durable through edits, moves, duplication), and
+`applyBeatOverrides()` rewrites x-positions / facing **after `compose()` returns**,
+then re-anchors each balloon tail to its speaker's new x. This keeps §4.3
+placement in `src/` untouched — no override plumbing in the library, no golden-
+master churn. The **in-scene chip strip** in the edit bar drives it: `‹` / `›`
+swap a character with their neighbour, tapping the name flips their facing.
+
+**Panel drag-reorder uses Pointer Events, not HTML5 DnD** (which Chrome-on-
+Android handles badly — the web demo's `builder.ts` uses DnD, don't copy it
+here). One pointer stream serves both tap-to-edit and hold-to-drag, split by a
+**350ms hold timer** and a **10px move threshold** so a scroll never reads as a
+grab. `.comic.is-drag-active` sets `touch-action: none` for the duration.
+Note when testing synthetically: dispatch `pointerdown`+`pointerup` in the same
+tick, or the hold timer fires and you get a drag instead of a tap.
+
+**Panels must not shrink as the comic grows** — `.panel { flex: none }`. The
+comic scroll is a flex column, and the default `flex-shrink: 1` was compressing
+older panels instead of letting the container scroll.
+
+**▶ NEXT — the phase after this** (plan file:
+`~/.claude/plans/clever-singing-ladybug.md` covers what shipped). Compose + edit
+are done; the natural next phase is **"you own the document"**: persistent state
+(localStorage — nothing persists today, every launch is a fresh dice roll), a
+draft library, in-app title/subtitle (the fields exist in `strip.ts` but aren't
+wired on mobile), and share links (the web demo's `#c=<base64url JSON>` envelope
+in `examples/demo/main.ts` is liftable). Then **M4 export** — the biggest
+remaining gap, since comics can't leave the phone yet.
