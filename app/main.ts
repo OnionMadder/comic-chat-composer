@@ -309,43 +309,91 @@ function castFor(authors: readonly string[], seed: number): Map<string, string> 
 const isContentEvent = (e: ChatEvent): boolean =>
   e.type === 'message' || e.type === 'action' || e.type === 'reaction';
 
-/** Insert a `break` between every pair of content events, so panel i ↔ i-th beat. */
-function interleaveBreaks(events: ChatEvent[]): ChatEvent[] {
-  const out: ChatEvent[] = [];
-  for (const ev of events) {
-    const last = out[out.length - 1];
-    if (last && isContentEvent(last) && isContentEvent(ev)) {
-      out.push({ type: 'break', at: out.length });
+/**
+ * Pack consecutive lines into shared panels, the way a comic actually reads —
+ * a back-and-forth lands in one frame rather than one line per panel.
+ *
+ * Greedy, and bounded by the composer's own rules so the grouping survives
+ * `compose()` intact: a panel takes a new line only while that speaker hasn't
+ * already spoken in it (one balloon per character per panel) and the panel is
+ * under the character cap.
+ */
+function groupIntoExchanges(
+  events: ChatEvent[],
+  castIds: string[],
+  scene: string,
+  seed: number,
+): ChatEvent[] {
+  let groups = packGreedily(events);
+
+  // Then verify against the composer and back off where it can't deliver.
+  //
+  // Packing by speaker count alone is not enough: three wordy lines overflow the
+  // balloon band of a 400×400 panel, and the composer's answer is to **drop the
+  // balloons it can't place** rather than split the panel. Unchecked, that blanked
+  // a panel in 7% of seeds — one rendered seven written lines as a single balloon.
+  //
+  // It also has to be checked *in context*, not group by group: composing a group
+  // alone gives a different answer than composing it after everything before it,
+  // which is why an isolation check only got the failures down to 5%.
+  for (let pass = 0; pass < 8; pass++) {
+    const flat = flattenGroups(groups);
+    const panels = panelsFor(flat, castIds, scene, seed);
+    let bad = -1;
+    if (panels.length !== groups.length) {
+      // The composer split something; break up the first group that could be it.
+      bad = groups.findIndex((g) => g.length > 1);
+    } else {
+      for (let i = 0; i < groups.length; i++) {
+        const spoken = groups[i]!.filter((e) => e.type === 'message' || e.type === 'action').length;
+        if (panels[i]!.balloons.length < spoken && groups[i]!.length > 1) { bad = i; break; }
+      }
     }
-    out.push({ ...ev, at: out.length });
+    if (bad < 0) return flat;
+    // Peel the first beat off the offending group and re-check. Each pass adds a
+    // group, so this converges on one-beat-per-panel in the worst case.
+    groups.splice(bad, 1, [groups[bad]![0]!], groups[bad]!.slice(1));
   }
+  return flattenGroups(groups);
+}
+
+/** Pack consecutive beats while the speaker is new and the panel's cast fits. */
+function packGreedily(events: ChatEvent[]): ChatEvent[][] {
+  const cap = RULES.maxCharactersPerPanel ?? 3;
+  const groups: ChatEvent[][] = [];
+  let current: ChatEvent[] = [];
+  for (const ev of events) {
+    const who = (ev as MessageEvent | ReactionEvent).author;
+    // Everyone the beat needs in frame, not just the speaker — a line addressed
+    // to someone drags them into the panel and counts against the cap.
+    const needed = new Set(
+      [...current, ev].flatMap((e) => [
+        (e as MessageEvent | ReactionEvent).author,
+        ...((e as MessageEvent).addressees ?? []),
+      ]),
+    );
+    const repeatSpeaker = current.some((e) => (e as MessageEvent | ReactionEvent).author === who);
+    if (current.length > 0 && (repeatSpeaker || needed.size > cap)) {
+      groups.push(current);
+      current = [];
+    }
+    current.push(ev);
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
+function flattenGroups(groups: ChatEvent[][]): ChatEvent[] {
+  const out: ChatEvent[] = [];
+  groups.forEach((group, i) => {
+    if (i > 0) out.push({ type: 'break', at: out.length });
+    for (const ev of group) out.push({ ...ev, at: out.length });
+  });
   return out;
 }
 
-/** Turn a generated conversation into app events keyed by character id. */
-function starter(seed: number): { cast: string[]; events: ChatEvent[]; scene: string } {
-  const { events, authors } = parseLog(generateConversation(seed));
-  const cast = castFor(authors, seed);
-  const castIds = [...new Set(authors.map((a) => cast.get(a)!))];
-  const mapped: ChatEvent[] = [];
-  for (const ev of events) {
-    if (!isMessageEvent(ev)) continue;
-    const author = cast.get(ev.author)!;
-    const addressees = ev.addressees?.map((a) => cast.get(a) ?? a).filter((a) => castIds.includes(a));
-    mapped.push({ ...ev, author, addressees });
-  }
-  const scene = SCENES[seed % SCENES.length] ?? '';
-  // One beat per panel from the start: break between every line, so tapping
-  // panel N maps 1:1 to the N-th content event for editing.
-  const withBreaks = interleaveBreaks(mapped);
-  // Keep the opening comic short — three square panels on a phone, not a
-  // scroll. Take the longest prefix of events that still composes to ≤ 3 panels.
-  return { cast: castIds, events: capToPanels(withBreaks, castIds, scene, seed, 3), scene };
-}
-
-/** Panels a set of events composes to (for the given cast/scene/seed). */
-function panelCountFor(events: ChatEvent[], castIds: string[], scene: string, seed: number): number {
-  if (!events.some((e) => e.type !== 'join' && e.type !== 'break')) return 0;
+/** Compose a candidate event list with the app's cast/scene/seed. */
+function panelsFor(events: ChatEvent[], castIds: string[], scene: string, seed: number): Panel[] {
   const castMap: Record<string, CastEntry> = {};
   for (const id of castIds) castMap[id] = { characterId: id };
   return compose({
@@ -356,7 +404,47 @@ function panelCountFor(events: ChatEvent[], castIds: string[], scene: string, se
     seed,
     metrics: METRICS,
     rules: RULES,
-  }).length;
+  });
+}
+
+/**
+ * How many panels a fresh comic opens with.
+ *
+ * Was 3 back when every line got its own panel — which quietly meant the
+ * opening comic was the first *three lines* of an eight-line scene, cut off
+ * before the punchline every single time. Grouped into exchanges, four panels
+ * hold a whole conversation.
+ */
+const OPENING_PANELS = 4;
+
+/** Turn a generated conversation into app events keyed by character id. */
+function starter(seed: number): { cast: string[]; events: ChatEvent[]; scene: string } {
+  // `tune: false` — the demo pads scripts with generic closing beats to hit its
+  // 2×3 grid. The app paces itself by grouping, so it wants the script the
+  // template actually wrote, ending on its own punchline.
+  const { events, authors } = parseLog(generateConversation(seed, { tune: false }));
+  const cast = castFor(authors, seed);
+  const castIds = [...new Set(authors.map((a) => cast.get(a)!))];
+  const mapped: ChatEvent[] = [];
+  for (const ev of events) {
+    if (!isMessageEvent(ev)) continue;
+    const author = cast.get(ev.author)!;
+    const addressees = ev.addressees?.map((a) => cast.get(a) ?? a).filter((a) => castIds.includes(a));
+    mapped.push({ ...ev, author, addressees });
+  }
+  const scene = SCENES[seed % SCENES.length] ?? '';
+  const grouped = groupIntoExchanges(mapped, castIds, scene, seed);
+  return {
+    cast: castIds,
+    events: capToPanels(grouped, castIds, scene, seed, OPENING_PANELS),
+    scene,
+  };
+}
+
+/** Panels a set of events composes to (for the given cast/scene/seed). */
+function panelCountFor(events: ChatEvent[], castIds: string[], scene: string, seed: number): number {
+  if (!events.some((e) => e.type !== 'join' && e.type !== 'break')) return 0;
+  return panelsFor(events, castIds, scene, seed).length;
 }
 
 /** The longest leading run of events that still composes to at most `max` panels. */

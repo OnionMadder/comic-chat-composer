@@ -345,8 +345,27 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   purpose, just not unasked-for. Note `castFor` indexes `(i + seed) % length`,
   which draws **uniformly**, so sorting them to the back of the pool would not
   have made them rarer; they had to leave the roster (`CASTABLE`) entirely.
-- **Opening comic defaults to 3 panels** (`capToPanels` keeps the longest line
-  prefix that composes to ≤3).
+- **Opening comic defaults to 4 panels of grouped exchanges.** Seeded starters
+  run through `groupIntoExchanges()`, which packs a back-and-forth into one
+  frame, then `capToPanels` keeps the longest prefix that composes to
+  ≤`OPENING_PANELS`. It was 3 panels of *one line each* — which quietly meant
+  every opening comic was the first three lines of an eight-line scene, cut off
+  before the punchline. That, not the writing, is what made seeded comics feel
+  like the same nonsense every time.
+- **Starters ask the generator for an untuned script** (`{ tune: false }`). The
+  demo pads to `TARGET_PANELS` with generic `CLOSERS` for its 2×3 grid; the app
+  paces itself by grouping and wants the script the template actually wrote,
+  ending on its own punchline.
+- **`groupIntoExchanges` must verify its grouping against the composer, in
+  context.** Packing by speaker count alone overfills the balloon band, and the
+  composer's response is to **silently drop balloons it can't place** rather
+  than split the panel — that blanked a panel in 7% of seeds, one rendering
+  seven written lines as a single balloon. Checking each group *in isolation*
+  only got it to 5%, because composing a group alone gives a different answer
+  than composing it after everything before it. So it composes the whole
+  sequence and peels a beat off any group whose panel came back short, until
+  clean (worst case: one beat per panel). Measured 0 blank panels over 4000
+  seeds, matching the old one-beat-per-panel baseline.
 - **Transcript / append-only:** a drawn panel must **never recompose** when the
   next line arrives. Each send emits a `PanelBreakEvent`; `composePanels()` +
   `appendPanels()` add only new panels. Verified: a new line adds one panel and

@@ -89,6 +89,24 @@ const POOLS: Record<string, readonly string[]> = {
   treat: ['pancakes', 'dumplings', 'tacos', 'waffles', 'noodles'],
   gadget: ['toaster', 'robot vacuum', 'smart speaker', 'air fryer', 'doorbell camera'],
   plant: ['fern', 'cactus', 'basil plant', 'bonsai', 'succulent'],
+  // Reads as both "assembling the {flatpack}" and "the {flatpack} is finished".
+  flatpack: ['bookshelf', 'wardrobe', 'desk', 'bed frame', 'shoe rack'],
+  leftover: ['a spring', 'four screws', 'an entire shelf', 'a mystery dowel', 'this triangle piece'],
+  band: ['the demo', 'our first single', 'the album', 'the EP', 'our comeback'],
+  bandName: ['Wet Sandwich', 'Two Ferns', 'Committee', 'Soft Launch', 'Damp Cathedral'],
+  // Survives "there is a {critter} in the kitchen" and "the {critter} left".
+  critter: ['bat', 'possum', 'goose', 'raccoon', 'very large moth'],
+  // Both "the {exhibit}" and "{exhibit} is art" have to read.
+  exhibit: ['red square', 'pile of sand', 'unplugged fridge', 'single banana', 'humming cube'],
+  plantCrime: ['overwatered', 'underwatered', 'talked to', 'moved', 'repotted'],
+  ghostSign: ['the cold spot', 'the humming', 'the footsteps', 'the smell', 'the door thing'],
+  recipe: ['one hour', 'twenty minutes', 'overnight', 'four to six weeks', 'until golden'],
+  sauce: ['the sauce', 'the broth', 'the glaze', 'the marinade', 'the roux'],
+  // Reads in "training for {feat}" and "{feat} is tomorrow".
+  feat: ['a 5k', 'the half marathon', 'the charity swim', 'the fun run', 'the big climb'],
+  excuse: ['my ankle', 'the weather', 'a work thing', 'my horoscope', 'the parking'],
+  boardGame: ['Monopoly', 'the co-op one', 'the long one', 'Risk', 'the farming game'],
+  rule: ['rule 12', 'the trading rule', 'the free parking thing', 'the setup phase', 'the tiebreaker'],
 };
 
 interface Template {
@@ -439,6 +457,150 @@ const TEMPLATES: readonly Template[] = [
       '{B} (laugh): the bus knows plenty, {A}',
     ],
   },
+  {
+    cast: 2,
+    lines: [
+      '{A}: the {flatpack} is finished',
+      '{B} -> {A}: then explain {leftover}',
+      '{A} (coy): spare',
+      '{B}: furniture does not come with spares',
+      '{A} (shrug): this one did',
+      '{B} (scared): it is leaning',
+      '{A} (happy): it is leaning confidently',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: okay, {band} is done',
+      '{B} (happy): I love it',
+      '{C}: what is it called',
+      '{A} (coy): {bandName}',
+      '{C} (bored): I hate it',
+      '{B} -> {C}: you said you loved it',
+      '{C}: I loved it before it had a name',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A} (scared): there is a {critter} in the kitchen',
+      '{B}: close the door',
+      '{A}: the door is how it got in',
+      '{C} (bored): so we live here now',
+      '{B} -> {A}: is it doing anything',
+      '{A}: it is looking at {petThing}',
+      '{C} (laugh): it lives here now',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: so this one is called "{exhibit}"',
+      '{B}: it is literally the {exhibit}',
+      '{A} (coy): it is a statement',
+      '{C} -> {A}: what is it saying',
+      '{A}: that is for you to decide',
+      '{B} (bored): it is saying nothing',
+      '{C} (laugh): forty dollars to be told nothing',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A}: you {plantCrime} my {plant}',
+      '{B}: I was helping',
+      '{A} -> {B}: it was thriving',
+      '{B} (coy): it was plateauing',
+      '{A} (shout): IT WAS THRIVING',
+      '{B} (sad): plants are hard',
+      '{A}: plants are easy. you are hard',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A} (scared): okay, {ghostSign} is back',
+      '{B}: it is an old building',
+      '{A}: old buildings do not do that',
+      '{C} (bored): I have been ignoring it for a year',
+      '{B} -> {C}: a YEAR',
+      '{C} (shrug): we have an understanding',
+      '{A} (shout): AN UNDERSTANDING',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A}: how long has {sauce} been going',
+      '{B} (happy): {recipe}',
+      '{A}: the recipe said {recipe2}',
+      '{B} (coy): the recipe is a suggestion',
+      '{A} -> {B}: it is a set of instructions',
+      '{B}: written by a coward',
+      '{A} (laugh): it does smell incredible',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A} (happy): I am training for {feat}',
+      '{B}: since when',
+      '{A}: since this morning',
+      '{C} -> {A}: {feat} is tomorrow',
+      '{A} (scared): tomorrow',
+      '{B} (laugh): what is the plan',
+      '{A} (coy): {excuse}',
+    ],
+  },
+  {
+    cast: 4,
+    lines: [
+      '{A}: we are playing {boardGame}',
+      '{B} (bored): we said never again',
+      '{C}: I am reading the rules',
+      '{D} -> {C}: nobody reads the rules',
+      '{C}: we have been playing {rule} wrong for years',
+      '{A} (shout): WE HAVE BEEN WHAT',
+      '{B} (laugh): this is why we said never again',
+    ],
+  },
+  {
+    cast: 2,
+    lines: [
+      '{A}: I have a great idea',
+      '{B} (bored): is this another {gadget}',
+      '{A}: it is another {gadget}',
+      '{B}: we have four',
+      '{A} (coy): not one that is {verb}',
+      '{B} (scared): why would it be {verb}',
+      '{A} (happy): that is the innovation',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: so nobody {chore}',
+      '{B}: we have a chart',
+      '{C} (coy): the chart is aspirational',
+      '{A} -> {C}: you made the chart',
+      '{C}: and I stand by it, spiritually',
+      '{B} (bored): the chart is not a person',
+      '{A} (sad): nobody {chore}',
+    ],
+  },
+  {
+    cast: 3,
+    lines: [
+      '{A}: I found the {oddDetail} in the garage',
+      '{B}: that is not ours',
+      '{A} -> {B}: it was behind the {device}',
+      '{C} (scared): how long has it been there',
+      '{B}: do not touch it',
+      '{A} (coy): I already named it',
+      '{C} (laugh): what did you name it',
+    ],
+  },
 ];
 
 /** How often the roll returns a hand-written corpus conversation instead of a generated one. */
@@ -554,18 +716,33 @@ function tuneToTarget(script: string, seed: number, rng: Random): string {
   return lines.join('\n');
 }
 
+export interface GenerateOptions {
+  /**
+   * Pad or trim the script to {@link TARGET_PANELS} panels. On by default, for
+   * the demo's 2×3 download grid.
+   *
+   * Turn it **off** when the caller does its own pacing. Padding appends
+   * {@link CLOSERS}, which read fine as a closing beat after a punchline but
+   * are generic by nature — a caller that groups several lines into one panel
+   * gets a different panel count anyway, and is better served by the script the
+   * template actually wrote.
+   */
+  tune?: boolean;
+}
+
 /**
- * Build a conversation script for a seed. Deterministic: the same seed always
- * yields the same comic, and it always composes to {@link TARGET_PANELS}
- * panels under the demo's settings.
+ * Build a conversation script for a seed. Deterministic: the same seed and
+ * options always yield the same comic. With `tune` (the default) it composes to
+ * exactly {@link TARGET_PANELS} panels under the demo's settings.
  */
-export function generateConversation(seed: number): string {
+export function generateConversation(seed: number, options: GenerateOptions = {}): string {
+  const { tune = true } = options;
   const rng = createRandom(seed);
   const script =
     Math.floor(rng() * CURATED_ODDS) === 0
       ? pick(rng, CONVERSATIONS)
       : fill(pick(rng, TEMPLATES), rng);
-  return tuneToTarget(script, seed, rng);
+  return tune ? tuneToTarget(script, seed, rng) : script;
 }
 
 // Exposed for tests.
