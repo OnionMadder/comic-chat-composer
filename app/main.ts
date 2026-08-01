@@ -37,8 +37,10 @@ import {
   autoName,
   deleteDraft,
   getCurrentId,
+  hasSeenIntro,
   listDrafts,
   loadDraft,
+  markIntroSeen,
   migrateLegacySession,
   newDraftId,
   saveDraft,
@@ -1370,15 +1372,40 @@ function renderColumnChips(): void {
 }
 
 function openExport(): void {
-  if (!currentPanels.length) return;
   if (editingPanel >= 0) exitEditMode();
   renderColumnChips();
-  $('exp-status').textContent = '';
+  // An empty comic used to make this a dead tap — the button did nothing at all,
+  // which reads as a broken app rather than as "there's nothing here yet". Open
+  // the sheet either way and say so.
+  const empty = currentPanels.length === 0;
+  $('exp-status').textContent = empty ? 'Nothing to export yet — write a line first.' : '';
+  ($('exp-go') as HTMLButtonElement).disabled = empty;
   $('export-sheet').classList.add('open');
 }
 
 function closeExport(): void {
   $('export-sheet').classList.remove('open');
+}
+
+// ---- The walkthrough ------------------------------------------------------
+
+/**
+ * Almost every verb in this app is invisible: tapping a panel edits it, holding
+ * one moves it, the wheel is a press-drag, and "+ line" is the only way to get a
+ * second balloon into a frame. None of that announces itself, so say it once on
+ * the first launch — and leave it behind the `?` for when it's forgotten.
+ *
+ * A sheet rather than coach marks pinned to elements: those need live positions,
+ * break when the layout reflows or the comic scrolls, and can't be revisited.
+ */
+function openIntro(): void {
+  if (editingPanel >= 0) exitEditMode();
+  $('intro').classList.add('open');
+}
+
+function closeIntro(): void {
+  $('intro').classList.remove('open');
+  markIntroSeen();
 }
 
 /**
@@ -2063,6 +2090,10 @@ $('edit-speaker').addEventListener('change', (e) => {
   updatePreview();
 });
 
+$('help').addEventListener('click', openIntro);
+$('intro-go').addEventListener('click', closeIntro);
+$('intro').addEventListener('click', (e) => { if (e.target === $('intro')) closeIntro(); });
+
 $('export').addEventListener('click', openExport);
 $('export-close').addEventListener('click', closeExport);
 $('export-sheet').addEventListener('click', (e) => { if (e.target === $('export-sheet')) closeExport(); });
@@ -2148,3 +2179,7 @@ else {
   setCurrentId(currentId);
   loadSeed(7);
 }
+
+// The walkthrough goes last, so it opens over a comic rather than a blank screen
+// — the panels behind it are what the instructions are talking about.
+if (!hasSeenIntro()) openIntro();

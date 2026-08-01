@@ -62,6 +62,10 @@ body {
   width: 38px; height: 38px; font-size: 18px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
 }
+/* Hold their size. In the app bar these are flex items, and with five of them
+   beside the wordmark the default `flex-shrink: 1` squeezed them to ~25px wide —
+   a 38px-tall button you can barely hit. The spacer absorbs the slack instead. */
+.appbar .iconbtn { flex: none; }
 .iconbtn:active { transform: scale(0.94); }
 .iconbtn:disabled { opacity: 0.4; }
 .iconbtn.round { border-radius: 50%; }
@@ -145,13 +149,14 @@ body {
   font-family: var(--comic); font-size: 14px;
   color: var(--text); background: var(--panel2);
   border: 1.5px solid var(--c, var(--edge)); border-radius: 20px;
-  padding: 7px 14px; white-space: nowrap;
+  padding: 10px 14px; white-space: nowrap;
+  min-height: 40px;
 }
 .chip.is-active {
   background: var(--c); color: var(--ink);
   box-shadow: 0 0 16px color-mix(in srgb, var(--c) 55%, transparent);
 }
-.chip.add { color: var(--cyan); border-color: var(--edge); border-style: dashed; padding: 7px 12px; }
+.chip.add { color: var(--cyan); border-color: var(--edge); border-style: dashed; padding: 10px 14px; min-width: 40px; }
 
 .speaking { font-size: 12px; color: var(--muted); padding-left: 2px; }
 
@@ -191,7 +196,11 @@ body {
    than the screen. */
 .edit-bar.open { display: flex; flex-wrap: wrap; }
 .edit-label { flex: 1; font-size: 13px; color: var(--cyan); }
-.edit-bar .iconbtn { width: 34px; height: 34px; font-size: 15px; border-color: var(--cyan); color: var(--cyan); }
+/* 40px, not the 34 these started at: five of them sit shoulder-to-shoulder and
+   one of them deletes the panel, so a mis-tap is expensive. Still under
+   Material's 48dp, which won't fit five across a 375px phone, but comfortably
+   past WCAG 2.5.8. */
+.edit-bar .iconbtn { width: 40px; height: 40px; font-size: 16px; border-color: var(--cyan); color: var(--cyan); }
 .edit-bar .iconbtn.del { color: var(--pink); border-color: var(--pink); }
 .edit-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -429,6 +438,25 @@ body {
 }
 .draft-rename:focus { outline: none; box-shadow: 0 0 0 1px var(--cyan); }
 
+/* ---- The walkthrough ---- */
+.intro-list {
+  list-style: none; margin: 0 0 18px; padding: 0;
+  display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto;
+}
+.intro-list li {
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: 14px; line-height: 1.45; color: var(--muted);
+}
+.intro-list b { color: var(--text); font-weight: 700; }
+.intro-key {
+  flex: none; width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel2); border: 1px solid var(--edge);
+  color: var(--cyan); font-size: 17px; line-height: 1;
+}
+.intro-key svg { width: 18px; height: 18px; }
+
 /* ---- Confirm dialog (destructive actions) ----
    A sheet rather than window.confirm: the native dialog looks alien inside an
    APK, and some WebViews suppress it outright. */
@@ -476,9 +504,12 @@ body {
    the b<time> stamp is the ~53px that pushes Export off the edge. Tighten up and
    drop the stamp — it's a dev aid, not worth an unreachable button. */
 @media (max-width: 360px) {
-  .appbar { gap: 6px; padding-left: 10px; padding-right: 10px; }
-  .appbar .iconbtn { width: 34px; }
+  .appbar { gap: 4px; padding-left: 8px; padding-right: 8px; }
+  .appbar .iconbtn { width: 32px; }
   .build { display: none; }
+  /* Five buttons plus the wordmark don't fit a 320px bar at full size; the
+     wordmark is the thing that can shrink without becoming unhittable. */
+  .wordmark { font-size: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

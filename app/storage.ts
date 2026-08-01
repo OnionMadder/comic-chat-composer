@@ -63,6 +63,8 @@ export interface SavedComic {
 
 const DRAFT_PREFIX = 'mcomic96:draft:';
 const CURRENT_KEY = 'mcomic96:current';
+/** Set once the first-launch walkthrough has been dismissed. */
+const INTRO_KEY = 'mcomic96:intro-seen';
 /** The pre-library single-session key, migrated on first launch then removed. */
 const LEGACY_KEY = 'mcomic96:session:v1';
 
@@ -252,6 +254,25 @@ export function saveDraft(comic: SavedComic): void {
 
 export function deleteDraft(id: string): void {
   drop(DRAFT_PREFIX + id);
+}
+
+/**
+ * Has the walkthrough been dismissed before?
+ *
+ * Defaults to "yes, seen" if storage is unavailable — an unreadable store would
+ * otherwise reintroduce the intro on every single launch, which is far more
+ * annoying than never showing it. The `?` button reaches it either way.
+ */
+export function hasSeenIntro(): boolean {
+  try {
+    return localStorage.getItem(INTRO_KEY) !== null;
+  } catch {
+    return true;
+  }
+}
+
+export function markIntroSeen(): void {
+  put(INTRO_KEY, '1');
 }
 
 export function getCurrentId(): string | null {

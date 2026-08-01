@@ -104,6 +104,7 @@ const html = `<!doctype html>
     <button id="undo" class="iconbtn" aria-label="Undo last line" title="Undo">&#8630;</button>
     <button id="dice" class="iconbtn" aria-label="Surprise me" title="Surprise me">&#127922;</button>
     <button id="export" class="iconbtn" aria-label="Export your comic" title="Export">&#8681;</button>
+    <button id="help" class="iconbtn" aria-label="How it works" title="How it works">?</button>
   </header>
 
   <main id="comic" class="comic" aria-label="Your comic"></main>
@@ -179,6 +180,27 @@ const html = `<!doctype html>
     </div>
     <button id="library-new" class="newcomic">+ New comic</button>
     <div id="library-list" class="library-list"></div>
+  </div>
+</div>
+
+<div id="intro" class="sheet" role="dialog" aria-label="How mComic '96 works">
+  <div class="sheet-panel">
+    <div class="sheet-head"><span>How it works</span></div>
+    <ul class="intro-list">
+      <li><span class="intro-key" aria-hidden="true">${balloonIcon}</span>
+        <span><b>Type a line and send.</b> Pick who&rsquo;s talking from the row of names, and your conversation draws itself into a comic.</span></li>
+      <li><span class="intro-key" aria-hidden="true">&#9995;</span>
+        <span><b>Tap a panel to rewrite it.</b> Change the words, the speaker, the mood &mdash; or add someone else to the frame.</span></li>
+      <li><span class="intro-key" aria-hidden="true">&#8597;</span>
+        <span><b>Press and hold a panel to move it.</b> Drag it up or down to re-order the story.</span></li>
+      <li><span class="intro-key" aria-hidden="true">&#9673;</span>
+        <span><b>Drag the wheel for a mood.</b> Angle picks the feeling, distance from the middle picks how strongly.</span></li>
+      <li><span class="intro-key" aria-hidden="true">&#127922;</span>
+        <span><b>Stuck?</b> The dice writes you a fresh comic. &#128218; keeps your drafts, &#8681; saves a picture to share.</span></li>
+    </ul>
+    <div class="confirm-actions">
+      <button id="intro-go" class="confirm-btn go">Start drawing</button>
+    </div>
   </div>
 </div>
 

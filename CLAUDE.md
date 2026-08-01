@@ -307,7 +307,8 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   Pillow can't read woff2. `cap sync` does **not** regenerate these — rerun the
   script and rebuild the APK. Needs `fonttools` + `brotli`.
 - `storage.ts` — saved comics. The `SavedComic` envelope, the per-draft
-  load/save/list/delete API, and the defensive `parseSaved` (see Persistence).
+  load/save/list/delete API, the defensive `parseSaved` (see Persistence), and
+  the `intro-seen` flag behind the first-launch walkthrough.
 - `style.css` — mobile neon layout (pinned compose bar, webtoon comic scroll).
 - `devserve.py` — a **no-cache** static server (`python devserve.py 8973`,
   binds 0.0.0.0) so a phone on the same wifi loads `http://<PC-LAN-IP>:8973`
@@ -391,11 +392,33 @@ downloading it on the phone works well — just remember to clear it afterwards.
 native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
 **editable panels + the compose/edit authoring pass ✅** (see Authoring, below) ·
 **M4 export ✅** (see Export, below) · **persistence + the draft library ✅**.
-Remaining: M5 onboarding (the app now has enough hidden verbs — long-press to
-reorder, tap to edit — to warrant a first-launch coach-mark run), M6 PWA
-(installable/offline), M7 store assets + release signing, M8 release polish
-(remove the build stamp; framing nudges — head a touch lower, two-shot spacing;
-rein in the bold color avatars).
+**M5 onboarding ✅** (see The walkthrough) · **M8 release polish ✅** (build stamp
+behind `build:release`, loud avatars off the auto-cast, touch targets; framing
+nudges dropped — settled as good on-device). Remaining: **M6 PWA**
+(installable/offline — arguably redundant while the APK is the product) and
+**M7 store assets + release signing** (icon done; screenshots, feature graphic
+and the upload keystore still to do — **the keystore is the user's to generate**,
+never ours, and they'll say when).
+
+### The walkthrough (built)
+
+Nearly every verb here is invisible — tapping a panel edits it, holding one moves
+it, the wheel is a press-drag, and `+ line` is the only route to a second balloon
+in a frame. `#intro` states those five things once on first launch, gated on
+`hasSeenIntro()`, and stays reachable behind the `?` in the app bar.
+
+- **A sheet, not coach marks pinned to elements.** Positioned marks need live
+  element geometry, break when the layout reflows or the comic scrolls, and
+  can't be revisited later — which is when they're actually wanted.
+- **It opens last in the boot sequence**, so the comic is already painted behind
+  it and the instructions have something to point at.
+- **`hasSeenIntro()` returns `true` when storage is unreadable.** Failing the
+  other way would replay the intro on every launch, which is worse than never
+  showing it; the `?` still reaches it.
+- **`.appbar .iconbtn { flex: none }` is load-bearing.** The `?` made five
+  buttons, and the default `flex-shrink: 1` quietly squeezed them to ~25px wide
+  — full height, unhittable width. Under 360px the wordmark drops to 18px to
+  make room rather than the buttons giving way.
 
 ### Export (built)
 
