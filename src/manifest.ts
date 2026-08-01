@@ -105,6 +105,20 @@ export interface FigureSprite {
   key: Expression | Gesture;
   /** Centre of the face; balloon tails point here (§5.4). */
   tailAnchor: Point;
+  /**
+   * The **body's** centre — the point that should sit at the character's placed
+   * `x`, and the point framing is measured from.
+   *
+   * Distinct from {@link tailAnchor}, and the distinction only shows on
+   * whole-figure art. A balloon tail points at the face; a *frame* should be
+   * built around the body. On a layered character the two coincide, because the
+   * head sits over the torso. A single-sprite pose can put them anywhere: raise
+   * an arm and the silhouette's centre moves while the body does not.
+   *
+   * Optional — {@link tailAnchor} is used when it is absent, which is the
+   * original behaviour.
+   */
+  anchor?: Point;
   /** Footprint of the figure, used by the zoom rules. */
   bounds: Bounds;
   halo?: Bounds;
@@ -346,6 +360,16 @@ export function figureFor(
 export interface CharacterProportions {
   /** Body width ÷ body height, for the character's horizontal extent. */
   aspect: number;
+  /**
+   * Where the anchor sits across the drawn width, 0 (left edge) … 1 (right).
+   *
+   * `0.5` for anything symmetric, which covers every layered character and most
+   * poses. A whole-figure pose that declares a body {@link FigureSprite.anchor}
+   * can be well off-centre — raise an arm and the silhouette grows to one side
+   * while the body stays put — and the camera uses this to reserve the right
+   * amount of room on each side instead of assuming the art is centred.
+   */
+  anchorFraction: number;
   /** Head-top to shoulder line, as a fraction of full height. */
   shoulderFraction: number;
   /** Head-top to knees, as a fraction of full height. */
@@ -383,13 +407,28 @@ export function characterProportions(
   const expression = pose?.expression ?? 'neutral';
   const gesture = pose?.gesture ?? 'neutral';
   const variant = pose?.variant ?? 0;
-  const bounds = isFigureManifest(manifest)
-    ? figureFor(manifest, expression, gesture, variant, pose?.dominant).bounds
+  const figure = isFigureManifest(manifest)
+    ? figureFor(manifest, expression, gesture, variant, pose?.dominant)
+    : undefined;
+  const bounds = figure
+    ? figure.bounds
     : bodyForPose(manifest, expression, gesture, variant).bounds;
   const framing = manifest.framing ?? DEFAULT_FRAMING;
   const aspect = bounds.height > 0 ? bounds.width / bounds.height : 0.5;
+
+  // Where the anchor sits across the drawn width. A pose that declares a body
+  // `anchor` can be wildly off-centre — raise an arm and the silhouette grows
+  // to one side while the body stays put — and the camera needs to know which
+  // side, or it reserves a symmetric box and crops the arm.
+  const anchorX = figure?.anchor?.x;
+  const anchorFraction =
+    anchorX !== undefined && bounds.width > 0
+      ? Math.min(1, Math.max(0, (anchorX - bounds.x) / bounds.width))
+      : 0.5;
+
   return {
     aspect,
+    anchorFraction,
     shoulderFraction: framing.shoulderFraction,
     kneeFraction: framing.kneeFraction,
   };

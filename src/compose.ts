@@ -301,10 +301,15 @@ export function compose(input: ComposeInput): Panel[] {
             variant: c.poseVariant,
             dominant: c.dominant,
           })
-        : { aspect: 0.5, ...DEFAULT_FRAMING };
+        : { aspect: 0.5, anchorFraction: 0.5, ...DEFAULT_FRAMING };
+      // Split the drawn width around the anchor rather than halving it: an
+      // outstretched arm belongs on the side it is actually drawn.
+      const width = characterHeight * proportions.aspect;
       return {
         x: c.x,
-        halfWidth: (characterHeight * proportions.aspect) / 2,
+        halfWidth: width / 2,
+        extendLeft: width * proportions.anchorFraction,
+        extendRight: width * (1 - proportions.anchorFraction),
         required: true,
       };
     });
