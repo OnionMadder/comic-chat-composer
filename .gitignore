@@ -14,3 +14,8 @@ examples/demo/.stage-dir
 # Python bytecode from the asset tools
 __pycache__/
 *.pyc
+
+# Claude Code: machine-specific permissions, and agent worktrees (each of which
+# is a full checkout of this repo — never commit those).
+.claude/settings.local.json
+.claude/worktrees/
