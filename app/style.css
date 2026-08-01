@@ -240,9 +240,10 @@ body {
   display: flex; flex-direction: column; gap: 5px;
   font-size: 10px; color: var(--muted);
 }
-/* The arrange row only earns its space once there are two people to order. */
-#arrange-row { display: none; }
-#arrange-row.is-shown { display: flex; }
+/* The arrange row only earns its space once there are two people to order, and
+   the lines row once the panel holds (or could hold) more than one line. */
+#arrange-row, #lines-row { display: none; }
+#arrange-row.is-shown, #lines-row.is-shown { display: flex; }
 
 .panel-cast {
   display: flex; gap: 6px; padding-bottom: 2px;
@@ -272,6 +273,18 @@ body {
 }
 .pcast.add { color: var(--cyan); border-color: var(--cyan); }
 .pcast:active { transform: scale(0.96); }
+.pcast:disabled { opacity: 0.35; }
+.pcast:disabled:active { transform: none; }
+
+/* Line chips: which beat of a multi-line panel you're editing. Solid outline
+   rather than the filled "is-on" of a membership chip — this is a selection,
+   not a toggle, and the two rows sit next to each other. */
+.pcast.line { border-style: solid; border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+.pcast.line.is-on {
+  color: var(--c); background: transparent;
+  border-color: var(--c); border-width: 2px; font-weight: 700;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c) 35%, transparent);
+}
 
 .addressees-row.is-hidden { display: none; }
 

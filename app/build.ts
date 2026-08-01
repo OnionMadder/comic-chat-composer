@@ -124,6 +124,10 @@ const html = `<!doctype html>
         <button id="edit-delete" class="iconbtn del" aria-label="Delete panel" title="Delete panel">&#128465;</button>
         <button id="edit-cancel" class="iconbtn" aria-label="Cancel edit" title="Cancel">&times;</button>
       </div>
+      <label class="panelrow" id="lines-row">
+        <span class="lbl">lines</span>
+        <div id="line-chips" class="panel-cast" role="group" aria-label="Lines in this panel"></div>
+      </label>
       <label class="panelrow">
         <span class="lbl">in this panel</span>
         <div id="panel-cast" class="panel-cast" role="group" aria-label="Characters in this panel"></div>

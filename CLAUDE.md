@@ -402,20 +402,53 @@ Two traps worth knowing before touching this:
 
 ### Authoring — the editing model (built)
 
-**One beat per panel.** `interleaveBreaks()` puts a `break` between every
-content event, so **panel `i` ↔ the `i`-th content event** — the mapping every
-editing verb relies on. `contentEventIndices()` / `contentEvents()` project it;
-**`rebuildEvents(list)`** is the one writer — hand it the content events in the
-order you want and it re-interleaves the break scaffold. Every mutator (reorder,
-duplicate, insert, delete) funnels through it, so the invariant can't drift.
-Trade-off the user accepted when choosing this: panels are single-beat (speaker
-+ addressee two-shots stay; 3-lines-in-one-panel grouping goes).
+**A panel is a *group*** — a run of content events with no `break` between them.
+**Panel `i` ↔ `panelGroups()[i]`**, the mapping every editing verb relies on.
+**`rebuildEvents(groups)`** is the one writer: hand it the panels you want, each
+as its list of beats, and it writes breaks *between* groups only. Every mutator
+(reorder, duplicate, insert, delete, add-a-line) funnels through it, so the
+invariant can't drift; empty groups are dropped, which is how deleting a panel's
+last line removes the panel. `editingLine` says which beat inside the panel is
+loaded in the compose bar.
 
-**Tap a panel → edit that beat.** `enterEditMode(i)` loads the beat into the
-compose bar (speaker / text / emotion wheel / gesture / delivery / addressees);
-Send becomes **Update** (lime, `.is-update`). The edit bar carries a **speaker
-dropdown**, insert-before / insert-after / duplicate / delete, and the in-scene
-strip. Tap the same panel again to cancel.
+The app originally forced a break after *every* beat, capping each panel at one
+balloon — which meant a character added to a panel could never be given anything
+to say. §5.2's routing-channel layout exists precisely to place several
+balloons, so that was leaving the best part of the library unused.
+
+**The library's own rule sets the ceiling: one balloon per character per panel.**
+So a panel holds as many lines as it has distinct speakers, up to
+`maxCharactersPerPanel`. The UI enforces both — "+ line" disables at the cap, and
+the line's speaker menu hides anyone already speaking in that panel — because
+offering a repeat speaker would just make the composer split the panel.
+
+**`reconcileGroups()`** is the safety net for the residual case (layout failure
+on very long text). An explicit break always ends a panel, so a group can only be
+*split*, never merged across one — meaning `panels.length >= groups.length` and
+each group maps to a contiguous run. When counts diverge it finds the real split
+point and writes a break there. It matches on **balloons, not on who is in
+frame**: a character can stand in a panel as an addressee while their own line
+lands in a later one, so presence proves nothing about where an utterance went.
+Getting that wrong is what made the first attempt silently misroute edits.
+
+**Tap a panel → edit it.** `enterEditMode(panel, line = 0)` loads that beat into
+the compose bar (speaker / text / emotion wheel / gesture / delivery); Send
+becomes **Update** (lime, `.is-update`). Tap the same panel again to cancel.
+
+The edit bar has three rows, all of them visible rather than behind the tray —
+**"lines"** (one chip per beat + `+ line`), **"in this panel"** (every cast
+member as an in/out toggle, speaker locked, `+…` to pull in someone new), and
+**"arrange"** (shown at 2+ characters). The two character rows are deliberately
+complementary: *in this panel* puts someone in frame silently, *lines* gives them
+a balloon. Membership and arrangement apply **live**, on tap; only the text and
+pose wait for Update.
+
+These rows started at the bottom of the collapsed tray as "also in panel", which
+made adding a second character a three-tap hunt and giving them a line
+impossible. If you move them again, note `.panelrow` needs
+`flex: 1 0 100%; min-width: 0` — `.edit-bar` is a wrapping flex row, and without
+`min-width: 0` a chip strip refuses to shrink, so `overflow-x` never engages and
+the row drags the whole page wider than the screen.
 
 **Character placement overrides** — the app's one deviation from "compose is the
 whole truth". `BeatOverrides` (`{ facing?, order? }`) live in a `Map` keyed by

@@ -192,28 +192,83 @@ const overrides = new Map<number, BeatOverrides>();
 // backing panel N in `state.events`.
 let editingPanel = -1;
 
-/** Returns state.events indices of every content event, in panel order. */
-function contentEventIndices(): number[] {
-  const out: number[] = [];
-  state.events.forEach((e, i) => { if (isContentEvent(e)) out.push(i); });
+/**
+ * Which beat *within* the edited panel is loaded in the compose bar.
+ *
+ * A panel can hold an exchange now, so "the panel being edited" is no longer
+ * enough to identify a line. Always 0 for a single-line panel.
+ */
+let editingLine = 0;
+
+/**
+ * The comic as panels-worth of beats: each entry is one panel's content events,
+ * in order.
+ *
+ * A panel is a **run of content events with no `break` between them** — which is
+ * how the composer has always grouped them; the app just used to force a break
+ * after every single beat, capping every panel at one balloon. Splitting on
+ * breaks here is what lets a panel hold a whole exchange.
+ *
+ * `panelGroups()[i]` is panel `i`. That correspondence holds because an explicit
+ * break *always* ends a panel in `compose()`, so a group can never span one —
+ * it can only be split by the composer, which `reconcileGroups()` repairs.
+ */
+function panelGroups(): ChatEvent[][] {
+  const groups: ChatEvent[][] = [];
+  let current: ChatEvent[] = [];
+  for (const ev of state.events) {
+    if (ev.type === 'break') {
+      if (current.length) groups.push(current);
+      current = [];
+    } else if (isContentEvent(ev)) {
+      current.push(ev);
+    }
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
+/** The beats of the panel being edited, or `[]` when not editing. */
+function editingGroup(): ChatEvent[] {
+  if (editingPanel < 0) return [];
+  return panelGroups()[editingPanel] ?? [];
+}
+
+/** The specific beat loaded in the compose bar, or null. */
+function editingEvent(): ChatEvent | null {
+  return editingGroup()[editingLine] ?? null;
+}
+
+/** Distinct speakers already talking in a group (one balloon each per panel). */
+function speakersIn(group: readonly ChatEvent[]): string[] {
+  const out: string[] = [];
+  for (const ev of group) {
+    if (ev.type === 'break') continue;
+    const who = (ev as MessageEvent | ReactionEvent).author;
+    if (who && !out.includes(who)) out.push(who);
+  }
   return out;
 }
 
 /**
- * Rewrite `state.events` from a new sequence of content events. `next` is
- * the desired panels in order; each entry is either an existing content
- * event (its `at` is preserved) or a brand-new one. Breaks are re-
- * interleaved between them so panel N ↔ content-event N stays true.
+ * Rewrite `state.events` from a new list of panel groups. `next` is the desired
+ * panels in order, each one the beats that share it; every beat is either an
+ * existing content event (its `at` is preserved — it's the overrides key) or a
+ * brand-new one. Breaks are re-interleaved *between* groups, so panel N ↔
+ * group N stays true.
  *
- * All the mutating verbs — reorder (§1), duplicate + insert (§3a),
- * delete (existing) — reduce to "compute the new content-event list and
- * hand it to this helper."
+ * This is the single writer. Every mutating verb — reorder, duplicate, insert,
+ * delete, add-a-line — reduces to "compute the new grouping and hand it here",
+ * which is what keeps the invariant from drifting. Empty groups are dropped, so
+ * deleting a panel's last line removes the panel.
  */
-function rebuildEvents(next: ChatEvent[]): void {
+function rebuildEvents(next: ChatEvent[][]): void {
   const out: ChatEvent[] = [];
-  next.forEach((ev, i) => {
+  next.filter((g) => g.length > 0).forEach((group, i) => {
+    // A break goes BETWEEN panels, never inside one — the beats within a group
+    // are what share a panel and give it more than one balloon.
     if (i > 0) out.push({ type: 'break', at: -1 });
-    out.push(ev);
+    out.push(...group);
   });
   // Renumber the break `at` fields so they stay monotonic relative to the
   // content events that surround them. Content events keep their own `at`
@@ -335,9 +390,18 @@ function composePanels(): Panel[] {
     currentPanels = [];
     return [];
   }
+  let raw = composeRaw();
+  // Panel N must stay pinned to group N, or every editing verb targets the
+  // wrong beat. Repair first, then apply overrides against a mapping we trust.
+  if (raw.length !== panelGroups().length && reconcileGroups(raw)) raw = composeRaw();
+  currentPanels = applyBeatOverrides(raw);
+  return currentPanels;
+}
+
+function composeRaw(): Panel[] {
   const castMap: Record<string, CastEntry> = {};
   for (const id of state.cast) castMap[id] = { characterId: id };
-  const raw = compose({
+  return compose({
     events: state.events,
     cast: castMap,
     characterAssets: manifests,
@@ -346,8 +410,64 @@ function composePanels(): Panel[] {
     metrics: METRICS,
     rules: RULES,
   });
-  currentPanels = applyBeatOverrides(raw);
-  return currentPanels;
+}
+
+/**
+ * Restore the panel↔group correspondence when the composer split a group.
+ *
+ * An explicit `break` always ends a panel, so a group can never span one — it
+ * can only be split, which means `panels.length >= groups.length` and each
+ * group maps to a contiguous run of panels. The UI prevents the deterministic
+ * causes (a repeat speaker, or exceeding the character cap), leaving only
+ * layout failure on very long text.
+ *
+ * When it does happen, walk the panels consuming each group's speakers and
+ * write a real `break` where the composer actually divided things. The line
+ * visibly becomes its own panel — honest, and far better than a silently
+ * mismatched mapping that would send edits to the wrong beat.
+ *
+ * Returns whether anything changed.
+ */
+function reconcileGroups(panels: Panel[]): boolean {
+  const groups = panelGroups();
+  if (panels.length <= groups.length) return false;
+
+  // Match on BALLOONS, not on who is in frame. A character can stand in a panel
+  // as an addressee while their own line lands in a later one, so presence says
+  // nothing about where an utterance ended up — its balloon does.
+  const unclaimed = panels.map((p) => p.balloons.map((b) => b.speaker));
+
+  const rebuilt: ChatEvent[][] = [];
+  let p = 0;
+  for (const group of groups) {
+    let chunk: ChatEvent[] = [];
+    for (const ev of group) {
+      const who = (ev as MessageEvent | ReactionEvent).author;
+      let fits: boolean;
+      if (ev.type === 'reaction') {
+        // No balloon to match; a reaction rides in whichever panel draws it.
+        fits = !panels[p] || panels[p]!.characters.some((c) => c.author === who);
+      } else {
+        const slot = unclaimed[p]?.indexOf(who) ?? -1;
+        if (slot >= 0) unclaimed[p]!.splice(slot, 1);
+        fits = slot >= 0;
+      }
+      if (!fits && chunk.length > 0) {
+        rebuilt.push(chunk);
+        chunk = [];
+        p++;
+        // Re-try this beat against the panel we just advanced to.
+        const slot = unclaimed[p]?.indexOf(who) ?? -1;
+        if (slot >= 0) unclaimed[p]!.splice(slot, 1);
+      }
+      chunk.push(ev);
+    }
+    if (chunk.length) rebuilt.push(chunk);
+    p++;
+  }
+  if (rebuilt.length === groups.length) return false;
+  rebuildEvents(rebuilt);
+  return true;
 }
 
 /**
@@ -357,11 +477,12 @@ function composePanels(): Panel[] {
  * speaker's new x so tails don't point at empty air.
  */
 function applyBeatOverrides(panels: Panel[]): Panel[] {
-  const indices = contentEventIndices();
+  const groups = panelGroups();
   return panels.map((p, i) => {
-    const evIdx = indices[i];
-    if (evIdx === undefined) return p;
-    const ev = state.events[evIdx];
+    // Keyed off the group's FIRST beat: where characters stand is a property of
+    // the panel, not of any one line in it, so it must stay put no matter which
+    // line you edit.
+    const ev = groups[i]?.[0];
     if (!ev) return p;
     const ov = overrides.get(ev.at);
     if (!ov || (!ov.facing && !ov.order)) return p;
@@ -586,6 +707,97 @@ function renderPanelCast(): void {
 }
 
 /**
+ * The "lines" row: one chip per beat sharing this panel, plus "+ line".
+ *
+ * A panel holds an exchange now, so this is how you say which line you're
+ * editing — and how you give a newly-added character something to say, which
+ * was impossible while every panel was capped at a single beat.
+ */
+function renderLineChips(): void {
+  const host = $('line-chips');
+  const row = $('lines-row');
+  if (editingPanel < 0) {
+    host.innerHTML = '';
+    row.classList.remove('is-shown');
+    return;
+  }
+  const group = editingGroup();
+  const speaking = speakersIn(group);
+  // Every character already in frame is a candidate voice; the cap is the
+  // composer's own (one balloon per character, `maxCharactersPerPanel` total).
+  const canAdd =
+    speaking.length < (RULES.maxCharactersPerPanel ?? 3) &&
+    availableVoices(group).length > 0;
+
+  const chips = group
+    .map((ev, i) => {
+      const who = (ev as MessageEvent | ReactionEvent).author ?? '';
+      const name = esc(castName(who, manifests[who]?.name));
+      const on = i === editingLine;
+      return (
+        `<button class="pcast line${on ? ' is-on' : ''}" data-line="${i}" ` +
+        `style="--c:${colorOf(who)}" aria-pressed="${on}" ` +
+        `aria-label="Edit line ${i + 1}, ${name}">${i + 1} &#9679; ${name}</button>`
+      );
+    })
+    .join('');
+
+  const addTitle = canAdd
+    ? 'Add another line to this panel'
+    : 'This panel is full — every character in it already has a line';
+  host.innerHTML =
+    chips +
+    `<button class="pcast add" id="line-add" ${canAdd ? '' : 'disabled'} ` +
+    `title="${addTitle}" aria-label="${addTitle}">&#43; line</button>`;
+  // A single-line panel needs no line picker — keep simple panels simple. It
+  // still shows when there is room to add one, since that's the whole point.
+  row.classList.toggle('is-shown', group.length > 1 || canAdd);
+}
+
+/**
+ * Characters who could take a new line in this panel: in frame, not already
+ * speaking. The composer allows only one balloon per character per panel, so
+ * offering a repeat speaker would just cause it to split the panel.
+ */
+function availableVoices(group: readonly ChatEvent[]): string[] {
+  const speaking = speakersIn(group);
+  const inFrame = new Set<string>(speaking);
+  for (const ev of group) {
+    for (const a of (ev as MessageEvent | ReactionEvent).addressees ?? []) inFrame.add(a);
+  }
+  // Prefer people already in the panel; fall back to the rest of the cast so a
+  // one-character panel can still grow into a conversation.
+  const fromFrame = [...inFrame].filter((id) => !speaking.includes(id));
+  return fromFrame.length ? fromFrame : state.cast.filter((id) => !speaking.includes(id));
+}
+
+/** Append a new line to the edited panel and open it for typing. */
+function addLineToPanel(): void {
+  if (editingPanel < 0) return;
+  const groups = panelGroups();
+  const group = groups[editingPanel];
+  if (!group) return;
+  const voice = availableVoices(group)[0];
+  if (!voice) return;
+
+  // Address it back at whoever spoke first, so the two actually face each other.
+  const firstSpeaker = speakersIn(group)[0];
+  const beat: ChatEvent = {
+    type: 'message',
+    author: voice,
+    text: '',
+    addressees: firstSpeaker && firstSpeaker !== voice ? [firstSpeaker] : undefined,
+    at: nextAt(),
+  };
+  const newLine = group.length;
+  group.push(beat);
+  rebuildEvents(groups);
+  markEdited();
+  repaintAll('preserve');
+  enterEditMode(editingPanel, newLine);
+}
+
+/**
  * Put a character in or out of the edited panel.
  *
  * Applies straight to the event rather than waiting for Update, so the panel
@@ -598,11 +810,8 @@ function togglePanelMember(id: string): void {
   if (i >= 0) pending.addressees.splice(i, 1);
   else pending.addressees.push(id);
 
-  const indices = contentEventIndices();
-  const evIdx = indices[editingPanel];
-  if (evIdx === undefined) return;
-  const ev = state.events[evIdx]!;
-  if (ev.type === 'break' || ev.type === 'join' || ev.type === 'leave') return;
+  const ev = editingEvent();
+  if (!ev || ev.type === 'break' || ev.type === 'join' || ev.type === 'leave') return;
   const list = pending.addressees.filter((a) => a !== state.speaker);
   (ev as MessageEvent | ReactionEvent).addressees = list.length ? [...list] : undefined;
 
@@ -642,10 +851,8 @@ function renderInScene(): void {
 
 /** The current beat's `at` value, or null if not editing. */
 function currentBeatAt(): number | null {
-  if (editingPanel < 0) return null;
-  const evIdx = contentEventIndices()[editingPanel];
-  if (evIdx === undefined) return null;
-  return state.events[evIdx]?.at ?? null;
+  // The panel's placement key — its first beat, matching `applyBeatOverrides`.
+  return panelGroups()[editingPanel]?.[0]?.at ?? null;
 }
 
 function overridesFor(at: number): BeatOverrides {
@@ -691,7 +898,15 @@ function nudgeCharacter(charId: string, dir: 'left' | 'right'): void {
  */
 function renderEditSpeaker(): void {
   const sel = $('edit-speaker') as HTMLSelectElement;
+  // Someone else in this panel already has a balloon — the composer allows only
+  // one per character per panel, so picking them would just split the panel.
+  const taken = new Set(
+    editingGroup()
+      .filter((_, i) => i !== editingLine)
+      .map((ev) => (ev as MessageEvent | ReactionEvent).author),
+  );
   sel.innerHTML = state.cast
+    .filter((id) => !taken.has(id) || id === state.speaker)
     .map((id) => {
       const label = castName(id, manifests[id]?.name);
       const selected = id === state.speaker ? ' selected' : '';
@@ -808,14 +1023,21 @@ function undo(): void {
 
 // ---- Editing an existing panel --------------------------------------------
 
-/** Load a beat into the compose bar and enter edit mode for that panel. */
-function enterEditMode(panelIdx: number): void {
-  const indices = contentEventIndices();
-  const evIdx = indices[panelIdx];
-  if (evIdx === undefined) return;
-  const ev = state.events[evIdx]!;
+/**
+ * Load a beat into the compose bar and enter edit mode for that panel.
+ *
+ * `lineIdx` picks which beat within the panel — panels can hold an exchange, so
+ * the panel index alone no longer identifies a line. Out-of-range clamps to the
+ * first line, which is what makes `enterEditMode(i)` still mean "edit panel i".
+ */
+function enterEditMode(panelIdx: number, lineIdx = 0): void {
+  const group = panelGroups()[panelIdx];
+  if (!group || group.length === 0) return;
+  const line = lineIdx >= 0 && lineIdx < group.length ? lineIdx : 0;
+  const ev = group[line]!;
 
   editingPanel = panelIdx;
+  editingLine = line;
 
   if ('author' in ev) state.speaker = ev.author;
 
@@ -847,12 +1069,16 @@ function enterEditMode(panelIdx: number): void {
   // leaving barely a sliver of the panel you're editing. Leave it as the user
   // set it; the wheel and delivery chips are one tap away on `+`.
   $('edit-bar').classList.add('open');
-  $('edit-label').textContent = `Editing panel ${panelIdx + 1}`;
+  $('edit-label').textContent =
+    group.length > 1
+      ? `Editing panel ${panelIdx + 1}, line ${line + 1}`
+      : `Editing panel ${panelIdx + 1}`;
   $('send').classList.add('is-update');
   $('send').setAttribute('aria-label', 'Update');
   renderCast();
   renderTray();
   renderEditSpeaker();
+  renderLineChips();
   renderPanelCast();
   renderInScene();
   highlightEditingPanel();
@@ -861,13 +1087,15 @@ function enterEditMode(panelIdx: number): void {
 
 function exitEditMode(): void {
   editingPanel = -1;
+  editingLine = 0;
   $('comic').querySelectorAll('.panel.is-editing').forEach((el) => el.classList.remove('is-editing'));
   $('edit-bar').classList.remove('open');
   $('send').classList.remove('is-update');
   $('send').setAttribute('aria-label', 'Send');
-  // Clear both edit-bar character rows through their renderers (editingPanel is
-  // already -1, so each empties itself) rather than leaving stale chips to
-  // flash on the next open.
+  // Clear the edit-bar rows through their renderers (editingPanel is already
+  // -1, so each empties itself) rather than leaving stale chips to flash on the
+  // next open.
+  renderLineChips();
   renderPanelCast();
   renderInScene();
   resetComposer();
@@ -876,33 +1104,35 @@ function exitEditMode(): void {
 
 function updateLine(): void {
   if (editingPanel < 0) return;
-  const indices = contentEventIndices();
-  const evIdx = indices[editingPanel];
-  if (evIdx === undefined) { exitEditMode(); return; }
-  const at = state.events[evIdx]!.at;
-  const next = pendingEvent(at);
+  const groups = panelGroups();
+  const target = groups[editingPanel]?.[editingLine];
+  if (!target) { exitEditMode(); return; }
+  const next = pendingEvent(target.at);
   if (!next) return; // nothing to save; keep edit mode open
-  state.events[evIdx] = next;
+  groups[editingPanel]![editingLine] = next;
+  rebuildEvents(groups);
   markEdited();
   exitEditMode();
   repaintAll('preserve');
 }
 
+/**
+ * Delete the selected line. Removing a panel's only line removes the panel —
+ * `rebuildEvents` drops empty groups, so that falls out for free.
+ */
 function deleteLine(): void {
   if (editingPanel < 0) return;
-  const list = contentEvents();
-  if (editingPanel >= list.length) { exitEditMode(); return; }
-  const removed = list.splice(editingPanel, 1)[0];
-  if (removed) overrides.delete(removed.at);
-  rebuildEvents(list);
+  const groups = panelGroups();
+  const group = groups[editingPanel];
+  if (!group) { exitEditMode(); return; }
+  const removed = group.splice(editingLine, 1)[0];
+  // Only drop the placement override when the whole panel goes; the key is the
+  // group's first beat, and the panel keeps its arrangement across line edits.
+  if (removed && group.length === 0) overrides.delete(removed.at);
+  rebuildEvents(groups);
   markEdited();
   exitEditMode();
   repaintAll('preserve');
-}
-
-/** Content events in panel order (the useful projection of state.events). */
-function contentEvents(): ChatEvent[] {
-  return state.events.filter(isContentEvent);
 }
 
 /** A fresh empty message event authored by the current speaker. */
@@ -915,25 +1145,26 @@ function blankBeat(): ChatEvent {
   };
 }
 
-/** Clone the beat at panel `panelIdx` and open the copy for editing. */
+/** Clone the whole panel — every line in it — and open the copy for editing. */
 function duplicatePanel(): void {
   if (editingPanel < 0) return;
-  const list = contentEvents();
-  const src = list[editingPanel];
+  const groups = panelGroups();
+  const src = groups[editingPanel];
   if (!src) return;
-  const copy: ChatEvent = { ...src, at: nextAt() } as ChatEvent;
-  // Clone the source beat's overrides too, so a duplicated panel arrives with
-  // its facing / order intact — otherwise the copy would silently revert to
-  // the composer's defaults, surprising the user.
-  const srcOv = overrides.get(src.at);
+  let bump = nextAt();
+  const copy: ChatEvent[] = src.map((ev) => ({ ...ev, at: bump++ }) as ChatEvent);
+  // Clone the source panel's overrides too, so a duplicate arrives with its
+  // facing / order intact — otherwise the copy would silently revert to the
+  // composer's defaults, surprising the user. Keyed off each group's first beat.
+  const srcOv = overrides.get(src[0]!.at);
   if (srcOv) {
-    overrides.set(copy.at, {
+    overrides.set(copy[0]!.at, {
       facing: srcOv.facing ? { ...srcOv.facing } : undefined,
       order: srcOv.order ? [...srcOv.order] : undefined,
     });
   }
-  list.splice(editingPanel + 1, 0, copy);
-  rebuildEvents(list);
+  groups.splice(editingPanel + 1, 0, copy);
+  rebuildEvents(groups);
   markEdited();
   // Slide the edit focus onto the new panel so the user can tweak it right away.
   const newPanel = editingPanel + 1;
@@ -949,10 +1180,11 @@ function duplicatePanel(): void {
  */
 function insertPanel(where: 'before' | 'after'): void {
   if (editingPanel < 0) return;
-  const list = contentEvents();
+  const groups = panelGroups();
   const insertAt = where === 'before' ? editingPanel : editingPanel + 1;
-  list.splice(insertAt, 0, blankBeat());
-  rebuildEvents(list);
+  // A new panel starts as one blank line — its own group.
+  groups.splice(insertAt, 0, [blankBeat()]);
+  rebuildEvents(groups);
   markEdited();
   exitEditMode();
   repaintAll('preserve');
@@ -1607,11 +1839,12 @@ function endGesture(): void {
 
 function movePanel(from: number, to: number): void {
   if (from === to) return;
-  const list = contentEvents();
-  const [moved] = list.splice(from, 1);
+  const groups = panelGroups();
+  // Moves the whole panel — every line in it travels together.
+  const [moved] = groups.splice(from, 1);
   if (moved === undefined) return;
-  list.splice(to, 0, moved);
-  rebuildEvents(list);
+  groups.splice(to, 0, moved);
+  rebuildEvents(groups);
   markEdited();
   if (editingPanel >= 0) exitEditMode();
   repaintAll('preserve');
@@ -1704,6 +1937,14 @@ $('panel-cast').addEventListener('click', (e) => {
   if (btn.id === 'panel-cast-add') return openCharPicker();
   const id = btn.dataset.member;
   if (id) togglePanelMember(id);
+});
+
+$('line-chips').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button') as HTMLElement | null;
+  if (!btn || (btn as HTMLButtonElement).disabled) return;
+  if (btn.id === 'line-add') return addLineToPanel();
+  const n = Number(btn.dataset.line);
+  if (Number.isFinite(n) && n !== editingLine) enterEditMode(editingPanel, n);
 });
 
 $('in-scene').addEventListener('click', (e) => {
