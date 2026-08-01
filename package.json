@@ -1,7 +1,7 @@
 {
   "name": "comic-chat-composer",
   "version": "0.1.0",
-  "description": "Comic panel composition from a chat log — an independent open-source reimplementation of the Microsoft Comic Chat layout algorithm described by Kurlander, Skelly & Salesin (SIGGRAPH '96).",
+  "description": "Comic panel composition from a chat log \u00e2\u20ac\u201d an independent open-source reimplementation of the Microsoft Comic Chat layout algorithm described by Kurlander, Skelly & Salesin (SIGGRAPH '96).",
   "keywords": [
     "comic",
     "comic-chat",
@@ -45,7 +45,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "example": "node --experimental-strip-types examples/basic-chat.ts",
     "demo": "node --experimental-strip-types examples/demo/build.ts",
-    "deploy:stage": "npm run demo && node --experimental-strip-types examples/demo/stage.ts"
+    "deploy:stage": "npm run demo && node --experimental-strip-types examples/demo/stage.ts",
+    "prepare": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

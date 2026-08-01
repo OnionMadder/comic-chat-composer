@@ -54,11 +54,11 @@ BODY_KEYS = [
 FIGURE_KEYS = BODY_KEYS
 
 # Names an artist reaches for that are not schema keys. `defeated` is the one
-# the mComic Court cast uses: a slumped, narrowed stance, which is what `sad`
+# the Comic Court cast uses: a slumped, narrowed stance, which is what `sad`
 # means for a figure with no face to be sad with.
 POSE_ALIASES = {
     "defeated": "sad",
-    # `worried` and `cheerful` are how the mComic Court art names the anxious
+    # `worried` and `cheerful` are how the Comic Court art names the anxious
     # and the falsely-pleasant stances; the schema calls them `scared` and
     # `happy`.
     "worried": "scared",

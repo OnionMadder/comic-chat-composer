@@ -13,6 +13,13 @@ Owner: **Onion Madder** (Kellye Strickland). Not affiliated with Microsoft.
 > without being asked** (the name is confirmed free). Git workflow: branch off
 > `main`, then merge back and `git push origin main`. The demo is live at both
 > mirrors (see Deploying, below).
+>
+> **Two products are built on this library.** **mComic '96** (the mobile app)
+> lives on the `mcomic96-app` branch. **Comic Court** (a webcomic) was extracted
+> into its own repo at `projects/comic-court` once the two started diverging —
+> it depends on this package and vendors the `examples/` render pipeline, which
+> is the layer a strip keeps bending. Neither product should import from the
+> other, and library fixes flow outward from here.
 
 ## Commands
 
@@ -135,6 +142,14 @@ embedded name really is "Greg" upstream; we display it as-is.
   repoints the manifest. Needs OpenCV.
 - `placeholder-character.py` — crude stand-in art in the importer's input
   format, so a cast member can exist before anyone has drawn anything.
+- `import-backdrop.py` — the **hand-drawn backdrop** intake (`import-bgb.py` is
+  a decoder, not an importer). Sizes to what the camera can actually ask for —
+  `maxZoom` 2.2 × a 400px panel = 880px, so 900 — and drops channels the art
+  does not use. `load-assets.ts` inlines each backdrop as a data URI **into
+  every panel using it**, so weight is paid per panel. Judge "is it greyscale?"
+  and "is it transparent?" by a percentile and a fraction, never by the maximum:
+  real art carries stray coloured pixels and a soft edge column, and one outlier
+  should not buy three colour channels.
 
 ## Conventions
 
