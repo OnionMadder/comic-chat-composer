@@ -32,8 +32,8 @@ spikes. At a fine enough tolerance the polygon *is* the curve, so the tracer
 emits polylines and the smoothing is gone.
 
 Usage:
-    python tools/vectorize-character.py assets/mcomic-court/characters/bumpkin
-    python tools/vectorize-character.py assets/mcomic-court/characters/*  --keep-png
+    python tools/vectorize-character.py assets/comic-court/characters/bumpkin
+    python tools/vectorize-character.py assets/comic-court/characters/*  --keep-png
 """
 
 import argparse
@@ -46,7 +46,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-# Douglas-Peucker tolerance, in source pixels. Swept against the mComic Court
+# Douglas-Peucker tolerance, in source pixels. Swept against the Comic Court
 # art, measuring the traced result back against the source masks: 0.2 and 0.4
 # are within 0.001 IoU of each other (0.965 / 0.964) while 0.4 carries ~10%
 # fewer points, and fidelity falls off a cliff past 0.6 (0.928) as the thin
@@ -135,11 +135,35 @@ def hex_of(rgb):
     return "#%02x%02x%02x" % rgb
 
 
-def vectorize(path):
+def palette_of(paths):
+    """
+    The one ink and paper colour a whole character is drawn in.
+
+    Taken across the character's sprites rather than per sprite: each drawing's
+    own median lands somewhere slightly different — #030503 on one pose and
+    #20301f on another, for the same character — and a figure whose linework
+    shifts shade as it changes pose looks like a compression artefact.
+    """
+    inks, papers = [], []
+    for path in paths:
+        m = masks(path)
+        if m is None:
+            continue
+        inks.append(m["ink_colour"])
+        papers.append(m["paper_colour"])
+    if not inks:
+        return (0, 0, 0), (255, 255, 255)
+    median = lambda vals: tuple(int(np.median([v[i] for v in vals])) for i in range(3))
+    return median(inks), median(papers)
+
+
+def vectorize(path, palette=None):
     """Trace one PNG; returns SVG markup, or None if the sprite is empty."""
     m = masks(path)
     if m is None:
         return None
+    if palette is not None:
+        m["ink_colour"], m["paper_colour"] = palette
     w, h = m["size"]
     fill = trace(m["solid"])
     ink = trace(m["ink"])
@@ -169,9 +193,12 @@ def convert(char_dir, keep_png):
     with open(manifest_path, encoding="utf-8") as f:
         manifest = json.load(f)
 
+    sources = sorted(glob.glob(os.path.join(char_dir, "*.png")))
+    palette = palette_of(sources)
+
     renamed, before, after = {}, 0, 0
-    for png in sorted(glob.glob(os.path.join(char_dir, "*.png"))):
-        svg = vectorize(png)
+    for png in sources:
+        svg = vectorize(png, palette)
         if svg is None:
             print(f"  {os.path.basename(png)}: empty — skipped", file=sys.stderr)
             continue

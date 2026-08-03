@@ -485,3 +485,54 @@ describe('compose', () => {
     assert.equal(panels.length, 1, 'only the message produces a panel');
   });
 });
+
+describe('facing overrides', () => {
+  /** The last panel holds every line, since nothing here forces a break. */
+  const facingIn = (events: ChatEvent[], author: string): string | undefined => {
+    const panels = run(events, { rules: { establishingShots: 'off' } });
+    for (const panel of panels) {
+      const found = panel.characters.find((c) => c.author === author);
+      if (found) return found.facing;
+    }
+    return undefined;
+  };
+
+  it('turns a speaker the way the event asks, not the way the solver would', () => {
+    const base: ChatEvent[] = [
+      { type: 'message', author: 'alice', text: 'Bob, over here.', addressees: ['bob'], at: 0 },
+      { type: 'message', author: 'bob', text: 'Coming.', at: 1 },
+    ];
+    const free = facingIn(base, 'alice');
+    const away = free === 'left' ? 'right' : 'left';
+    const forced = base.map((e, i) => (i === 0 ? { ...e, facing: away } : e)) as ChatEvent[];
+    assert.equal(facingIn(forced, 'alice'), away);
+  });
+
+  it('honours a facing on a wordless reaction', () => {
+    const events: ChatEvent[] = [
+      { type: 'message', author: 'alice', text: 'Well?', addressees: ['bob'], at: 0 },
+      { type: 'reaction', author: 'bob', gesture: 'shrug', facing: 'right', at: 1 },
+    ];
+    assert.equal(facingIn(events, 'bob'), 'right');
+  });
+
+  it('leaves unlocked characters to the solver', () => {
+    const events: ChatEvent[] = [
+      {
+        type: 'message',
+        author: 'alice',
+        text: 'I am talking to someone outside.',
+        facing: 'left',
+        at: 0,
+      },
+      { type: 'message', author: 'bob', text: 'Alice, who is that?', addressees: ['alice'], at: 1 },
+    ];
+    assert.equal(facingIn(events, 'alice'), 'left');
+    // Bob addressed Alice and is free, so he must be turned towards her.
+    const panels = run(events, { rules: { establishingShots: 'off' } });
+    const panel = panels.find((p) => p.characters.length === 2)!;
+    const alice = panel.characters.find((c) => c.author === 'alice')!;
+    const bob = panel.characters.find((c) => c.author === 'bob')!;
+    assert.equal(bob.facing, bob.x < alice.x ? 'right' : 'left');
+  });
+});

@@ -34,8 +34,25 @@ export type { Camera } from './types.ts';
 export interface CameraCharacter {
   /** Centre of the character's face. */
   x: number;
-  /** Half the character's drawn width. */
+  /**
+   * Half the character's drawn width.
+   *
+   * Assumes the art extends symmetrically about `x`, which holds for a layered
+   * character — the head sits over the torso — and fails for a whole-figure
+   * pose that throws a limb out one side. Prefer {@link extendLeft} /
+   * {@link extendRight}, which say the same thing without the assumption; this
+   * is used only when they are absent.
+   */
   halfWidth: number;
+  /**
+   * How far the drawn art reaches to the left of `x`, and to the right.
+   *
+   * A waving or pointing figure is not symmetric about its anchor, and framing
+   * it as though it were is what crops an outstretched arm at the panel edge.
+   * Both default to `halfWidth` when omitted.
+   */
+  extendLeft?: number;
+  extendRight?: number;
   /**
    * Whether this character must not be cut by the panel sides (rule 2). The
    * composer only includes characters it decided to include, so in practice
@@ -90,8 +107,8 @@ function requiredSpan(
   let max = Number.NEGATIVE_INFINITY;
   for (const c of characters) {
     if (!c.required) continue;
-    min = Math.min(min, c.x - c.halfWidth);
-    max = Math.max(max, c.x + c.halfWidth);
+    min = Math.min(min, c.x - (c.extendLeft ?? c.halfWidth));
+    max = Math.max(max, c.x + (c.extendRight ?? c.halfWidth));
   }
   if (!Number.isFinite(min)) return null;
   return { min, max };

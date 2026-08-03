@@ -40,6 +40,7 @@ import type {
   CastEntry,
   ChatEvent,
   Expression,
+  Facing,
   FacingPenalties,
   Gesture,
   MessageEvent,
@@ -118,6 +119,8 @@ interface PendingUtterance {
   kind: BalloonKind;
   pose: Pose;
   addressees: string[];
+  /** A facing the author fixed by hand, if they did. */
+  facing?: Facing;
   continued: boolean;
 }
 
@@ -134,6 +137,11 @@ interface PanelState {
    * reacting to.
    */
   reactionOf: Map<string, { expression?: Expression; gesture?: Gesture }>;
+  /**
+   * Facings the author fixed by hand this panel. Placement chooses where these
+   * characters stand but not which way they look.
+   */
+  facingOf: Map<string, Facing>;
   /** True once a reaction has given this panel content of its own. */
   hasReaction: boolean;
   forceEstablishing: boolean;
@@ -151,6 +159,7 @@ function emptyPanelState(): PanelState {
     expressionOf: new Map(),
     gestureOf: new Map(),
     reactionOf: new Map(),
+    facingOf: new Map(),
     hasReaction: false,
     forceEstablishing: false,
     soloRolled: false,
@@ -301,10 +310,15 @@ export function compose(input: ComposeInput): Panel[] {
             variant: c.poseVariant,
             dominant: c.dominant,
           })
-        : { aspect: 0.5, ...DEFAULT_FRAMING };
+        : { aspect: 0.5, anchorFraction: 0.5, ...DEFAULT_FRAMING };
+      // Split the drawn width around the anchor rather than halving it: an
+      // outstretched arm belongs on the side it is actually drawn.
+      const width = characterHeight * proportions.aspect;
       return {
         x: c.x,
-        halfWidth: (characterHeight * proportions.aspect) / 2,
+        halfWidth: width / 2,
+        extendLeft: width * proportions.anchorFraction,
+        extendRight: width * (1 - proportions.anchorFraction),
         required: true,
       };
     });
@@ -352,6 +366,7 @@ export function compose(input: ComposeInput): Panel[] {
       previousPositions,
       panelWidth: rules.panelWidth,
       penalties: rules.facingPenalties,
+      facingLocks: candidate.facingOf,
     });
 
     if (candidate.utterances.length === 0) return { placements, balloons: [] };
@@ -412,6 +427,7 @@ export function compose(input: ComposeInput): Panel[] {
         previousPositions,
         panelWidth: rules.panelWidth,
         penalties: rules.facingPenalties,
+        facingLocks: state.facingOf,
       });
     const balloons = laid?.balloons ?? [];
 
@@ -465,6 +481,7 @@ export function compose(input: ComposeInput): Panel[] {
     expressionOf: new Map(s.expressionOf),
     gestureOf: new Map(s.gestureOf),
     reactionOf: new Map(s.reactionOf),
+    facingOf: new Map(s.facingOf),
     hasReaction: s.hasReaction,
     forceEstablishing: s.forceEstablishing,
     soloRolled: s.soloRolled,
@@ -480,6 +497,7 @@ export function compose(input: ComposeInput): Panel[] {
     }
     s.utterances.push(u);
     s.addresseesOf.set(u.author, u.addressees);
+    if (u.facing) s.facingOf.set(u.author, u.facing);
     s.expressionOf.set(u.author, u.pose.expression);
     s.gestureOf.set(u.author, u);
   };
@@ -566,6 +584,7 @@ export function compose(input: ComposeInput): Panel[] {
       kind,
       pose,
       addressees,
+      facing: msg.facing,
       continued,
     };
   };
@@ -641,6 +660,7 @@ export function compose(input: ComposeInput): Panel[] {
       }
     }
     if (addressees.length > 0) state.addresseesOf.set(event.author, addressees);
+    if (event.facing) state.facingOf.set(event.author, event.facing);
 
     state.reactionOf.set(event.author, {
       expression: event.expression,

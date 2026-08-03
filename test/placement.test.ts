@@ -192,3 +192,74 @@ describe('placeCharacters', () => {
     );
   });
 });
+
+describe('facing locks', () => {
+  const lock = (
+    authors: string[],
+    addressees: Record<string, string[]>,
+    facingLocks: Record<string, 'left' | 'right'>,
+  ): Placement[] =>
+    placeCharacters({
+      authors,
+      addresseesOf: new Map(Object.entries(addressees)),
+      previousPositions: noPrevious,
+      panelWidth: 400,
+      penalties,
+      facingLocks: new Map(Object.entries(facingLocks)),
+    });
+
+  it('gives a locked character the facing it was given', () => {
+    for (const facing of ['left', 'right'] as const) {
+      const placed = lock(['alice', 'bob'], { alice: ['bob'] }, { alice: facing });
+      assert.equal(placed.find((p) => p.author === 'alice')!.facing, facing);
+    }
+  });
+
+  it('holds the lock even against the addressee penalty', () => {
+    // Alice is addressing Bob, so unlocked she would always turn towards him.
+    // Locked away from him, she must stay turned away — and Bob, who is free,
+    // must still turn towards her.
+    const placed = lock(['alice', 'bob'], { alice: ['bob'] }, { alice: 'left' });
+    const alice = placed.find((p) => p.author === 'alice')!;
+    const bob = placed.find((p) => p.author === 'bob')!;
+    assert.equal(alice.facing, 'left');
+    assert.ok(alice.x < bob.x, 'Bob should still be placed on the side Alice is not facing');
+    assert.equal(bob.facing, 'left', 'Bob is free, and turning left points him at Alice');
+  });
+
+  it('leaves the seating exactly where the unlocked solve put it', () => {
+    // The point of exempting a locked character from the facing terms: an
+    // override changes which way somebody looks, not where anybody stands.
+    const authors = ['alice', 'bob', 'carol'];
+    const addressees = { alice: ['bob'], carol: ['bob'] };
+    const free = place(authors, addressees);
+    const locked = lock(authors, addressees, { alice: 'left', carol: 'left' });
+    assert.deepEqual(
+      locked.map((p) => p.x),
+      free.map((p) => p.x),
+    );
+    assert.deepEqual(
+      locked.filter((p) => p.author !== 'bob').map((p) => p.facing),
+      ['left', 'left'],
+    );
+  });
+
+  it('locks every character in a panel where everyone is fixed', () => {
+    const placed = lock(
+      ['alice', 'bob', 'carol'],
+      { alice: ['bob'] },
+      { alice: 'right', bob: 'right', carol: 'right' },
+    );
+    assert.deepEqual(
+      placed.map((p) => p.facing),
+      ['right', 'right', 'right'],
+    );
+  });
+
+  it('is a no-op when the lock agrees with the solver', () => {
+    const free = place(['alice', 'bob'], { alice: ['bob'] });
+    const agreeing = Object.fromEntries(free.map((p) => [p.author, p.facing]));
+    const locked = lock(['alice', 'bob'], { alice: ['bob'] }, agreeing);
+    assert.deepEqual(locked, free);
+  });
+});

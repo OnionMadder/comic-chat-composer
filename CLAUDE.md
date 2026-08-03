@@ -16,9 +16,11 @@ Owner: **Onion Madder** (Kellye Strickland). Not affiliated with Microsoft.
 >
 > **You are on `mcomic96-app`.** This branch is the mobile app and nothing else.
 > Library fixes belong on `main` and reach here by merge, never the other way.
-> The sibling product branch is `mcomic-court` (a webcomic with its own headless
-> cast and inference table); the two share the library and nothing else, and
-> neither should ever import from the other.
+> The sibling product is **Comic Court** (a webcomic with its own headless cast
+> and inference table), which was extracted into its own repo at
+> `projects/comic-court` once the two started diverging — it depends on this
+> package and vendors the `examples/` render pipeline. The two share the library
+> and nothing else, and neither should ever import from the other.
 
 ## Commands
 
@@ -141,6 +143,14 @@ embedded name really is "Greg" upstream; we display it as-is.
   repoints the manifest. Needs OpenCV.
 - `placeholder-character.py` — crude stand-in art in the importer's input
   format, so a cast member can exist before anyone has drawn anything.
+- `import-backdrop.py` — the **hand-drawn backdrop** intake (`import-bgb.py` is
+  a decoder, not an importer). Sizes to what the camera can actually ask for —
+  `maxZoom` 2.2 × a 400px panel = 880px, so 900 — and drops channels the art
+  does not use. `load-assets.ts` inlines each backdrop as a data URI **into
+  every panel using it**, so weight is paid per panel. Judge "is it greyscale?"
+  and "is it transparent?" by a percentile and a fraction, never by the maximum:
+  real art carries stray coloured pixels and a soft edge column, and one outlier
+  should not buy three colour channels.
 
 ## Conventions
 
