@@ -2210,6 +2210,55 @@ window.visualViewport?.addEventListener('resize', syncKeyboardState);
 window.addEventListener('resize', syncKeyboardState);
 syncKeyboardState();
 
+// ---- Dev-only: what the native layer measured -----------------------------
+
+/**
+ * Print the system-bar insets MainActivity measured, next to the build stamp.
+ *
+ * Dev builds only — `build:release` never renders the stamp, so this finds
+ * nothing and does nothing. It exists because the test device has no ADB, which
+ * leaves a screenshot as the only instrument, and "the bar is still under the
+ * clock" cannot tell three very different failures apart: insets never
+ * dispatched (no reading at all), insets dispatched as zero (`i0/0`), or padding
+ * applied and then overridden downstream (a real number, bar still wrong).
+ *
+ * `w` is the CSS viewport width, which is its own answer: the stamp vanished
+ * from the device between two builds, and the only thing that changed was the
+ * media query that hides it under 400px. Reporting the width confirms whether
+ * that is what happened rather than leaving it inferred.
+ *
+ * Forces the stamp visible inline, precisely because that media query would
+ * otherwise hide the diagnostic on the device it is meant to diagnose.
+ */
+interface SysInsets { top: number; bottom: number }
+let sysInsets: SysInsets | undefined;
+
+function showInsetDiagnostic(): void {
+  const el = document.querySelector<HTMLElement>('.build');
+  if (!el) return; // release build: no stamp, nothing to annotate
+  const stamp = (el.dataset.stamp ??= el.textContent ?? '');
+  const reading = sysInsets
+    ? `i${Math.round(sysInsets.top)}/${Math.round(sysInsets.bottom)}`
+    : 'i—';
+  el.textContent = `${stamp} ${reading} w${Math.round(window.innerWidth)}`;
+  el.style.display = 'inline';
+}
+
+// A property rather than a polled global. The native push can land before or
+// after this script runs, and a timed probe gets that wrong in both directions —
+// it burns CPU when the value is already there and misses it when it is late.
+// A setter is simply correct whenever the value arrives.
+Object.defineProperty(window, '__sysInsets', {
+  configurable: true,
+  get: () => sysInsets,
+  set: (value: SysInsets) => {
+    sysInsets = value;
+    showInsetDiagnostic();
+  },
+});
+
+showInsetDiagnostic();
+
 // ---- Android hardware Back ------------------------------------------------
 
 /**

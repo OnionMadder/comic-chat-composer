@@ -2,6 +2,9 @@ package com.onionmadder.mcomic96;
 
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.WebView;
+
+import java.util.Locale;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -22,32 +25,93 @@ import com.getcapacitor.BridgeActivity;
  * inside the status bar strip (i.e. most of them) they resolve to 0, so the app
  * bar got its 8px of padding and drew straight through the clock and the wifi
  * and battery icons. No amount of CSS can see the status bar from in there.
+ * Capacitor 8 does nothing with insets either, so this is the only place left.
  *
- * So the insets are applied here, where they are actually known.
+ * **Applied three ways on purpose.** A previous version of this set only the
+ * listener and did not work on device: window insets are dispatched once, early,
+ * and if that pass happens before `onCreate` attaches a listener then nothing
+ * ever re-dispatches them and the callback simply never runs. So the listener
+ * handles later changes (keyboard, rotation, gesture-bar mode), the explicit
+ * `requestApplyInsets` forces the pass that may already have been missed, and
+ * `onResume` reads the insets straight off the view as a backstop for the case
+ * where even that is too early. `applyInsets` is idempotent — it only ever calls
+ * `setPadding` — so all three arriving costs nothing.
  */
 public class MainActivity extends BridgeActivity {
+
+    private View root;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        final View root = findViewById(android.R.id.content);
+        root = findViewById(android.R.id.content);
+
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-
-            // Bottom is deliberately dropped while the keyboard is up. Capacitor
-            // already resizes the web layer for the IME — the composer sits right
-            // on top of the keyboard today — and the navigation bar inset is
-            // still reported even though the keyboard is covering it. Adding it
-            // here as well would push the input row up by a phantom nav bar.
-            boolean keyboardUp = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
-            int bottom = keyboardUp ? 0 : bars.bottom;
-
-            view.setPadding(bars.left, bars.top, bars.right, bottom);
-
+            applyInsets(windowInsets);
             // Returned unconsumed on purpose: Capacitor's own keyboard handling
             // is downstream of this and still needs to see the IME inset.
             return windowInsets;
+        });
+
+        // Force a dispatch, in case the only one already happened above.
+        ViewCompat.requestApplyInsets(root);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Backstop: read whatever the view currently has, rather than waiting to
+        // be told. Null before the view is attached to a window, which is why
+        // this is here and not in onCreate.
+        if (root != null) {
+            WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(root);
+            if (insets != null) applyInsets(insets);
+        }
+    }
+
+    private void applyInsets(WindowInsetsCompat windowInsets) {
+        if (root == null) return;
+        Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+        // Bottom is deliberately dropped while the keyboard is up. Capacitor
+        // already resizes the web layer for the IME — the composer sits right on
+        // top of the keyboard on device — but the navigation bar inset is still
+        // reported while the keyboard covers it, and adding it here as well would
+        // push the input row up by a phantom nav bar.
+        boolean keyboardUp = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
+        int bottom = keyboardUp ? 0 : bars.bottom;
+
+        root.setPadding(bars.left, bars.top, bars.right, bottom);
+        reportToWebLayer(bars.top, bottom);
+    }
+
+    /**
+     * Hand the measured insets to the web layer, where a dev build prints them
+     * next to the build stamp.
+     *
+     * Purely diagnostic — the padding above is the functional part and does not
+     * depend on this arriving. It exists because there is no ADB on the test
+     * device, so a screenshot is the only instrument available, and "the bar is
+     * still under the clock" cannot distinguish between three very different
+     * failures: insets never dispatched, insets dispatched as zero, or padding
+     * applied and then overridden by something else. The number tells them apart.
+     *
+     * Best-effort by design: if the web view is not up yet the call is skipped,
+     * and the next dispatch or onResume will carry it.
+     */
+    private void reportToWebLayer(int topPx, int bottomPx) {
+        float density = getResources().getDisplayMetrics().density;
+        final String js = String.format(
+            Locale.US,
+            "window.__sysInsets={top:%.1f,bottom:%.1f};",
+            topPx / density,
+            bottomPx / density
+        );
+        runOnUiThread(() -> {
+            if (getBridge() == null) return;
+            WebView webView = getBridge().getWebView();
+            if (webView != null) webView.evaluateJavascript(js, null);
         });
     }
 }
