@@ -34,9 +34,11 @@ android {
         }
     }
     signingConfigs {
-        release {
-            if (hasKeystore) {
-                storeFile file(keystoreProperties['storeFile'])
+        if (hasKeystore) {
+            release {
+                // rootProject.file, so storeFile in the properties is relative to
+                // android/ — same convention as the other Onion Madder apps.
+                storeFile rootProject.file(keystoreProperties['storeFile'])
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
