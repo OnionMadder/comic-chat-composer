@@ -406,9 +406,22 @@ native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
 behind `build:release`, loud avatars off the auto-cast, touch targets; framing
 nudges dropped — settled as good on-device). Remaining: **M6 PWA**
 (installable/offline — arguably redundant while the APK is the product) and
-**M7 store assets + release signing** (icon done; screenshots, feature graphic
-and the upload keystore still to do — **the keystore is the user's to generate**,
-never ours, and they'll say when).
+**M7 store assets + release signing** (icon ✅, feature graphic ✅ — see below;
+**screenshots** and the upload keystore still to do. Screenshots must come off a
+real phone: headless Chrome cannot render this app faithfully, so a captured
+screenshot of it would be a picture of the bug, not the product. **The keystore
+is the user's to generate**, never ours, and they'll say when).
+
+**Store assets** live in `app/store/` and are generated, not hand-drawn:
+`make-feature-graphic.py` writes the 1024×500 `feature-graphic.png` from the same
+wordmark construction as `make-icon.py`, so the banner and the launcher icon are
+visibly the same object. Two constraints are baked in and worth not relearning:
+Play **crops the graphic toward the centre**, so all type sits in a centred safe
+box (verified to survive a 70% centre crop), and Play **rejects alpha**, so the
+canvas is flattened onto `--void` and saved 24-bit. The decorative balloons are
+the only elements outside the safe box — losing them to a crop costs nothing,
+and they're deliberately **empty**, because a balloon with invented dialogue in
+it would be pretending to show the product.
 
 ### The walkthrough (built)
 
