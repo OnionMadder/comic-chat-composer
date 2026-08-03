@@ -467,11 +467,22 @@ native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
 behind `build:release`, loud avatars off the auto-cast, touch targets; framing
 nudges dropped — settled as good on-device). Remaining: **M6 PWA**
 (installable/offline — arguably redundant while the APK is the product) and
-**M7 store assets + release signing** (icon ✅, feature graphic ✅ — see below;
-**screenshots** and the upload keystore still to do. Screenshots must come off a
-real phone: headless Chrome cannot render this app faithfully, so a captured
-screenshot of it would be a picture of the bug, not the product. **The keystore
-is the user's to generate**, never ours, and they'll say when).
+**M7 store assets + release signing ✅** (icon, feature graphic, screenshots,
+listing copy, privacy policy, R8 release build and the signed upload key — all
+below. Screenshots must come off a real phone: headless Chrome cannot render this
+app faithfully, so a captured screenshot of it would be a picture of the bug, not
+the product).
+
+**Signing follows the house convention, and the key is generated here.** An
+earlier version of this file claimed the keystore was the owner's to generate and
+"never ours" — that was an assumption, and wrong: every Onion Madder app has had
+its key generated as part of the release build. The layout matches
+`sundari-shrine`: `android/release.keystore` + `android/keystore.properties`
+(both gitignored), mirrored to `~/Keystore-Backups/<app>/`. The signingConfig is
+only *declared* when a keystore is present, so a release build without one is
+left unsigned rather than failing — which keeps release builds verifiable by
+anyone. `storeFile` resolves through `rootProject.file`, so its value is relative
+to `android/`. **The backup is load-bearing**: nothing else holds the password.
 
 **Store assets** live in `app/store/` and are generated, not hand-drawn:
 `make-feature-graphic.py` writes the 1024×500 `feature-graphic.png` from the same

@@ -61,14 +61,19 @@ def glow(layer, radius, passes=2):
     return g
 
 
-def draw(size, *, transparent, safe):
-    """Render the stacked wordmark at `size`. `safe` insets for the adaptive mask."""
+def draw(size, *, transparent, safe, content_frac=None):
+    """Render the stacked wordmark at `size`. `safe` insets for the adaptive mask.
+
+    `content_frac` overrides that choice outright, for the Play store icon —
+    which is masked by Google rather than by the launcher and wants its own
+    middle ground.
+    """
     S = size * SS
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0) if transparent else VOID)
 
     # Adaptive icons get masked to arbitrary shapes, so keep content well inside;
     # legacy icons can breathe a little wider.
-    content = S * (0.66 if safe else 0.80)
+    content = S * (content_frac if content_frac is not None else (0.66 if safe else 0.80))
     cx, cy = S / 2, S / 2
 
     # --- size "mComic" to the content width -------------------------------
@@ -161,3 +166,20 @@ for density, size in LEGACY.items():
     written += 3
 
 print(f"wrote {written} icon files across {len(LEGACY)} densities")
+
+# --- the Play store icon --------------------------------------------------
+# 512x512, and deliberately NOT given the rounded mask the legacy launcher icon
+# gets: Google rounds it itself, and a pre-rounded source would be rounded twice
+# and end up with pale corners. Full-bleed void square instead.
+#
+# Content sits at 0.74 rather than the launcher's 0.80 — Play's corner radius is
+# heavier than the launcher's, and at 0.80 the `m` and the '96 badge run close
+# enough to the corners to risk being clipped in the smaller placements.
+os.makedirs("store", exist_ok=True)
+store_icon = draw(512, transparent=False, safe=False, content_frac=0.74)
+# Flattened to RGB: Play wants a 32-bit PNG and accepts alpha, but a listing icon
+# with transparent pixels renders unpredictably against Play's own backgrounds.
+flat = Image.new("RGB", store_icon.size, VOID[:3])
+flat.paste(store_icon, (0, 0), store_icon)
+flat.save(os.path.join("store", "icon-512.png"))
+print("wrote store/icon-512.png (512x512, opaque)")
