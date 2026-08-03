@@ -222,8 +222,10 @@ placement bugs, added **wordless reactions** / **explicit breaks** / a
 vs-shipped-program) → **the mComic '96 mobile app** (Capacitor chat-to-comic) →
 the app's **compose + edit authoring pass** — tap a panel to rewrite that beat,
 long-press to drag it into a new order, rearrange and flip the characters inside
-a frame, duplicate/insert beats (see the section below; this is the active
-workstream).
+a frame, duplicate/insert beats → a **mobile layout pass** (overlay tray, portrait
+lock, hardware Back, native system-bar insets, an edit bar that sheds its chip
+rows under the keyboard — every one confirmed on a real device) → **M7 shipped**:
+R8 release build, signed upload key, and the full Play asset set.
 
 ## The conversation builder — built, and what's left
 
@@ -432,6 +434,11 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   composer overflowed and a single panel rendered 754px wide. Locking is honest
   for a one-column webtoon scroll; a real landscape layout is the alternative if
   it's ever wanted.
+- **Every bullet in this list was confirmed on a real phone**, not just in the
+  Browser pane — which matters here more than in most projects, because the
+  pane's geometry is trustworthy but its rendering of this app is not, and two
+  of these (the system-bar insets, hardware Back) have no browser equivalent
+  at all.
 - **Hardware Back unwinds the UI, one layer at a time** (`BACK_LAYERS` in
   `main.ts`, via `@capacitor/app`). Capacitor's default hands Back to the
   WebView, and this is an SPA with no history entries, so the default was to
