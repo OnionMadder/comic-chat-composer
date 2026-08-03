@@ -410,9 +410,22 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   `env(safe-area-inset-top)` reports the **display cutout** on Android, not the
   status bar, so it is 0 on most phones and the app bar drew through the clock
   and the battery icon. targetSdk 36 means edge-to-edge is enforced with no
-  opt-out. Two build-costing gotchas: a colour resource cannot be named `void`
-  (`R.color.void` is not valid Java), and `--` is illegal inside an XML comment,
-  so `--void` cannot be written literally in one.
+  opt-out, and Capacitor 8 does nothing with insets, so this is the only place
+  left. **It takes three mechanisms and the first attempt shipped only one, which
+  did nothing at all:** insets are dispatched once, early, and if that pass
+  happens before `onCreate` attaches a listener then nothing re-dispatches and
+  the callback never runs. So: the listener (later changes — keyboard, rotation),
+  `requestApplyInsets` (forces the possibly-missed pass), and `onResume` reading
+  `getRootWindowInsets` (backstop; it returns null until the view is attached,
+  which is why it cannot live in `onCreate`). `applyInsets` only calls
+  `setPadding`, so all three firing costs nothing. Note `onResume` must be
+  **public** — `BridgeActivity` declares it public and Java will not let an
+  override narrow access. Three build-costing gotchas: a colour resource cannot
+  be named `void` (`R.color.void` is not valid Java), `--` is illegal inside an
+  XML comment so `--void` cannot be written literally in one, and **anything
+  added to `.appbar` needs `flex: none`** — a flex item defaults to shrinking, and
+  a string longer than expected gets crushed to a sliver rather than pushing back
+  (a temporary diagnostic was squeezed to 38px and read as "not rendering").
 - **Portrait only.** `android:screenOrientation="portrait"` on MainActivity.
   Landscape was reachable (the activity already listed `orientation` in
   `configChanges`, so rotation didn't even restart it) and unusable: the

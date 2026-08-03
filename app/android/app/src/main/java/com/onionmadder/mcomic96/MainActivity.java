@@ -2,9 +2,6 @@ package com.onionmadder.mcomic96;
 
 import android.os.Bundle;
 import android.view.View;
-import android.webkit.WebView;
-
-import java.util.Locale;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -83,35 +80,5 @@ public class MainActivity extends BridgeActivity {
         int bottom = keyboardUp ? 0 : bars.bottom;
 
         root.setPadding(bars.left, bars.top, bars.right, bottom);
-        reportToWebLayer(bars.top, bottom);
-    }
-
-    /**
-     * Hand the measured insets to the web layer, where a dev build prints them
-     * next to the build stamp.
-     *
-     * Purely diagnostic — the padding above is the functional part and does not
-     * depend on this arriving. It exists because there is no ADB on the test
-     * device, so a screenshot is the only instrument available, and "the bar is
-     * still under the clock" cannot distinguish between three very different
-     * failures: insets never dispatched, insets dispatched as zero, or padding
-     * applied and then overridden by something else. The number tells them apart.
-     *
-     * Best-effort by design: if the web view is not up yet the call is skipped,
-     * and the next dispatch or onResume will carry it.
-     */
-    private void reportToWebLayer(int topPx, int bottomPx) {
-        float density = getResources().getDisplayMetrics().density;
-        final String js = String.format(
-            Locale.US,
-            "window.__sysInsets={top:%.1f,bottom:%.1f};",
-            topPx / density,
-            bottomPx / density
-        );
-        runOnUiThread(() -> {
-            if (getBridge() == null) return;
-            WebView webView = getBridge().getWebView();
-            if (webView != null) webView.evaluateJavascript(js, null);
-        });
     }
 }

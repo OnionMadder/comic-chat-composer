@@ -53,7 +53,11 @@ body {
   padding: 0.05em 0.28em; border-radius: 6px; box-shadow: 0 0 12px rgba(182, 255, 61, 0.5);
 }
 .spacer { flex: 1; }
-.build { font-family: var(--comic); font-size: 10px; color: var(--muted); opacity: 0.55; margin-left: 8px; }
+/* `flex: none` for the same reason the app-bar buttons have it: as a flex item
+   it defaults to shrinking, and a longer string than expected gets squeezed to a
+   sliver instead of pushing back. Caught when a temporary diagnostic was crushed
+   to 38px and read as "not rendering at all". */
+.build { flex: none; font-family: var(--comic); font-size: 10px; color: var(--muted); opacity: 0.55; margin-left: 8px; }
 
 .iconbtn {
   font-family: var(--comic);
