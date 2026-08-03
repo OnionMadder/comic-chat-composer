@@ -257,10 +257,12 @@ function chooseSceneBackdrop(
  */
 export function compose(input: ComposeInput): Panel[] {
   const rules = resolveRules(input.rules);
-  // Addressing someone does not summon them. A name the cast has no entry for
-  // is someone off-panel — through a door, down a corridor, at lunch — and
-  // pulling them in reserved space for a character with no art to draw, so the
-  // panel opened a person-shaped hole and put nobody in it.
+  // Addressing someone pulls them into the panel — but only if the cast can
+  // draw them. Give an addressee a cast entry and they appear, which is the
+  // normal case and what callers should do. A name with no entry is someone
+  // off-panel — through a door, down a corridor, at lunch — and placing them
+  // would reserve space for a character with no art, opening a person-shaped
+  // hole and putting nobody in it.
   const inCast = (author: string): boolean => input.cast[author] !== undefined;
   const metrics = input.metrics ?? createApproximateMetrics();
   const seed = input.seed ?? 42;
