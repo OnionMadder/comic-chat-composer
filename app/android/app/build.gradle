@@ -21,7 +21,13 @@ android {
     namespace = "com.onionmadder.mcomic96"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.onionmadder.mcomic96"
+        // Matches the Play listing, which registered com.onionmadder.mcomic.
+        // Deliberately NOT the same as `namespace` above: applicationId is the
+        // identity Play and the device use, namespace is where the R class and
+        // the Java sources live. They are allowed to differ, and leaving the
+        // namespace alone avoids moving MainActivity.java for no functional gain.
+        // This is a one-way door once anything is published.
+        applicationId "com.onionmadder.mcomic"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -442,7 +442,11 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   the root it exits without a confirm — autosave means there is nothing to
   protect, and a confirm-on-exit makes an app feel like it won't let you go.
 
-**Native shell (Capacitor 8 + Android):** `appId com.onionmadder.mcomic96`,
+**Native shell (Capacitor 8 + Android):** `applicationId com.onionmadder.mcomic`
+(the name the Play listing registered — **not** the `namespace`, which stays
+`com.onionmadder.mcomic96` where the Java sources and the R class live; the two
+are allowed to differ and keeping them apart avoided moving MainActivity.java.
+The package name is permanent once anything is published),
 targetSdk 36, minSdk 24. Builds a real APK: `cd app && npx cap sync && cd
 android && ./gradlew assembleDebug`. **Requires JDK 21** — pinned via
 `org.gradle.java.home` in `android/gradle.properties` (Temurin 21; JDK 17 is
