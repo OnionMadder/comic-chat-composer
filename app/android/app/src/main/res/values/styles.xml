@@ -13,6 +13,14 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- The status/navigation bar strips are window background now (see
+             MainActivity), so paint them the app's void instead of the theme's
+             default pale surface. -->
+        <item name="android:windowBackground">@color/app_void</item>
+        <!-- Dark bars: keep the system's clock and icons light so they stay
+             legible against it. -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
 

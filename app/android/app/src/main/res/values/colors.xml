@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's void black, matching the CSS custom property of that name.
+         Now that MainActivity pads the content view clear of the system bars,
+         those strips show the window background rather than the web layer, so
+         it has to be this same near-black or the app gets a pale band above
+         the app bar. -->
+    <color name="app_void">#08080B</color>
+</resources>
