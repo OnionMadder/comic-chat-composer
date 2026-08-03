@@ -177,9 +177,13 @@ print(f"wrote {written} icon files across {len(LEGACY)} densities")
 # enough to the corners to risk being clipped in the smaller placements.
 os.makedirs("store", exist_ok=True)
 store_icon = draw(512, transparent=False, safe=False, content_frac=0.74)
-# Flattened to RGB: Play wants a 32-bit PNG and accepts alpha, but a listing icon
-# with transparent pixels renders unpredictably against Play's own backgrounds.
-flat = Image.new("RGB", store_icon.size, VOID[:3])
-flat.paste(store_icon, (0, 0), store_icon)
+# Kept 32-bit (RGBA) but fully opaque, which is not the same as flattening to
+# RGB. Play's app-icon spec asks for a 32-bit PNG, and a 24-bit file risks being
+# rejected by the Console — but a listing icon with genuinely transparent pixels
+# renders unpredictably against Play's own backgrounds. Compositing onto an
+# opaque void satisfies both: every pixel has alpha 255, and the file is still
+# 32-bit.
+flat = Image.new("RGBA", store_icon.size, VOID)
+flat.alpha_composite(store_icon)
 flat.save(os.path.join("store", "icon-512.png"))
-print("wrote store/icon-512.png (512x512, opaque)")
+print("wrote store/icon-512.png (512x512, 32-bit, fully opaque)")
