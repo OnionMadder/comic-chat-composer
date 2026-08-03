@@ -257,6 +257,11 @@ function chooseSceneBackdrop(
  */
 export function compose(input: ComposeInput): Panel[] {
   const rules = resolveRules(input.rules);
+  // Addressing someone does not summon them. A name the cast has no entry for
+  // is someone off-panel — through a door, down a corridor, at lunch — and
+  // pulling them in reserved space for a character with no art to draw, so the
+  // panel opened a person-shaped hole and put nobody in it.
+  const inCast = (author: string): boolean => input.cast[author] !== undefined;
   const metrics = input.metrics ?? createApproximateMetrics();
   const seed = input.seed ?? 42;
   const rand: Random = createRandom(seed);
@@ -492,7 +497,7 @@ export function compose(input: ComposeInput): Panel[] {
     if (!s.order.includes(u.author)) s.order.push(u.author);
     if (!s.solo) {
       for (const a of u.addressees) {
-        if (!s.order.includes(a)) s.order.push(a);
+        if (inCast(a) && !s.order.includes(a)) s.order.push(a);
       }
     }
     s.utterances.push(u);
@@ -525,7 +530,7 @@ export function compose(input: ComposeInput): Panel[] {
     if (committed !== undefined && committed !== u.pose.expression) return true;
 
     // Character cap.
-    const incoming = new Set([...state.order, u.author, ...u.addressees]);
+    const incoming = new Set([...state.order, u.author, ...u.addressees.filter(inCast)]);
     if (incoming.size > rules.maxCharactersPerPanel) return true;
 
     return false;
@@ -650,13 +655,13 @@ export function compose(input: ComposeInput): Panel[] {
     const addressees = (event.addressees ?? []).filter((a) => a !== event.author);
 
     if (!state.order.includes(event.author)) {
-      const incoming = new Set([...state.order, event.author, ...addressees]);
+      const incoming = new Set([...state.order, event.author, ...addressees.filter(inCast)]);
       if (state.solo || incoming.size > rules.maxCharactersPerPanel) flush();
       state.order.push(event.author);
     }
     if (!state.solo) {
       for (const a of addressees) {
-        if (!state.order.includes(a)) state.order.push(a);
+        if (inCast(a) && !state.order.includes(a)) state.order.push(a);
       }
     }
     if (addressees.length > 0) state.addresseesOf.set(event.author, addressees);
