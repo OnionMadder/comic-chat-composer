@@ -33,11 +33,37 @@ npm run demo      # build the demo set: examples/demo/{index.html,app.js} (+ sty
 npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
 ```
 
+The app is a separate project with its own `package.json`, run from `app/`:
+
+```bash
+cd app
+npm run build          # esbuild -> www/ (dev: keeps the b<HH:MM:SS> build stamp)
+npm run build:release  # same, --release: drops the stamp
+npx cap sync android   # copy www/ + register native plugins (prints the count)
+python devserve.py 8973            # no-cache LAN server; load http://<PC-IP>:8973
+python make-icon.py                # launcher icons + store/icon-512.png
+python make-feature-graphic.py     # store/feature-graphic.png
+cd android && ./gradlew assembleDebug     # sideloadable APK
+cd android && ./gradlew bundleRelease     # signed AAB for Play
+```
+
 - **Node 22+, ESM, TypeScript strict.** Tests run directly off `.ts` via
   `--experimental-strip-types` — no compile before test.
 - The published library is **`src/` only** and has **zero runtime dependencies**.
   Everything in `examples/` (renderer, demo, corpus, parsers) is not part of the
   package surface — it's reference code, and may use dev deps (esbuild).
+- **`npm run typecheck` at the root covers `app/` too** — and did not until
+  2026-08-03. The root tsconfig's `include` listed only `src`/`test`/`examples`,
+  so **every line of the app was unchecked**: esbuild strips types without
+  checking them, so nothing in the pipeline ever looked. A deliberate
+  `const x: number = "nope"` in `app/` passed `npm run typecheck` silently.
+  Turning it on needed `"type": "module"` in `app/package.json` (which the Node
+  build warning had been asking for all along) and one real narrowing bug it
+  immediately found. **If a green typecheck is being used as evidence an app
+  change is sound, confirm `app/**/*.ts` is still in that `include`.**
+- **Always `cap sync` between a web build and a gradle build.** Gradle will
+  happily package the *previous* `www/`, and an APK that silently ships stale JS
+  is a long afternoon.
 
 ## Architecture
 
@@ -314,10 +340,16 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   (generated). Run: `cd app && npm run build`.
 - `make-icon.py` — generates the launcher icons from the app's own wordmark
   (pink `m`, cyan `Comic`, tilted lime `'96` badge, neon glow as a blurred
-  under-layer), at all five densities × legacy/round/adaptive-foreground. Type
-  is Comic Neue, converted woff2→TTF into gitignored `.iconfonts/` because
-  Pillow can't read woff2. `cap sync` does **not** regenerate these — rerun the
-  script and rebuild the APK. Needs `fonttools` + `brotli`.
+  under-layer), at all five densities × legacy/round/adaptive-foreground, **plus
+  the 512×512 Play listing icon** into `store/`. Type is Comic Neue, converted
+  woff2→TTF into gitignored `.iconfonts/` because Pillow can't read woff2. `cap
+  sync` does **not** regenerate these — rerun the script and rebuild the APK.
+  Needs `fonttools` + `brotli`.
+- `make-feature-graphic.py` — the 1024×500 Play banner, same construction (see
+  Store assets).
+- `store/` — the Play listing assets and copy, checked in: `icon-512.png`,
+  `feature-graphic.png`, `listing.md` (descriptions + rating/data-safety
+  answers), `privacy-policy.md` / `.html`.
 - `storage.ts` — saved comics. The `SavedComic` envelope, the per-draft
   load/save/list/delete API, the defensive `parseSaved` (see Persistence), and
   the `intro-seen` flag behind the first-launch walkthrough.
@@ -387,6 +419,21 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   scroll position so a change doesn't yank you to the newest panel.
   (`repaintAll('newest')` is for a fresh comic, undo, or a seed roll.)
 
+### Mobile layout — the screen budget
+
+Everything above is about what a panel *contains*. This is about the chrome
+around it, and it is a single fight: **on a phone the controls will eat the
+comic unless something stops them.** Two of these were the same bug in different
+organs — a control block sitting in the composer's flex column, pushing the comic
+instead of floating over it.
+
+**Every item here was confirmed on a real phone**, not just in the Browser pane.
+That distinction matters more here than in most projects: the pane's *geometry*
+is trustworthy (it is real Chromium, and every measurement below came from it)
+but its *rendering* of this app is not, and two of these — the system-bar insets
+and hardware Back — have no browser equivalent at all. A green reading in the
+pane was never the same as working.
+
 - **The tray floats over the comic; it does not push it.** Measured as a block
   in the composer's flex column it made the composer **497px of a 375×812
   screen (61%)**, leaving the comic 254px — and only **55px at 320×640**, a
@@ -434,11 +481,6 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   composer overflowed and a single panel rendered 754px wide. Locking is honest
   for a one-column webtoon scroll; a real landscape layout is the alternative if
   it's ever wanted.
-- **Every bullet in this list was confirmed on a real phone**, not just in the
-  Browser pane — which matters here more than in most projects, because the
-  pane's geometry is trustworthy but its rendering of this app is not, and two
-  of these (the system-bar insets, hardware Back) have no browser equivalent
-  at all.
 - **Hardware Back unwinds the UI, one layer at a time** (`BACK_LAYERS` in
   `main.ts`, via `@capacitor/app`). Capacitor's default hands Back to the
   WebView, and this is an SPA with no history entries, so the default was to
@@ -449,7 +491,9 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   the root it exits without a confirm — autosave means there is nothing to
   protect, and a confirm-on-exit makes an app feel like it won't let you go.
 
-**Native shell (Capacitor 8 + Android):** `applicationId com.onionmadder.mcomic`
+### Native shell (Capacitor 8 + Android)
+
+`applicationId com.onionmadder.mcomic`
 (the name the Play listing registered — **not** the `namespace`, which stays
 `com.onionmadder.mcomic96` where the Java sources and the R class live; the two
 are allowed to differ and keeping them apart avoided moving MainActivity.java.
@@ -463,26 +507,36 @@ include the JS while the native side has no idea the plugin exists; `cap sync`
 is what writes `capacitor.settings.gradle` / `capacitor.build.gradle`, and it
 prints the plugin count it found, which is the thing to read.
 
-**Sideloading, and the one trap:** build → `cap sync` → `assembleDebug` → copy
+### Sideloading, and the one trap
+
+Build → `cap sync` → `assembleDebug` → copy
 the APK out **last**. Never leave an APK sitting in `www/`: the next `cap sync`
 copies it into the app's own assets and you get an APK containing the previous
 APK (spotted once at 15MB). Stage it outside the project, or delete it before
 the next sync. With no device on USB, serving it off `devserve.py` and
 downloading it on the phone works well — just remember to clear it afterwards.
 
-**Milestones:** M1 foundation ✅ · M2 compose UI ✅ · M3 emotion wheel ✅ ·
-native shell ✅ (APK builds; store assets pending) · mobile framing ✅ ·
-**editable panels + the compose/edit authoring pass ✅** (see Authoring, below) ·
-**M4 export ✅** (see Export, below) · **persistence + the draft library ✅**.
-**M5 onboarding ✅** (see The walkthrough) · **M8 release polish ✅** (build stamp
-behind `build:release`, loud avatars off the auto-cast, touch targets; framing
-nudges dropped — settled as good on-device). Remaining: **M6 PWA**
-(installable/offline — arguably redundant while the APK is the product) and
-**M7 store assets + release signing ✅** (icon, feature graphic, screenshots,
-listing copy, privacy policy, R8 release build and the signed upload key — all
-below. Screenshots must come off a real phone: headless Chrome cannot render this
+### Milestones
+
+**Everything but M6 is done.** M1 foundation · M2 compose UI ·
+M3 emotion wheel · native shell · mobile framing · **editable panels + the
+compose/edit authoring pass** (see Authoring) · **M4 export** (see Export) ·
+**persistence + the draft library** · **M5 onboarding** (see The walkthrough) ·
+**M8 release polish** (build stamp behind `build:release`, loud avatars off the
+auto-cast, touch targets; framing nudges dropped — settled as good on-device) ·
+**the mobile layout pass** (see the screen budget, above) · **M7 store assets +
+release signing** (icon, feature graphic, screenshots, listing copy, privacy
+policy, R8 release build, signed upload key — below).
+
+**The only milestone left is M6 PWA** (installable/offline), and it is arguably
+redundant while the APK is the product — two distribution stories to maintain for
+one app. **The app is otherwise ready to upload.**
+
+Note screenshots must come off a real phone: headless Chrome cannot render this
 app faithfully, so a captured screenshot of it would be a picture of the bug, not
-the product).
+the product.
+
+### Release signing
 
 **Signing follows the house convention, and the key is generated here.** An
 earlier version of this file claimed the keystore was the owner's to generate and
@@ -495,16 +549,39 @@ left unsigned rather than failing — which keeps release builds verifiable by
 anyone. `storeFile` resolves through `rootProject.file`, so its value is relative
 to `android/`. **The backup is load-bearing**: nothing else holds the password.
 
-**Store assets** live in `app/store/` and are generated, not hand-drawn:
-`make-feature-graphic.py` writes the 1024×500 `feature-graphic.png` from the same
-wordmark construction as `make-icon.py`, so the banner and the launcher icon are
-visibly the same object. Two constraints are baked in and worth not relearning:
-Play **crops the graphic toward the centre**, so all type sits in a centred safe
-box (verified to survive a 70% centre crop), and Play **rejects alpha**, so the
-canvas is flattened onto `--void` and saved 24-bit. The decorative balloons are
-the only elements outside the safe box — losing them to a crop costs nothing,
-and they're deliberately **empty**, because a balloon with invented dialogue in
-it would be pretending to show the product.
+### Store assets
+
+They live in `app/store/` and are generated, not hand-drawn. The
+launcher icon, the listing icon and the feature graphic all come out of the same
+wordmark construction (`make-icon.py`, `make-feature-graphic.py`), so they are
+one object rather than three things that resemble each other — a listing whose
+icon and banner disagree reads as a cheap app.
+
+**The two Play images have opposite alpha requirements, which is exactly the
+sort of thing to get wrong twice:**
+
+| Asset | Size | Alpha |
+|---|---|---|
+| `feature-graphic.png` | 1024×500 | **No alpha.** Flattened to 24-bit RGB |
+| `icon-512.png` | 512×512 | **32-bit RGBA**, but every pixel opaque |
+
+The icon must stay 32-bit — Play's app-icon spec asks for it and a 24-bit file
+risks a Console rejection — while still having nothing transparent, since a
+listing icon with see-through pixels renders unpredictably against Play's own
+backgrounds. Compositing onto an opaque `--void` satisfies both; *flattening*
+satisfies only the second. Check the alpha channel's extrema, not the mode string.
+
+Two more constraints, both baked into the scripts:
+- Play **crops toward the centre**, so all type sits in a centred safe box
+  (verified to survive a 70% centre crop), and the icon's content sits at 0.74
+  rather than the launcher's 0.80 because Play's corner radius is heavier.
+- The icon is **not** pre-rounded. Google rounds it itself, and a pre-rounded
+  source gets rounded twice and ends up with pale corners.
+
+The feature graphic's decorative balloons are the only elements outside the safe
+box — losing them to a crop costs nothing — and they are deliberately **empty**,
+because a balloon with invented dialogue in it would be pretending to show the
+product.
 
 ### The walkthrough (built)
 

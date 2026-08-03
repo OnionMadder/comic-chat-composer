@@ -2,6 +2,7 @@
   "name": "mcomic96",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "mComic '96 â€” a chat-to-comic app. Capacitor shell around the comic-chat-composer engine.",
   "scripts": {
     "build": "node --experimental-strip-types build.ts",

@@ -1155,7 +1155,7 @@ function enterEditMode(panelIdx: number, lineIdx = 0): void {
     pending.gesture = ev.gesture ?? 'neutral';
     pending.addressees = [...(ev.addressees ?? [])];
     input.value = '';
-  } else {
+  } else if (isMessageEvent(ev)) {
     pending.kind = ev.type === 'action' ? 'action' :
       ev.kind === 'thought' ? 'think' :
       ev.kind === 'whisper' ? 'whisper' :
