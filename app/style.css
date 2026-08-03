@@ -137,6 +137,8 @@ body {
   background: var(--panel);
   padding: 10px 12px calc(env(safe-area-inset-bottom) + 12px);
   display: flex; flex-direction: column; gap: 10px;
+  /* Anchor for the tray, which floats above this bar rather than sitting in it. */
+  position: relative;
 }
 
 .cast {
@@ -308,8 +310,37 @@ body {
   padding: 4px 6px; max-width: 140px;
 }
 
+/* The tray floats OVER the comic instead of pushing it up.
+   As a block in the composer's flex column it made the composer 497px of a
+   375x812 screen — 61% — leaving the comic 254px, and only 55px at 320x640,
+   which is a sliver of the very panel whose mood you are setting. In landscape
+   it overflowed the viewport outright. `bottom: 100%` pins it to the top edge
+   of the composer, so opening it now costs the comic nothing.
+
+   Deliberately NOT modal: no scrim, because tapping a panel to edit it has to
+   keep working with the tray open. It is opaque instead, so the comic scrolling
+   underneath doesn't read through it, and `+` toggles it back shut. */
 .tray { display: none; flex-direction: column; gap: 12px; }
-.tray.open { display: flex; }
+.tray.open {
+  display: flex;
+  position: absolute;
+  bottom: 100%; left: 0; right: 0;
+  z-index: 5; /* over the comic, under the sheets (z-index 10) */
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 14px 12px 12px;
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.5);
+  /* If it ever grows past the room available, scroll inside itself rather than
+     running off the top of the screen. Two caps, and it needs both: 68dvh keeps
+     it from swallowing a tall screen, and `100dvh - 210px` keeps it inside the
+     space actually left over once the app bar (~55px) and the rest of the
+     composer (~143px) have taken theirs. On a 375px-tall viewport the dvh cap
+     alone still put the top edge at -22px. */
+  max-height: min(68dvh, calc(100dvh - 210px));
+  overflow-y: auto;
+}
 
 .console { display: flex; gap: 12px; align-items: center; }
 .preview {
@@ -500,15 +531,24 @@ body {
 .exp-go:active { transform: scale(0.98); }
 .exp-go:disabled { opacity: 0.5; box-shadow: none; }
 
-/* Very narrow phones (~320px): the app bar runs out of room, and on a dev build
-   the b<time> stamp is the ~53px that pushes Export off the edge. Tighten up and
-   drop the stamp — it's a dev aid, not worth an unreachable button. */
+/* The app bar is the tightest row in the app: wordmark + five 38px buttons +
+   padding needs every pixel of a 375px screen, and a release build clears it by
+   exactly 0px. That is not margin, it is a coincidence — so the stamp goes at
+   400px, well before it can cost anyone a button.
+
+   Measured at 375px: the bar overflowed 23px on a dev build and clipped the `?`
+   entirely, because the b<time> stamp is ~41px and the old breakpoint was 360.
+   The stamp is a sideloading aid; an unreachable button is a broken app. */
+@media (max-width: 400px) {
+  .build { display: none; }
+}
+
+/* Very narrow phones (~320px): even without the stamp the bar runs out of room.
+   Tighten the gaps and shrink the wordmark — the one element that can lose size
+   without becoming unhittable. */
 @media (max-width: 360px) {
   .appbar { gap: 4px; padding-left: 8px; padding-right: 8px; }
   .appbar .iconbtn { width: 32px; }
-  .build { display: none; }
-  /* Five buttons plus the wordmark don't fit a 320px bar at full size; the
-     wordmark is the thing that can shrink without becoming unhittable. */
   .wordmark { font-size: 18px; }
 }
 

@@ -139,7 +139,7 @@ const html = `<!doctype html>
       </label>
     </div>
     <div class="inputrow">
-      <button id="more" class="iconbtn round" aria-label="More options">+</button>
+      <button id="more" class="iconbtn round" aria-label="More options" aria-expanded="false" aria-controls="tray">+</button>
       <input id="text" class="text" type="text" autocomplete="off" autocapitalize="sentences"
              placeholder="Type a line&hellip;" aria-label="Line text">
       <button id="send" class="send" aria-label="Send">${balloonIcon}</button>

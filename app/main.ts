@@ -11,6 +11,7 @@
  * inlined at build time (see build.ts), so nothing is fetched at runtime.
  */
 
+import { App as CapacitorApp } from '@capacitor/app';
 import { compose } from '../src/compose.ts';
 import { isExpressive, type CharacterManifest } from '../src/manifest.ts';
 import type {
@@ -1020,9 +1021,25 @@ function previewSvg(characterId: string, expression: Expression, gesture: Gestur
   return renderPanelToSvg(panel, renderOptions());
 }
 
+const isTrayOpen = (): boolean => $('tray').classList.contains('open');
+
+/**
+ * Open or close the options tray.
+ *
+ * One setter rather than a `classList.toggle` at the call site, because the
+ * tray is now an overlay (see style.css) and two other things have to agree
+ * with it: the `+` button's `aria-expanded`, and hardware Back, which closes
+ * the tray before it considers leaving the app.
+ */
+function setTrayOpen(open: boolean): void {
+  $('tray').classList.toggle('open', open);
+  $('more').setAttribute('aria-expanded', String(open));
+  updatePreview();
+}
+
 /** Repaint the preview to the current speaker + pending pose. */
 function updatePreview(): void {
-  if (!state.speaker || !$('tray').classList.contains('open')) return;
+  if (!state.speaker || !isTrayOpen()) return;
   $('preview').innerHTML = previewSvg(state.speaker, pending.expression, pending.gesture);
 }
 
@@ -1841,8 +1858,7 @@ wheel = createWheel($('wheel'), (v) => {
 });
 
 $('more').addEventListener('click', () => {
-  $('tray').classList.toggle('open');
-  updatePreview();
+  setTrayOpen(!isTrayOpen());
 });
 $('kind-chips').addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button.pickchip') as HTMLElement | null;
@@ -2164,6 +2180,47 @@ $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) close
 $('sheet-body').addEventListener('click', (e) => {
   const btn = (e.target as HTMLElement).closest('button');
   if (btn?.dataset.pick) addCharacter(btn.dataset.pick);
+});
+
+// ---- Android hardware Back ------------------------------------------------
+
+/**
+ * Back has to unwind the UI one layer at a time.
+ *
+ * Capacitor's default is to hand Back to the WebView, and this is a single-page
+ * app with no history entries — so the default was to *quit*. Pressing Back with
+ * the export sheet open closed the whole app, which reads as a crash even though
+ * autosave means nothing is lost.
+ *
+ * Order matters and mirrors what's visually on top: sheets (z-index 10) before
+ * the tray (5), the tray before the edit bar underneath it. Confirm is checked
+ * first because it can open *over* another sheet — deleting a draft from the
+ * library — and Back should cancel the question, not the library behind it.
+ */
+const BACK_LAYERS: { open: () => boolean; close: () => void }[] = [
+  { open: () => $('confirm').classList.contains('open'), close: closeConfirm },
+  { open: () => $('export-sheet').classList.contains('open'), close: closeExport },
+  { open: () => $('library-sheet').classList.contains('open'), close: closeLibrary },
+  { open: () => $('sheet').classList.contains('open'), close: closeSheet },
+  { open: () => $('intro').classList.contains('open'), close: closeIntro },
+  { open: isTrayOpen, close: () => setTrayOpen(false) },
+  { open: () => editingPanel >= 0, close: exitEditMode },
+];
+
+CapacitorApp.addListener('backButton', () => {
+  const layer = BACK_LAYERS.find((l) => l.open());
+  if (layer) {
+    layer.close();
+    return;
+  }
+  // Nothing left to unwind: Back on the root screen exits, which is the Android
+  // convention. No "are you sure?" — the comic is already saved (flushSave on
+  // every edit), so there is nothing to protect the user from, and a confirm on
+  // exit is the kind of thing that makes an app feel like it won't let you go.
+  flushSave();
+  CapacitorApp.exitApp();
+}).catch(() => {
+  // Web/dev: the plugin is a no-op outside the native shell and never fires.
 });
 
 // First paint: pick up wherever the last session left off — the draft that was

@@ -385,11 +385,42 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   scroll position so a change doesn't yank you to the newest panel.
   (`repaintAll('newest')` is for a fresh comic, undo, or a seed roll.)
 
+- **The tray floats over the comic; it does not push it.** Measured as a block
+  in the composer's flex column it made the composer **497px of a 375×812
+  screen (61%)**, leaving the comic 254px — and only **55px at 320×640**, a
+  sliver of the very panel whose mood you were setting. In landscape the
+  composer overflowed the viewport outright (comic height computed to −144px).
+  As an overlay (`position: absolute; bottom: 100%` on `.composer`) the comic
+  holds **614px whether the tray is open or shut**. It is deliberately **not
+  modal** — no scrim, because tapping a panel to edit has to keep working with
+  the tray open — so it is opaque instead, and `+` toggles it. Its `max-height`
+  needs **both** caps (`min(68dvh, calc(100dvh - 210px))`): the dvh one alone
+  still put the top edge at −22px on a 375px-tall viewport.
+- **Portrait only.** `android:screenOrientation="portrait"` on MainActivity.
+  Landscape was reachable (the activity already listed `orientation` in
+  `configChanges`, so rotation didn't even restart it) and unusable: the
+  composer overflowed and a single panel rendered 754px wide. Locking is honest
+  for a one-column webtoon scroll; a real landscape layout is the alternative if
+  it's ever wanted.
+- **Hardware Back unwinds the UI, one layer at a time** (`BACK_LAYERS` in
+  `main.ts`, via `@capacitor/app`). Capacitor's default hands Back to the
+  WebView, and this is an SPA with no history entries, so the default was to
+  **quit** — Back with the export sheet open closed the whole app. Order mirrors
+  what's visually on top: sheets (z-index 10) → tray (5) → edit bar. **Confirm is
+  checked first** because it can open *over* another sheet (deleting a draft from
+  the library) and Back must cancel the question, not the library behind it. At
+  the root it exits without a confirm — autosave means there is nothing to
+  protect, and a confirm-on-exit makes an app feel like it won't let you go.
+
 **Native shell (Capacitor 8 + Android):** `appId com.onionmadder.mcomic96`,
 targetSdk 36, minSdk 24. Builds a real APK: `cd app && npx cap sync && cd
 android && ./gradlew assembleDebug`. **Requires JDK 21** — pinned via
 `org.gradle.java.home` in `android/gradle.properties` (Temurin 21; JDK 17 is
-first on PATH and fails with "invalid source release: 21").
+first on PATH and fails with "invalid source release: 21"). **Adding a Capacitor
+plugin needs `cap sync`, not just an `npm install`** — the bundle will happily
+include the JS while the native side has no idea the plugin exists; `cap sync`
+is what writes `capacitor.settings.gradle` / `capacitor.build.gradle`, and it
+prints the plugin count it found, which is the thing to read.
 
 **Sideloading, and the one trap:** build → `cap sync` → `assembleDebug` → copy
 the APK out **last**. Never leave an APK sitting in `www/`: the next `cap sync`
