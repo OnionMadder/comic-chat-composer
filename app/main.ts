@@ -2182,6 +2182,34 @@ $('sheet-body').addEventListener('click', (e) => {
   if (btn?.dataset.pick) addCharacter(btn.dataset.pick);
 });
 
+// ---- The soft keyboard ----------------------------------------------------
+
+/**
+ * Track whether the soft keyboard is up, as a `kb-up` class on `<body>`.
+ *
+ * Inferred from the viewport shrinking rather than from the text field having
+ * focus, because focus is a lie on a desktop browser — the demo and the dev
+ * loop both run there, and collapsing the edit bar on click would be nonsense.
+ * A viewport that loses a fifth of its height has a keyboard in it.
+ *
+ * The baseline is the tallest viewport seen rather than the one at load: the
+ * app can start with the keyboard already up (restoring a draft mid-edit), and
+ * anchoring to that would leave `kb-up` stuck off for the whole session.
+ * Orientation is locked to portrait, so the baseline never legitimately shrinks.
+ */
+const KEYBOARD_SHRINK = 0.8;
+let viewportBaseline = window.visualViewport?.height ?? window.innerHeight;
+
+function syncKeyboardState(): void {
+  const height = window.visualViewport?.height ?? window.innerHeight;
+  if (height > viewportBaseline) viewportBaseline = height;
+  document.body.classList.toggle('kb-up', height < viewportBaseline * KEYBOARD_SHRINK);
+}
+
+window.visualViewport?.addEventListener('resize', syncKeyboardState);
+window.addEventListener('resize', syncKeyboardState);
+syncKeyboardState();
+
 // ---- Android hardware Back ------------------------------------------------
 
 /**

@@ -256,6 +256,18 @@ body {
 #arrange-row, #lines-row { display: none; }
 #arrange-row.is-shown, #lines-row.is-shown { display: flex; }
 
+/* While the soft keyboard is up, the edit bar drops its three chip rows.
+   Measured: the bar is 286px, which puts the composer at 439px — and with a
+   keyboard taking ~45% of the screen the comic computes to -142px, so the panel
+   you are editing is a sliver of itself. You are typing that panel's words at
+   that moment, not reordering its cast, so the rows that arrange people give
+   their space back until the keyboard closes. `body.kb-up` is set from JS (see
+   syncKeyboardState in main.ts); the selectors have to out-specify the
+   `.is-shown` rules directly above. */
+body.kb-up .panelrow,
+body.kb-up #arrange-row.is-shown,
+body.kb-up #lines-row.is-shown { display: none; }
+
 .panel-cast {
   display: flex; gap: 6px; padding-bottom: 2px;
   /* Scrolls sideways within the bar rather than widening it. Needs the

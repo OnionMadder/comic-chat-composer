@@ -396,6 +396,23 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   the tray open — so it is opaque instead, and `+` toggles it. Its `max-height`
   needs **both** caps (`min(68dvh, calc(100dvh - 210px))`): the dvh one alone
   still put the top edge at −22px on a 375px-tall viewport.
+- **The edit bar sheds its chip rows while the keyboard is up** (`body.kb-up`,
+  set by `syncKeyboardState`). Open, the bar is 242px on a 412×915 phone, and
+  with a keyboard taking ~45% of the screen that left the comic **47px** — the
+  panel being edited reduced to a sliver of itself. Collapsed it is 63px and the
+  comic gets **226px**. You are typing that panel's words at that moment, not
+  reordering its cast. The keyboard is inferred from the **viewport losing a
+  fifth of its height**, not from the text field having focus — focus is a lie
+  on a desktop browser, where the dev loop runs. The baseline is the tallest
+  viewport *seen*, not the one at load, because the app can start with the
+  keyboard already up and anchoring to that would wedge `kb-up` off all session.
+- **System bars: the insets are applied natively, not in CSS** (see MainActivity).
+  `env(safe-area-inset-top)` reports the **display cutout** on Android, not the
+  status bar, so it is 0 on most phones and the app bar drew through the clock
+  and the battery icon. targetSdk 36 means edge-to-edge is enforced with no
+  opt-out. Two build-costing gotchas: a colour resource cannot be named `void`
+  (`R.color.void` is not valid Java), and `--` is illegal inside an XML comment,
+  so `--void` cannot be written literally in one.
 - **Portrait only.** `android:screenOrientation="portrait"` on MainActivity.
   Landscape was reachable (the activity already listed `orientation` in
   `configChanges`, so rotation didn't even restart it) and unusable: the
