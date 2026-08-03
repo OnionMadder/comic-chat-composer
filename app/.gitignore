@@ -9,6 +9,9 @@ android/capacitor-cordova-android-plugins/
 android/local.properties
 *.keystore
 *.jks
+# Points at the upload key and holds its passwords. Never commit this — see the
+# signingConfigs block in android/app/build.gradle.
+android/keystore.properties
 
 # Comic Neue converted from woff2 to TTF by make-icon.py (regenerated on demand)
 .iconfonts/

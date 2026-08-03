@@ -1,5 +1,22 @@
 apply plugin: 'com.android.application'
 
+// Release signing, kept entirely outside version control.
+//
+// `keystore.properties` sits next to the android/ project and is gitignored, as
+// is the .jks it points at. Nothing about the upload key — not its path, not its
+// passwords — belongs in this file or in this repository. Generating that key is
+// the owner's job and hers alone: Play ties the listing to it permanently, and
+// losing it means never being able to update the app again.
+//
+// With no keystore.properties present the release build still assembles, just
+// unsigned, so anyone can verify a release build without holding the key.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasKeystore = keystorePropertiesFile.exists()
+if (hasKeystore) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.onionmadder.mcomic96"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +33,30 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
+            // R8 on. The debug APK carries an 8.4MB classes.dex because nothing
+            // is shrunk — androidx lands whole the moment a single class of it
+            // is referenced. Capacitor's own AAR ships consumer ProGuard rules
+            // that keep @CapacitorPlugin classes and Plugin subclasses (they are
+            // resolved reflectively by name, so R8 would otherwise strip them),
+            // and MainActivity is kept because the manifest names it.
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
