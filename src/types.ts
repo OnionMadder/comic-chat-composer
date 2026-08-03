@@ -86,6 +86,16 @@ export interface MessageEvent {
   gestureOverride?: Gesture;
   /** Force a balloon kind; otherwise derived from `type`. */
   kind?: BalloonKind;
+  /**
+   * Turn the speaker this way, whatever placement would have chosen.
+   *
+   * Facing is normally derived from who was addressed, which can only ever
+   * point at somebody standing in the same panel. This is the override for the
+   * case the scoring function cannot see: speaking to a character who is
+   * off-panel entirely, where every in-panel consideration argues for turning
+   * back towards the room.
+   */
+  facing?: Facing;
   /** Monotonic ordering key. Not interpreted beyond ordering. */
   at: number;
 }
@@ -117,6 +127,8 @@ export interface ReactionEvent {
   gesture?: Gesture;
   /** Who the reaction is aimed at, for facing purposes. */
   addressees?: string[];
+  /** Turn them this way regardless — see {@link MessageEvent.facing}. */
+  facing?: Facing;
   at: number;
 }
 

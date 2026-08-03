@@ -45,6 +45,14 @@ function countBetween(all: Placement[], a: Placement, b: Placement): number {
 /**
  * The `Facing(a, b)` term: what it costs for `a` to stand and face as it does,
  * relative to `b`.
+ *
+ * A character whose facing the author fixed is never scored on it — they are
+ * treated as facing whoever we are comparing them against. The alternative is
+ * worse than it looks: the facing terms are the dominant ones, so a fixed
+ * facing that disagrees with an addressee would leave a 40-point penalty the
+ * solver cannot pay off by turning anyone, and it would spend the rest of the
+ * search dragging the whole cast around the panel trying. Exempting the fixed
+ * character leaves the seating exactly where it would have been.
  */
 function scorePair(
   a: Placement,
@@ -52,11 +60,12 @@ function scorePair(
   addresseesOf: ReadonlyMap<string, readonly string[]>,
   between: number,
   w: FacingPenalties,
+  locked: ReadonlySet<string>,
 ): number {
   const addressed = addresseesOf.get(a.author) ?? [];
   const aAddressedB = addressed.includes(b.author);
-  const aFacesB = isFacing(a, b);
-  const bFacesA = isFacing(b, a);
+  const aFacesB = locked.has(a.author) || isFacing(a, b);
+  const bFacesA = locked.has(b.author) || isFacing(b, a);
 
   let s = 0;
   if (aAddressedB) {
@@ -82,16 +91,19 @@ function scoreConfiguration(
   config: readonly Placement[],
   addresseesOf: ReadonlyMap<string, readonly string[]>,
   w: FacingPenalties,
+  locked: ReadonlySet<string> = EMPTY_LOCKS,
 ): number {
   let total = 0;
   for (const a of config) {
     for (const b of config) {
       if (a === b) continue;
-      total += scorePair(a, b, addresseesOf, countBetween(config as Placement[], a, b), w);
+      total += scorePair(a, b, addresseesOf, countBetween(config as Placement[], a, b), w, locked);
     }
   }
   return total;
 }
+
+const EMPTY_LOCKS: ReadonlySet<string> = new Set<string>();
 
 /** Who stood immediately left and right of each character, by x order. */
 function neighborsByAuthor(
@@ -165,6 +177,15 @@ export interface PlaceCharactersOptions {
   previousPositions: ReadonlyMap<string, number>;
   panelWidth: number;
   penalties: FacingPenalties;
+  /**
+   * Facings the author fixed by hand, by author. The solver still chooses where
+   * these characters stand; it just does not choose which way they look.
+   *
+   * The case this exists for is a character addressing someone who is not in
+   * the panel at all — the scoring function only knows about people who are, so
+   * left to itself it will always turn them back towards the room.
+   */
+  facingLocks?: ReadonlyMap<string, Facing>;
 }
 
 /**
@@ -203,6 +224,8 @@ export interface PlaceCharactersOptions {
  */
 export function placeCharacters(options: PlaceCharactersOptions): Placement[] {
   const { authors, addresseesOf, previousPositions, panelWidth, penalties } = options;
+  const locks = options.facingLocks ?? EMPTY_FACING_LOCKS;
+  const locked: ReadonlySet<string> = new Set(locks.keys());
   const n = authors.length;
   if (n === 0) return [];
 
@@ -213,14 +236,16 @@ export function placeCharacters(options: PlaceCharactersOptions): Placement[] {
     const used = new Set(placed.map((p) => p.x));
     let best: Placement | undefined;
     let bestScore = Number.POSITIVE_INFINITY;
+    // A fixed facing is not a candidate to choose between — it is the answer.
+    const facings = facingsFor(author, locks);
 
     for (const x of slots) {
       if (used.has(x)) continue;
-      for (const facing of ['left', 'right'] as const) {
+      for (const facing of facings) {
         const trial: Placement = { author, x, facing };
         const config = [...placed, trial];
         const score =
-          scoreConfiguration(config, addresseesOf, penalties) +
+          scoreConfiguration(config, addresseesOf, penalties, locked) +
           neighborPenalty(config, previousPositions, penalties);
         if (score < bestScore) {
           bestScore = score;
@@ -234,7 +259,7 @@ export function placeCharacters(options: PlaceCharactersOptions): Placement[] {
   }
 
   const totalScore = (config: readonly Placement[]): number =>
-    scoreConfiguration(config, addresseesOf, penalties) +
+    scoreConfiguration(config, addresseesOf, penalties, locked) +
     neighborPenalty(config, previousPositions, penalties);
 
   let improved = true;
@@ -242,10 +267,11 @@ export function placeCharacters(options: PlaceCharactersOptions): Placement[] {
     improved = false;
     let current = totalScore(placed);
 
-    // Move 1: flip one character's facing.
+    // Move 1: flip one character's facing. Not one whose facing is fixed.
     for (let i = 0; i < placed.length; i++) {
-      const candidate = placed.slice();
       const p = placed[i]!;
+      if (locked.has(p.author)) continue;
+      const candidate = placed.slice();
       candidate[i] = { ...p, facing: p.facing === 'left' ? 'right' : 'left' };
       const after = totalScore(candidate);
       if (after < current) {
@@ -275,12 +301,22 @@ export function placeCharacters(options: PlaceCharactersOptions): Placement[] {
   }
 
   if (n <= EXHAUSTIVE_MAX) {
-    const exact = exhaustiveBest(placed, slots, totalScore);
+    const exact = exhaustiveBest(placed, slots, totalScore, locks);
     if (exact) return exact;
   }
 
   return placed;
 }
+
+const EMPTY_FACING_LOCKS: ReadonlyMap<string, Facing> = new Map<string, Facing>();
+
+/** The facings worth trying for one author: both, or the one they were given. */
+function facingsFor(author: string, locks: ReadonlyMap<string, Facing>): readonly Facing[] {
+  const fixed = locks.get(author);
+  return fixed ? [fixed] : BOTH_FACINGS;
+}
+
+const BOTH_FACINGS: readonly Facing[] = ['left', 'right'];
 
 /**
  * Largest cast for which every seating and facing is enumerated. The paper caps
@@ -298,6 +334,7 @@ function exhaustiveBest(
   incumbent: readonly Placement[],
   slots: readonly number[],
   totalScore: (config: readonly Placement[]) => number,
+  locks: ReadonlyMap<string, Facing>,
 ): Placement[] | null {
   const n = incumbent.length;
   let best: Placement[] | null = null;
@@ -313,7 +350,11 @@ function exhaustiveBest(
         const config: Placement[] = seating.map((author, i) => ({
           author,
           x: slots[i]!,
-          facing: mask & (1 << i) ? 'right' : 'left',
+          // A fixed facing overrides the bit for that character, so the search
+          // still covers every seating without ever proposing a turn the author
+          // ruled out. Enumerating those masks and discarding them would be the
+          // same answer at 2^k times the cost.
+          facing: locks.get(author) ?? (mask & (1 << i) ? 'right' : 'left'),
         }));
         const score = totalScore(config);
         if (score < bestScore) {

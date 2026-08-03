@@ -57,6 +57,8 @@ Each panel comes back like this:
 
 **Character placement.** Characters are seated along a row and turned to face each other by minimising a scoring function over ordered pairs. The dominant term is a heavy penalty for a speaker who isn't facing the person they addressed; lighter terms discourage bystanders standing between conversational partners and discourage characters moving between panels.
 
+A `facing` on a message or reaction overrides the choice for that speaker. Facing is otherwise derived from who was addressed, which can only point at somebody in the same panel — the override exists for the case the scoring function can't see, such as a character speaking to someone off-panel. An overridden speaker is exempt from the facing terms, so the seating comes out exactly as it would have unforced.
+
 **Balloon layout.** Balloon bodies are placed greedily above the character row, each one reserving a *routing channel* — a horizontal interval kept free for its tail. As bodies are placed they trim their own channel so earlier channels stay wide enough for a tail, then shrink earlier channels so nothing overlaps. Vertical placement then pushes each balloon as high as reading order allows, and tails are routed last. Reading order is strictly top-down, then left-to-right.
 
 **Panel breaks.** A new panel starts when a balloon can't fit, when the cast would exceed five, when a character would speak twice, or when a character already drawn would need a different expression. There's also a small random chance of giving a long opening utterance a solo panel.
