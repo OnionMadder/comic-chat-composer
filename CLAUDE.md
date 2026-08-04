@@ -183,8 +183,32 @@ primary URL.)
 
 `npm run deploy:stage` builds and copies the whole set (`index.html`, `app.js`,
 `style.css`, `assets/ChakraPetch-Regular.ttf`) into **every** local staging
-folder listed in `.stage-dir` (gitignored, one folder per line). Then publish
-each — **all four files, preserving `assets/`**, confirming overwrites, then
+folder listed in `.stage-dir` (gitignored, one folder per line).
+
+> ### ⚠️ Do not blindly upload `index.html` to .com
+>
+> **The live `.com` `index.html` is hand-maintained and diverges from the
+> generated one** — 13,733 bytes on the server against 8,089 from `npm run
+> demo`. The extra 5.6KB is real and load-bearing: `canonical`, `og:url`,
+> `og:image`, `twitter:card`/`twitter:image`, a **GoatCounter** analytics
+> script, and a large **JSON-LD** `schema.org` block listing every Onion Madder
+> property. None of it is produced by `demo/build.ts`, so uploading the
+> generated file **destroys all of it silently** — the page still works, so
+> nothing announces the loss.
+>
+> **Upload only the files that actually changed.** In practice a library fix
+> changes `app.js` and nothing else; `index.html` and `style.css` only move when
+> `demo/build.ts` or `style.css` itself is edited. Check before sending.
+>
+> `.xyz` does **not** have this divergence — its `index.html` is the generated
+> one (canonical correctly points at .com), so the full set is safe there.
+>
+> **The real fix** is to fold that head content into `demo/build.ts` so it is
+> generated rather than hand-patched onto the server. Until that happens this
+> warning is the only thing standing between a routine deploy and losing the
+> site's entire SEO and analytics setup.
+
+Then publish each — **preserving `assets/`**, confirming overwrites, then
 hard-refresh (Ctrl+Shift+R):
 
 - **.com** — WinSCP to `/home/public/comic-chat-composer/`. Files need 644 /
