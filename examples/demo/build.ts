@@ -138,6 +138,7 @@ ${headExtra}` : ''}
     <div class="brand"><h1>Comic Chat Composer</h1><p>Turn a chat log into a comic strip &mdash; live.</p></div>
   </header>
 
+  <div class="col-left">
   <div class="workspace">
     <div class="card">
       <div class="hd">
@@ -203,9 +204,13 @@ ${headExtra}` : ''}
 
   <div class="section-label" id="cast-label">Cast</div>
   <div id="cast"></div>
+  </div>
+
+  <div class="col-right">
   <div class="section-label">Comic <span id="status"></span></div>
   <div id="comic-title" class="comic-title" hidden></div>
   <div id="out"></div>
+  </div>
 
   <footer class="site-foot">
     <p><strong>Comic Chat Composer</strong> &mdash; an independent, open-source reimplementation of the
