@@ -249,6 +249,22 @@ figcaption { display: flex; align-items: center; gap: 8px; margin-top: 9px; font
    The workspace drops to a single column here — the left side is ~495px at the
    breakpoint, and its 1fr + 300px split would leave the editor about 170px wide.
    The two cards stack instead, which is what the 820px rule already does. */
+/* ---- Narrow screens: the comic goes first ----
+   Stacked in source order the comic sat 2765px down a phone — the same "I had to
+   scroll to find it" problem the two-column layout solves on desktop, in the one
+   place two columns cannot fit. So below the breakpoint the order flips and you
+   land on the comic; the editor is directly under it.
+
+   Every child needs an explicit `order`, not just the comic. `order: -1` alone
+   would hoist it above the header too, since everything else defaults to 0. */
+@media (max-width: 1029.98px) {
+  .wrap { display: flex; flex-direction: column }
+  header.top { order: 0 }
+  .col-right { order: 1 }
+  .col-left  { order: 2 }
+  .site-foot { order: 3 }
+}
+
 @media (min-width: 1030px) {
   /* The left track's minimum is not arbitrary: a builder row needs ~679px, plus
      the card's padding and border, to sit on one line. The breakpoint follows
