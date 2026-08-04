@@ -15,7 +15,7 @@
  * Run with:  npm run demo   (and `npm run deploy:stage` to copy the set out)
  */
 
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as esbuild from 'esbuild';
@@ -77,10 +77,32 @@ const sceneOptions =
 // Drive the footer links and the canonical / Open Graph meta.
 const SITE_URL = 'https://onionmadder.com/comic-chat-composer/';
 const REPO_URL = 'https://github.com/OnionMadder/comic-chat-composer';
+// Social card image. Set to '' to fall back to a text-only `summary` card.
+const SOCIAL_IMAGE = 'https://onionmadder.com/assets/img/socials.jpg';
 const PAGE_DESC =
   'Turn a chat log into a comic strip — an independent, open-source ' +
   "reimplementation of Microsoft Comic Chat's panel-composition algorithm " +
   '(Kurlander, Skelly and Salesin, SIGGRAPH ’96). Not affiliated with Microsoft.';
+
+/**
+ * Deployment-specific `<head>` content, injected verbatim if the file exists.
+ *
+ * This exists because the live onionmadder.com `index.html` had been *hand
+ * patched* on the server with analytics and a schema.org graph that this script
+ * did not produce — so every deploy of the generated file silently deleted them,
+ * and the page still worked, so nothing announced the loss. Generating it is the
+ * fix; the alternative was a warning in CLAUDE.md telling a human to remember.
+ *
+ * It is a separate file rather than a constant here because its contents are
+ * **not** the project's — they are one particular site's analytics and one
+ * particular person's identity graph. A fork that deploys the demo should
+ * delete or replace `head-extra.html`, and nothing else needs touching.
+ */
+const headExtra = (() => {
+  const path = join(here, 'head-extra.html');
+  if (!existsSync(path)) return '';
+  return readFileSync(path, 'utf8').trim();
+})();
 
 // A speech-bubble favicon as an inline data URI (kept inline — it's tiny).
 const favicon =
@@ -96,14 +118,18 @@ const html = `<!doctype html>
 <meta name="description" content="${PAGE_DESC}">
 <meta name="theme-color" content="#050505">
 <link rel="icon" href="${favicon}">
+<meta name="robots" content="index, follow">
 <link rel="canonical" href="${SITE_URL}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Comic Chat Composer">
 <meta property="og:description" content="${PAGE_DESC}">
-<meta property="og:url" content="${SITE_URL}">
-<meta name="twitter:card" content="summary">
+<meta property="og:url" content="${SITE_URL}">${SOCIAL_IMAGE ? `
+<meta property="og:image" content="${SOCIAL_IMAGE}">` : ''}
+<meta name="twitter:card" content="${SOCIAL_IMAGE ? 'summary_large_image' : 'summary'}">
 <meta name="twitter:title" content="Comic Chat Composer">
-<meta name="twitter:description" content="${PAGE_DESC}">
+<meta name="twitter:description" content="${PAGE_DESC}">${SOCIAL_IMAGE ? `
+<meta name="twitter:image" content="${SOCIAL_IMAGE}">` : ''}${headExtra ? `
+${headExtra}` : ''}
 <link rel="stylesheet" href="style.css">
 
 <div class="wrap">
@@ -199,4 +225,12 @@ const outPath = join(here, 'index.html');
 writeFileSync(outPath, html, 'utf8');
 console.log(
   `wrote ${outPath} (${(html.length / 1024).toFixed(0)} KB) + app.js + style.css — served as a set, no network requests`,
+);
+// Say so either way. Silence is how the hand-patched head went missing in the
+// first place: a deploy that quietly drops the analytics and schema.org block
+// produces a page that looks perfectly fine.
+console.log(
+  headExtra
+    ? `injected head-extra.html (${headExtra.length} bytes of deployment-specific <head>)`
+    : 'no head-extra.html — building a clean page with no analytics or schema.org',
 );

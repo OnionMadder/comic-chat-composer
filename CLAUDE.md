@@ -174,12 +174,23 @@ embedded name really is "Greg" upstream; we display it as-is.
 - **Demo is a self-contained *set* of co-located files** — `index.html`
   (generated shell), `app.js` (ESM bundle with all sprites/backdrops inlined via
   esbuild `define`), `style.css` (hand-edited source), and the font under
-  `assets/`. **No third-party or network requests** — it loads only its own
-  files. Because `app.js` is an ES module, the page must be **served over
-  http(s)** (Neocities, onionmadder, the dev server) — it will not run from
+  `assets/`. **The application makes no third-party or network requests** — all
+  sprites, backdrops and the font are inlined or co-located. The one exception is
+  deliberate and lives entirely in `demo/head-extra.html`: onionmadder.com's
+  GoatCounter tag, which is an external script. Delete that file and the build is
+  request-free again. Because `app.js` is an ES module, the page must be **served
+  over http(s)** (Neocities, onionmadder, the dev server) — it will not run from
   `file://`. `style.css` is the source of truth for styling — edit it directly,
   not `build.ts`. The public-site URLs live in `SITE_URL`/`REPO_URL` in
-  `demo/build.ts`.
+  `demo/build.ts`, and the social card in `SOCIAL_IMAGE` (empty ⇒ a text-only
+  `summary` twitter card instead of `summary_large_image`).
+- **`demo/head-extra.html` is deployment-specific `<head>`, injected verbatim.**
+  It holds onionmadder.com's analytics tag and a schema.org identity graph —
+  content that belongs to a *site*, not to this project. It exists because that
+  block used to be hand-patched onto the live `index.html`, where every deploy of
+  the generated file silently deleted it. **A fork that deploys the demo should
+  replace or delete this file**; nothing else needs touching, and the build says
+  which way it went on every run.
 
 ## Deploying the demo (two mirrors)
 
@@ -213,28 +224,14 @@ Anything listed by the second command is a change the live site does not have.
 `style.css`, `assets/ChakraPetch-Regular.ttf`) into **every** local staging
 folder listed in `.stage-dir` (gitignored, one folder per line).
 
-> ### ⚠️ Do not blindly upload `index.html` to .com
->
-> **The live `.com` `index.html` is hand-maintained and diverges from the
-> generated one** — 13,733 bytes on the server against 8,089 from `npm run
-> demo`. The extra 5.6KB is real and load-bearing: `canonical`, `og:url`,
-> `og:image`, `twitter:card`/`twitter:image`, a **GoatCounter** analytics
-> script, and a large **JSON-LD** `schema.org` block listing every Onion Madder
-> property. None of it is produced by `demo/build.ts`, so uploading the
-> generated file **destroys all of it silently** — the page still works, so
-> nothing announces the loss.
->
-> **Upload only the files that actually changed.** In practice a library fix
-> changes `app.js` and nothing else; `index.html` and `style.css` only move when
-> `demo/build.ts` or `style.css` itself is edited. Check before sending.
->
-> `.xyz` does **not** have this divergence — its `index.html` is the generated
-> one (canonical correctly points at .com), so the full set is safe there.
->
-> **The real fix** is to fold that head content into `demo/build.ts` so it is
-> generated rather than hand-patched onto the server. Until that happens this
-> warning is the only thing standing between a routine deploy and losing the
-> site's entire SEO and analytics setup.
+**The generated `index.html` is now the whole page — uploading it is safe.**
+It was not always: the live `.com` copy used to be hand-patched on the server
+with analytics and a schema.org block that `build.ts` did not produce, so every
+deploy of the generated file silently deleted them. The page still worked
+afterwards, which is why it went unnoticed for as long as it did. That content
+now lives in `demo/head-extra.html` and is injected at build time, so the
+generated file is a superset of what was on the server and there is nothing left
+to preserve by hand.
 
 Then publish each — **preserving `assets/`**, confirming overwrites, then
 hard-refresh (Ctrl+Shift+R):
