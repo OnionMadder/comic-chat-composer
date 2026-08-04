@@ -15,11 +15,21 @@ Owner: **Onion Madder** (Kellye Strickland). Not affiliated with Microsoft.
 > mirrors (see Deploying, below).
 >
 > **Two products are built on this library.** **mComic '96** (the mobile app)
-> lives on the `mcomic96-app` branch. **Comic Court** (a webcomic) was extracted
-> into its own repo at `projects/comic-court` once the two started diverging —
-> it depends on this package and vendors the `examples/` render pipeline, which
-> is the layer a strip keeps bending. Neither product should import from the
-> other, and library fixes flow outward from here.
+> lives on the `mcomic96-app` branch and, as of 2026-08-04, is **submitted to
+> Google Play and in review** — package `com.onionmadder.mcomic`, signed with a
+> key at `~/Keystore-Backups/mcomic96/`. **Comic Court** (a webcomic) was
+> extracted into its own repo at `projects/comic-court` once the two started
+> diverging — it depends on this package and vendors the `examples/` render
+> pipeline, which is the layer a strip keeps bending. Neither product should
+> import from the other, and library fixes flow outward from here.
+>
+> **"Flow outward" is not automatic, and nothing warns you.** A fix landing in
+> `src/` reaches a product only when that product pulls it: `mcomic96-app` by
+> merging `main`, Comic Court by updating its dependency *and* re-vendoring
+> whatever it copied out of `examples/`, and the live demo by someone running
+> `npm run demo` and uploading the result. Each of those is a separate act a
+> person has to remember. The demo silently ran four commits behind for five days
+> this way — see Deploying.
 
 ## Commands
 
@@ -181,6 +191,24 @@ NearlyFreeSpeech) at <https://onionmadder.com/comic-chat-composer/>, and
 mirror, so no per-host build is needed. (`SITE_URL` in `demo/build.ts` sets that
 primary URL.)
 
+**`examples/demo/app.js` is a committed build artifact, and it goes stale in
+silence.** Nothing rebuilds it — not a test, not `typecheck`, not CI. A library
+fix in `src/` looks entirely finished on `main` while the demo, and both live
+mirrors, keep serving the old behaviour. It ran four commits behind for five days
+in August 2026, publishing a panel-composition bug whose fix was already sitting
+in `src/`.
+
+So when the demo's behaviour is in question, **compare the bundle's last commit
+against the sources'** rather than assuming they agree:
+
+```bash
+git log -1 --format='%h %ad %s' --date=short -- examples/demo/app.js
+git log --oneline --since="$(git log -1 --format=%cI -- examples/demo/app.js)" \
+  -- src/ examples/generate.ts examples/render-svg.ts examples/demo/main.ts
+```
+
+Anything listed by the second command is a change the live site does not have.
+
 `npm run deploy:stage` builds and copies the whole set (`index.html`, `app.js`,
 `style.css`, `assets/ChakraPetch-Regular.ttf`) into **every** local staging
 folder listed in `.stage-dir` (gitignored, one folder per line).
@@ -235,7 +263,10 @@ gesture buttons, Builder/Script tabs) → color-coded cast with a Comic-Chat
 cards** on exports → the demo **split into an ES-module set** (`index.html` /
 `app.js` / `style.css`) → a **procedural conversation generator** (`generate.ts`,
 near-infinite unique seeds) → **published to GitHub** and **deployed to two
-mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror).
+mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror) →
+**Comic Court split off** into its own repo → **mComic '96 submitted to Google
+Play** (the library's first shipped product; the mobile work lives on
+`mcomic96-app`).
 
 ## The conversation builder — built, and what's left
 
@@ -288,8 +319,13 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   from `expressionOverride` into inference/rendering. This is the one item that
   needs `src/` changes (`pose.ts`/inference + the manifest), and has little
   visible payoff until the asset set has per-intensity sprites — deferred.
-- Seeds now procedurally generate (`generate.ts`, 23 templates) — ~903 distinct
-  comics per 1000 seeds — so repeats are rare. Add templates/pools to widen more.
+- Seeds now procedurally generate (`generate.ts`, **40 templates**) — measured
+  2026-08-04: **903 distinct comics per 1000 seeds, 8,626 per 10,000**. Repeats
+  are rare but the space is finite; the collision rate implies an effective pool
+  of roughly 5,000 distinct comics, i.e. ~125 variants per template. Both more
+  templates and richer filler pools widen it, roughly linearly. (The count in
+  this line read 23 for a while after it was 40 — if the number matters, count
+  `TEMPLATES` rather than trusting it.)
 
 ## Custom character art — the intake pipeline
 
