@@ -192,6 +192,49 @@ embedded name really is "Greg" upstream; we display it as-is.
   replace or delete this file**; nothing else needs touching, and the build says
   which way it went on every run.
 
+## The demo's layout — and three CSS traps under it
+
+**The comic is never below the fold.** It used to be: stacked in source order it
+began at 872px, so on a 910px-tall window a visitor saw 38px of it and had to
+scroll to discover the page worked at all. Two arrangements fix that, and
+`build.ts` wraps the page in `.col-left` (editor + cast) and `.col-right`
+(comic) so both are one CSS rule each:
+
+- **≥1030px — side by side**, comic right, `.col-right` sticky so editing a line
+  never scrolls the result away. Comic at 177px; 4 of 6 panels visible at 1060px
+  wide, all 6 at 1440.
+- **<1030px — comic first**, order flipped to header → comic → editor → footer.
+  Comic at 204px on a 375px phone. It is a demo before it is a tool: a visitor
+  arrives to see whether a chat log really becomes a comic, and the answer
+  should be on screen. **Every child needs an explicit `order`** — `order: -1` on
+  the comic alone would hoist it above the site header, since the rest default
+  to 0.
+
+**The 1030px breakpoint is derived, not chosen.** A builder row needs ~679px to
+sit on one line, plus card padding; 730 (editor) + 26 (gap) + 230 (comic) + 44
+(page padding) = 1030. An earlier version picked a round 980 first and forced the
+tracks to fit, which produced 198px-tall builder rows.
+
+**Trap 1 — `1fr` is `minmax(auto, 1fr)`, and `auto` means min-content.**
+`.workspace` and `.builder` both used a bare `1fr`. Neither track would shrink
+below its content, so the page overflowed horizontally by **434px between 821px
+and 979px wide** — for months, on the live site. Use `minmax(0, 1fr)` for any
+track that must be allowed to shrink.
+
+**Trap 2 — a mobile overflow can lock out its own fix.** A builder row's fixed
+children need 679px in one line. That overflowed a 375px phone, so the browser
+widened the *layout viewport* to 735px to shrink-to-fit — and at 735px the
+`max-width: 680px` mobile rules stopped matching. The media query that would have
+solved it could never fire. `.brow` therefore wraps **unconditionally**, which is
+what breaks the loop, and wrapping is switched back off above 1030px where a row
+has room for one line. Symptom to recognise: `window.innerWidth` disagreeing with
+`document.documentElement.clientWidth`.
+
+**Trap 3 — measure bytes against bytes.** Comparing a served file's
+`(await r.text()).length` to a local byte count makes every non-ASCII character
+look like a missing byte; `index.html` read 18 "short" and `style.css` 26 purely
+from em-dashes. Compare `Buffer.length` to `Buffer.length`, or expect the delta.
+
 ## Deploying the demo (two mirrors)
 
 The composer is served from two mirrors: **onionmadder.com** (primary, on
@@ -201,6 +244,12 @@ NearlyFreeSpeech) at <https://onionmadder.com/comic-chat-composer/>, and
 `canonical`/Open Graph point at the primary (.com), which is correct for a
 mirror, so no per-host build is needed. (`SITE_URL` in `demo/build.ts` sets that
 primary URL.)
+
+One consequence of sharing one `index.html`: **the mirror carries the GoatCounter
+tag too**, so `.xyz` traffic counts into the same account as `.com`. That is
+right if you want total traffic across both. Separating them would mean a second
+GoatCounter site and a per-host build, which this setup deliberately does not do
+— so the alternative is simply not uploading `index.html` to `.xyz`.
 
 **`examples/demo/app.js` is a committed build artifact, and it goes stale in
 silence.** Nothing rebuilds it — not a test, not `typecheck`, not CI. A library
@@ -263,7 +312,9 @@ near-infinite unique seeds) → **published to GitHub** and **deployed to two
 mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror) →
 **Comic Court split off** into its own repo → **mComic '96 submitted to Google
 Play** (the library's first shipped product; the mobile work lives on
-`mcomic96-app`).
+`mcomic96-app`) → a **demo layout pass**: the SEO head generated instead of
+hand-patched onto the server, two long-standing horizontal-overflow bugs fixed,
+and the comic moved above the fold at every width.
 
 ## The conversation builder — built, and what's left
 
