@@ -99,6 +99,21 @@ export function smoothHalfWidths(
     else held = out[i]!;
   }
 
+  // The hold above can flatten a *wider* line down to an earlier, narrower
+  // width. The difference is small by construction, but glyphs still reach the
+  // line's own width, so a held-down line loses that much of its margin and
+  // pokes through the outline once the spline sags between knots. Raise each
+  // flat run to the widest requirement inside it: the run stays flat — the
+  // point of rule 3 — and every line keeps its full margin.
+  let runStart = 0;
+  for (let i = 1; i <= out.length; i++) {
+    if (i < out.length && out[i] === out[runStart]) continue;
+    let runMax = out[runStart]!;
+    for (let j = runStart; j < i; j++) runMax = Math.max(runMax, halfWidths[j]!);
+    for (let j = runStart; j < i; j++) out[j] = runMax;
+    runStart = i;
+  }
+
   return out;
 }
 
@@ -155,9 +170,14 @@ export function balloonControlPoints(options: BalloonShapeOptions): Point[] {
   // it: a shoulder much narrower than the widest line forces a near-horizontal
   // jump out to that line over a short vertical gap, which the fitting then
   // amplifies into a spike off the side of the balloon.
+  // The shoulder inset is capped in absolute terms, not proportional to the
+  // line: the shoulder sits barely above the line's glyph tops, so an inset
+  // that grows with the line's width eventually reaches in past the corner
+  // glyphs of any sufficiently wide line and the outline cuts them off.
   const capInset = margin * 0.9;
-  const topShoulder = half[0]! * 0.88;
-  const bottomShoulder = lastHalf * 0.88;
+  const shoulderFor = (h: number): number => h - Math.min(h * 0.12, margin * 0.6);
+  const topShoulder = shoulderFor(half[0]!);
+  const bottomShoulder = shoulderFor(lastHalf);
 
   const points: Point[] = [
     { x: centreX, y: topY },
@@ -181,10 +201,18 @@ export function balloonControlPoints(options: BalloonShapeOptions): Point[] {
       if (j === undefined) continue;
 
       const between = Math.min(i, j);
+      // The midpoint sits at the boundary between the two lines — exactly the
+      // height of the wider line's corner glyphs, which reach its full
+      // half-width. A midpoint at the plain mean passes inside that corner
+      // whenever the widths differ by more than two margins, so it is floored
+      // to keep at least half a margin clear of the wider line. When the
+      // widths are close (which smoothing has already flattened), the mean
+      // wins and the ramp is as gentle as before.
       const mean = (half[i]! + half[j]!) / 2;
+      const cleared = Math.max(mean, Math.max(half[i]!, half[j]!) - margin * 0.5);
       const offset = perturbAfter.has(between) ? nextWave() * amplitude : 0;
       points.push({
-        x: centreX + dir * (mean + offset),
+        x: centreX + dir * (cleared + offset),
         y: (lineY(i) + lineY(j)) / 2,
       });
     }
@@ -197,7 +225,10 @@ export function balloonControlPoints(options: BalloonShapeOptions): Point[] {
     // mouth, shoulder. The mouth — not the tail's requested x — is what has to
     // stay inside the shoulders, or the outline doubles back on itself and the
     // spline kinks. So the clamp has to leave room for the mouth's half-width.
-    const shoulder = lastHalf * 0.8;
+    // Like the caps, the shoulder inset is capped in absolute terms: on a wide
+    // last line a proportional inset reaches past the corner glyphs and the
+    // outline cuts the line's ends off on its way to the tail mouth.
+    const shoulder = lastHalf - Math.min(lastHalf * 0.2, margin * 0.75);
     const mouth = Math.min(Math.max(lastHalf * 0.28, 7), 16);
     const reach = Math.max(0, shoulder - mouth);
     const fromX = Math.min(Math.max(tail.fromX, centreX - reach), centreX + reach);
@@ -371,6 +402,60 @@ export function fitControlPoints(
   }
 
   return points;
+}
+
+/**
+ * Starburst outline for shout balloons (§5.1), as a closed point polygon.
+ *
+ * Valleys sit on the balloon box's own perimeter and the spikes radiate
+ * outward from it, with a spike pinned at every corner. The corner spikes are
+ * load-bearing: the text fills the box's *rectangle*, so any chord that
+ * shortcuts a corner cuts across glyphs. (An earlier construction placed the
+ * valleys on the box's inscribed ellipse, which clipped the corner glyphs of
+ * every multi-line shout — a rectangle's corners lie outside its inscribed
+ * ellipse.)
+ */
+export function starburstPoints(x: number, y: number, w: number, h: number): Point[] {
+  const amp = Math.max(6, Math.min(12, Math.min(w, h) * 0.18));
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  // Corners clockwise from top-left; each edge runs corner to corner.
+  const corners: Point[] = [
+    { x, y },
+    { x: x + w, y },
+    { x: x + w, y: y + h },
+    { x, y: y + h },
+  ];
+
+  const pts: Point[] = [];
+  for (let e = 0; e < 4; e++) {
+    const c0 = corners[e]!;
+    const c1 = corners[(e + 1) % 4]!;
+    const ex = c1.x - c0.x;
+    const ey = c1.y - c0.y;
+    const len = Math.hypot(ex, ey);
+    // Outward edge normal (perimeter is walked clockwise in y-down space).
+    const nx = ey / len;
+    const ny = -ex / len;
+
+    // Corner spike, out along the diagonal.
+    const diag = Math.SQRT1_2 * amp * 1.2;
+    pts.push({
+      x: c0.x + Math.sign(c0.x - cx) * diag,
+      y: c0.y + Math.sign(c0.y - cy) * diag,
+    });
+
+    // Alternate valley (on the edge) and spike (off it) along the edge.
+    const valleys = Math.max(1, Math.round(len / 34));
+    for (let i = 0; i < valleys; i++) {
+      pts.push({ x: c0.x + ex * ((i + 0.5) / valleys), y: c0.y + ey * ((i + 0.5) / valleys) });
+      if (i < valleys - 1) {
+        const t = (i + 1) / valleys;
+        pts.push({ x: c0.x + ex * t + nx * amp, y: c0.y + ey * t + ny * amp });
+      }
+    }
+  }
+  return pts;
 }
 
 /**
