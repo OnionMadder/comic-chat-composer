@@ -95,6 +95,12 @@ const RULES: Partial<Rules> = {
   soloPanelProbability: 0,
 };
 
+// The most lines "+ line" will pack into one panel. Not a composer rule — the
+// glued beats waive those — but a physical one: the balloon band is 40% of a
+// 400px square, and a fifth balloon just makes the layout trial split the
+// panel in front of the user.
+const MAX_PANEL_LINES = 4;
+
 // Size balloons against a slightly wider advance than the default (which is
 // tuned for Comic Sans). Comic Neue — the font we bundle and render — runs a
 // hair wider on some strings, so this margin keeps balloon text off the panel
@@ -242,7 +248,7 @@ function editingEvent(): ChatEvent | null {
   return editingGroup()[editingLine] ?? null;
 }
 
-/** Distinct speakers already talking in a group (one balloon each per panel). */
+/** Distinct speakers already talking in a group, in speaking order. */
 function speakersIn(group: readonly ChatEvent[]): string[] {
   const out: string[] = [];
   for (const ev of group) {
@@ -400,7 +406,7 @@ function panelsFor(events: ChatEvent[], castIds: string[], scene: string, seed: 
   const castMap: Record<string, CastEntry> = {};
   for (const id of castIds) castMap[id] = { characterId: id };
   return compose({
-    events,
+    events: withSamePanel(events),
     cast: castMap,
     characterAssets: manifests,
     backdrops: scene ? [scene] : Object.keys(backdrops),
@@ -489,11 +495,35 @@ function composePanels(): Panel[] {
   return currentPanels;
 }
 
+/**
+ * Derive `samePanel` from the break structure at compose time: every message
+ * beat that follows another content beat with no break between them is glued
+ * to the open panel (`MessageEvent.samePanel` — the author's word beats the
+ * soft panel-break rules; only the layout trial can still split, which
+ * `reconcileGroups()` repairs). The app's groups ARE authored panels, so the
+ * flag is exactly what the grouping already means. Derived rather than stored
+ * so it can never drift from the breaks that define it, and saved drafts are
+ * untouched.
+ */
+function withSamePanel(events: ChatEvent[]): ChatEvent[] {
+  let opensPanel = true;
+  return events.map((ev) => {
+    if (ev.type === 'break') {
+      opensPanel = true;
+      return ev;
+    }
+    if (!isContentEvent(ev)) return ev;
+    const glued = !opensPanel;
+    opensPanel = false;
+    return glued && isMessageEvent(ev) ? { ...ev, samePanel: true } : ev;
+  });
+}
+
 function composeRaw(): Panel[] {
   const castMap: Record<string, CastEntry> = {};
   for (const id of state.cast) castMap[id] = { characterId: id };
   return compose({
-    events: state.events,
+    events: withSamePanel(state.events),
     cast: castMap,
     characterAssets: manifests,
     backdrops: state.scene ? [state.scene] : Object.keys(backdrops),
@@ -813,12 +843,12 @@ function renderLineChips(): void {
     return;
   }
   const group = editingGroup();
-  const speaking = speakersIn(group);
-  // Every character already in frame is a candidate voice; the cap is the
-  // composer's own (one balloon per character, `maxCharactersPerPanel` total).
-  const canAdd =
-    speaking.length < (RULES.maxCharactersPerPanel ?? 3) &&
-    availableVoices(group).length > 0;
+  // Glued beats waive the composer's one-balloon-per-character rule
+  // (`samePanel`), so a character can speak twice in a frame and the old
+  // distinct-speaker ceiling is gone. What remains is physical: the balloon
+  // band is ~40% of a 400px panel, and past four balloons the layout trial
+  // splits the panel anyway — don't offer what will visibly break.
+  const canAdd = group.length < MAX_PANEL_LINES && availableVoices(group).length > 0;
 
   const chips = group
     .map((ev, i) => {
@@ -835,7 +865,7 @@ function renderLineChips(): void {
 
   const addTitle = canAdd
     ? 'Add another line to this panel'
-    : 'This panel is full — every character in it already has a line';
+    : 'This panel is full — four balloons is all a frame can hold';
   host.innerHTML =
     chips +
     `<button class="pcast add" id="line-add" ${canAdd ? '' : 'disabled'} ` +
@@ -846,9 +876,11 @@ function renderLineChips(): void {
 }
 
 /**
- * Characters who could take a new line in this panel: in frame, not already
- * speaking. The composer allows only one balloon per character per panel, so
- * offering a repeat speaker would just cause it to split the panel.
+ * Characters who could take a new line in this panel, best default first:
+ * in frame without a balloon, then the rest of the cast (while the frame has
+ * room under the character cap), then a repeat balloon for someone already
+ * speaking — legal now that glued beats waive the one-balloon-per-character
+ * rule, and the way a character gets to say two things in one frame.
  */
 function availableVoices(group: readonly ChatEvent[]): string[] {
   const speaking = speakersIn(group);
@@ -856,10 +888,10 @@ function availableVoices(group: readonly ChatEvent[]): string[] {
   for (const ev of group) {
     for (const a of (ev as MessageEvent | ReactionEvent).addressees ?? []) inFrame.add(a);
   }
-  // Prefer people already in the panel; fall back to the rest of the cast so a
-  // one-character panel can still grow into a conversation.
-  const fromFrame = [...inFrame].filter((id) => !speaking.includes(id));
-  return fromFrame.length ? fromFrame : state.cast.filter((id) => !speaking.includes(id));
+  const silent = [...inFrame].filter((id) => !speaking.includes(id));
+  const cap = RULES.maxCharactersPerPanel ?? 3;
+  const rest = inFrame.size < cap ? state.cast.filter((id) => !inFrame.has(id)) : [];
+  return [...silent, ...rest, ...speaking];
 }
 
 /** Append a new line to the edited panel and open it for typing. */
@@ -989,15 +1021,11 @@ function nudgeCharacter(charId: string, dir: 'left' | 'right'): void {
  */
 function renderEditSpeaker(): void {
   const sel = $('edit-speaker') as HTMLSelectElement;
-  // Someone else in this panel already has a balloon — the composer allows only
-  // one per character per panel, so picking them would just split the panel.
-  const taken = new Set(
-    editingGroup()
-      .filter((_, i) => i !== editingLine)
-      .map((ev) => (ev as MessageEvent | ReactionEvent).author),
-  );
+  // Every cast member is a legal voice, even someone already speaking in this
+  // panel: glued beats waive the composer's one-balloon-per-character rule
+  // (`samePanel`), so a repeat speaker gets a second balloon instead of
+  // splitting the panel.
   sel.innerHTML = state.cast
-    .filter((id) => !taken.has(id) || id === state.speaker)
     .map((id) => {
       const label = castName(id, manifests[id]?.name);
       const selected = id === state.speaker ? ' selected' : '';
@@ -1040,6 +1068,10 @@ function setTrayOpen(open: boolean): void {
 /** Repaint the preview to the current speaker + pending pose. */
 function updatePreview(): void {
   if (!state.speaker || !isTrayOpen()) return;
+  // Keep the wheel's pose thumbnails on the active speaker. Cheap when the
+  // speaker hasn't changed; deferred to tray-open so the nine thumb renders
+  // never happen for a control nobody can see.
+  wheel?.setCharacter(state.speaker);
   $('preview').innerHTML = previewSvg(state.speaker, pending.expression, pending.gesture);
 }
 
@@ -1851,11 +1883,20 @@ $('cast').addEventListener('click', (e) => {
   }
 });
 
-wheel = createWheel($('wheel'), (v) => {
-  pending.expression = v.emotion;
-  pending.intensity = v.intensity;
-  updatePreview();
-});
+wheel = createWheel(
+  $('wheel'),
+  (v) => {
+    pending.expression = v.emotion;
+    pending.intensity = v.intensity;
+    updatePreview();
+  },
+  {
+    // Each wheel node renders the speaker striking that emotion. Gesture is
+    // pinned to neutral so the emotion's own stance shows — a gesture would
+    // win the body otherwise (bodyForPose is gesture-first).
+    thumbSvg: (id, emotion) => previewSvg(id, emotion, 'neutral'),
+  },
+);
 
 $('more').addEventListener('click', () => {
   setTrayOpen(!isTrayOpen());

@@ -190,11 +190,11 @@ const html = `<!doctype html>
       <li><span class="intro-key" aria-hidden="true">${balloonIcon}</span>
         <span><b>Type a line and send.</b> Pick who&rsquo;s talking from the row of names, and your conversation draws itself into a comic.</span></li>
       <li><span class="intro-key" aria-hidden="true">&#9995;</span>
-        <span><b>Tap a panel to rewrite it.</b> Change the words, the speaker, the mood &mdash; or add someone else to the frame.</span></li>
+        <span><b>Tap a panel to rewrite it.</b> Change the words, the speaker, the mood, or add someone else to the frame. <b>+ line</b> gives the panel another balloon &mdash; even from the same character.</span></li>
       <li><span class="intro-key" aria-hidden="true">&#8597;</span>
         <span><b>Press and hold a panel to move it.</b> Drag it up or down to re-order the story.</span></li>
       <li><span class="intro-key" aria-hidden="true">&#9673;</span>
-        <span><b>Drag the wheel for a mood.</b> Angle picks the feeling, distance from the middle picks how strongly.</span></li>
+        <span><b>Drag the wheel to a face.</b> Every face on it is your character wearing that mood &mdash; drag to the one you want, further out for more of it.</span></li>
       <li><span class="intro-key" aria-hidden="true">&#127922;</span>
         <span><b>Stuck?</b> The dice writes you a fresh comic. &#128218; keeps your drafts, &#8681; saves a picture to share.</span></li>
     </ul>

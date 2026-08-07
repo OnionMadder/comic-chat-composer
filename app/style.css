@@ -366,7 +366,11 @@ body.kb-up #lines-row.is-shown { display: none; }
 }
 .preview svg { width: 100%; height: 100%; }
 .wheel { flex: 1; display: flex; justify-content: center; }
-.wheel svg { width: 130px; height: 130px; touch-action: none; cursor: grab; }
+/* Fills the slot the preview leaves rather than sitting at a fixed 130px, which
+   wasted ~115px of a 375px phone. The wheel's nodes are pose thumbnails now, so
+   width is legibility: at 130px a face is a 28px coin, at 176px it is 38px. The
+   cap keeps the tray inside its height budget (see .tray) on short screens. */
+.wheel svg { width: 100%; max-width: 176px; aspect-ratio: 1; touch-action: none; cursor: grab; }
 .wheel svg:active { cursor: grabbing; }
 
 /* Delivery + gesture chip strips — one tap per choice, no dropdown. Same

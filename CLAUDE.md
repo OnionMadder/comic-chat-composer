@@ -149,6 +149,14 @@ cd android && ./gradlew bundleRelease     # signed AAB for Play
   balloon box's **rectangle** with a spike pinned at every corner — valleys on
   the inscribed ellipse clipped the corner glyphs of every multi-line shout,
   because a rectangle's corners lie outside its inscribed ellipse.
+  **The guarantee holds on the control polygon, not yet on the fitted curve.**
+  `fitControlPoints` does not preserve polygon points as on-curve points; near
+  the caps it pulls the shoulder inward, back inside the text. Measured by
+  flattening the *emitted path* and testing the text rect: ~2% of cases at the
+  app's parameters (worst 1.0px) and ~5% at the demo's (worst 2.3px) — small,
+  but the same defect class the audit set out to end, and the existing tests
+  miss it because they check the polygon. Fix belongs on `main`; score any
+  attempt against the flattened path, not the polygon.
 - `parse-log.ts` — plain-text log → events, incl. the `name (hint): text` per-
   line directions. `HINT_WORDS` drives the demo's help text.
 - `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
@@ -380,7 +388,11 @@ rectangle-based starbursts, pinned by seeded containment tests), the
 **pose-thumbnail emotion wheel** (each wheel node renders the active character
 striking that emotion, so picking a look is matching a face, not translating a
 vocabulary), and the **`samePanel` event flag** (the author's word beats the
-soft panel-break rules — the primitive an authored comic needs).
+soft panel-break rules — the primitive an authored comic needs) → and **spent
+all three in the app** (2026-08-07): the wheel's nodes became pose thumbnails
+and the wheel grew to fill its slot, `samePanel` made the app's groups binding
+so a character can finally take two balloons in one frame, and the walkthrough
+learned to name `+ line`, the verb it had been silently omitting.
 
 ## The conversation builder — built, and what's left
 
@@ -469,7 +481,27 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   below). Reuses `compose()` + `renderPanelToSvg()` end to end.
 - `wheel.ts` — the press-drag emotion wheel (8 emotions + neutral centre, radius
   = intensity, `<0.2` snaps neutral — the shipped body-cam detente), driving the
-  pending pose + a live speaker preview.
+  pending pose + a live speaker preview. Each node is a **pose thumbnail**: the
+  active speaker rendered striking that emotion, gesture pinned to neutral so
+  the emotion's own stance shows (`bodyForPose` is gesture-first, so a gesture
+  would win the body). Picking a look is matching a face, not translating a
+  vocabulary. Three things make it cheap enough to be worth it: the thumbs are
+  **cached per character**, `setCharacter()` no-ops when the speaker hasn't
+  changed, and only the knob moves during a drag — nine rendered panels never
+  rebuild mid-gesture. `updatePreview()` drives it, which means the renders are
+  **deferred until the tray is open**, so a control nobody can see costs
+  nothing. Without a `thumbSvg` the wheel falls back to the coloured dots.
+  The crop window is a **fixed fraction, and can be**: the preview stands every
+  character on the panel floor at `characterHeightFraction`, so all 31 figures
+  start at the same y (28% of panel height at 0.72) — a window at 26%–59%
+  is head-and-shoulders on every one of them. Measured on-device-grade
+  geometry: the head fills ~⅔ of each coin.
+  The wheel **fills its slot** rather than sitting at a fixed 130px (`.wheel
+  svg { width: 100%; max-width: 176px }`), which was leaving ~115px of a 375px
+  phone unused. Width is legibility now that the nodes are faces: 28px coins at
+  130px, 38px at 176px. The cap keeps the tray inside its height budget —
+  verified at 375×812 (tray 417 of a 552 cap) and 320×640 (430 of 430, the
+  wheel still fully visible with the overflow at the last chip row).
 - `build.ts` — esbuild bundles `main.ts`→`www/app.js` (assets inlined), inlines
   **Comic Neue (OFL) as a data-URI** into `www/style.css`, generates
   `www/index.html`. Cache-bust `app.js?v=<Date.now()>` + a faint header build
@@ -780,11 +812,29 @@ balloon — which meant a character added to a panel could never be given anythi
 to say. §5.2's routing-channel layout exists precisely to place several
 balloons, so that was leaving the best part of the library unused.
 
-**The library's own rule sets the ceiling: one balloon per character per panel.**
-So a panel holds as many lines as it has distinct speakers, up to
-`maxCharactersPerPanel`. The UI enforces both — "+ line" disables at the cap, and
-the line's speaker menu hides anyone already speaking in that panel — because
-offering a repeat speaker would just make the composer split the panel.
+**`samePanel` is what makes the app's grouping mean something** (2026-08-07,
+merged from `main`). `withSamePanel()` in `main.ts` flags every message beat
+that follows another content beat with no break between them, right before
+handing the stream to `compose()`. The app's groups *are* authored panels, so
+the flag is exactly what the grouping already meant — the composer's soft break
+rules (one balloon per character, no mid-panel expression change, the fold, the
+solo roll) no longer overrule the author. It is **derived, never stored**: from
+the breaks that define the grouping, at every compose (`composeRaw` and the
+starter's `panelsFor` both), so it cannot drift out of sync with them and
+saved drafts are untouched.
+
+What that changed upstairs: a character can now take **two balloons in one
+frame** — previously impossible, because the one-balloon-per-character rule made
+the composer split the panel. So `availableVoices()` offers the silent people in
+frame first, then the rest of the cast while the frame is under
+`maxCharactersPerPanel`, and *then* a repeat balloon for someone already
+speaking; the edit bar's speaker menu no longer hides anyone. The ceiling is now
+**`MAX_PANEL_LINES` (4), and it is physical, not a composer rule** — the balloon
+band is 40% of a 400px square, and a fifth balloon just makes the layout trial
+split the panel in front of the user. Verified on-device-grade: two lines from
+one speaker land in one panel with two spliced-tail outlines and zero
+containment failures, and 120 seed rolls over 403 panels produced **0 blank
+panels**, the invariant `groupIntoExchanges` exists to protect.
 
 **`reconcileGroups()`** is the safety net for the residual case (layout failure
 on very long text). An explicit break always ends a panel, so a group can only be
