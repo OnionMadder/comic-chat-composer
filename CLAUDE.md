@@ -60,6 +60,12 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   `<Brk>`; the log parser emits one for a blank line), the solo-panel roll,
   establishing-shot policy (`rules.establishingShots`: `fold` default / `per-join`
   / `off`), one-scene-per-conversation backdrop choice, and assembling each panel.
+  **`MessageEvent.samePanel`** (2026-08-06) is the author's override on the
+  soft break rules: a flagged message stays in the open panel — waiving
+  one-balloon-per-character, the mid-panel expression change (first pose
+  wins), the fold's one-line opener and the solo roll. Only the layout trial
+  still splits. A chat log never needed it; an *authored* comic does — it is
+  how Comic Court's `(same)` hint and 4-panel packer work.
 - `placement.ts` — §4.3 greedy character placement + the Facing/Neighbors
   scoring function (who stands where, facing whom).
 - `balloons.ts` — §5.2 routing-channel balloon layout (`PlaceBalloons`,
@@ -341,7 +347,14 @@ audit** (a 6,000-case geometric sweep found 57% of spline balloons and 48% of
 shouts clipping text; three outline fixes + rectangle-based starbursts, pinned
 by seeded containment tests) → the **pose-thumbnail emotion wheel** (each
 wheel node renders the active character striking that emotion, so picking a
-look is matching a face, not translating a vocabulary).
+look is matching a face, not translating a vocabulary) → the **`samePanel`
+event flag** (the author's word beats the soft panel-break rules — the
+primitive under Comic Court's `(same)` hint and its 4-panel format).
+
+**mComic '96 has none of the 2026-08-06 work** — the balloon-containment
+fixes, the pose-thumbnail wheel and `samePanel` all landed on `main` after
+the `mcomic96-app` branch last merged it. First act of any mComic session:
+merge `main` (mind the `launch.json` collision — see memory) and rebuild.
 
 ## The conversation builder — built, and what's left
 
