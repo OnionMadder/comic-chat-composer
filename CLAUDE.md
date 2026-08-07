@@ -109,6 +109,18 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
 **Reference code — `examples/`** (not shipped in the package):
 - `render-svg.ts` — SVG renderer: §5.3 balloon splines (via `balloon-shape.ts`),
   §6.1 halos (feMorphology aura), backdrops, the camera transform.
+  **Text containment is a property, not a hope**: the outline construction in
+  `balloon-shape.ts` guarantees every glyph stays inside the balloon drawn
+  around it, and `test/balloon-shape.test.ts` pins it with seeded sweeps.
+  Three ways it used to fail, all fixed 2026-08-06 and worth not reintroducing:
+  midpoint controls at the *mean* of two line widths sliced the wider line's
+  corners (floored to clear the wider line now); cap/tail shoulder insets grew
+  with balloon width (capped in margin terms now); and anti-amoeba rule 3
+  could hold a *wider* line down to an earlier narrower width (flat runs sit
+  at the widest requirement in the run now). Shout starbursts follow the
+  balloon box's **rectangle** with a spike pinned at every corner — valleys on
+  the inscribed ellipse clipped the corner glyphs of every multi-line shout,
+  because a rectangle's corners lie outside its inscribed ellipse.
 - `parse-log.ts` — plain-text log → events, incl. the `name (hint): text` per-
   line directions. `HINT_WORDS` drives the demo's help text.
 - `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
@@ -286,9 +298,19 @@ Then publish each — **preserving `assets/`**, confirming overwrites, then
 hard-refresh (Ctrl+Shift+R):
 
 - **.com** — WinSCP to `/home/public/comic-chat-composer/`. Files need 644 /
-  dirs 755 if a 403 appears.
+  dirs 755 if a 403 appears. **Scriptable** (no manual drag): `WinSCP.com
+  /script=<file>` with the saved session
+  `onionmadder_onionmadder@ssh.nyc1.nearlyfreespeech.net` authenticates from
+  the stored password. One `put -permissions=644 <file> ./` **per file** —
+  never `put a b c`: WinSCP treats the *last* argument as the remote target,
+  and a multi-file put once wrote `app.js`'s content into the live
+  `style.css`.
 - **.xyz** — the Neocities uploader or CLI. Neocities is HTTPS with ES-module
-  support, so the split set runs there unchanged.
+  support, so the split set runs there unchanged. Uploads here are manual —
+  no CLI or API key lives on the machine.
+
+After either upload, verify bytes against bytes: fetch the live `app.js` with
+a cache-busting query and `cmp` it to `examples/demo/app.js`.
 
 ## What's built (the arc so far)
 
@@ -314,7 +336,12 @@ mirrors** (onionmadder.com primary + the onionmadder.xyz Neocities mirror) →
 Play** (the library's first shipped product; the mobile work lives on
 `mcomic96-app`) → a **demo layout pass**: the SEO head generated instead of
 hand-patched onto the server, two long-standing horizontal-overflow bugs fixed,
-and the comic moved above the fold at every width.
+and the comic moved above the fold at every width → a **balloon-containment
+audit** (a 6,000-case geometric sweep found 57% of spline balloons and 48% of
+shouts clipping text; three outline fixes + rectangle-based starbursts, pinned
+by seeded containment tests) → the **pose-thumbnail emotion wheel** (each
+wheel node renders the active character striking that emotion, so picking a
+look is matching a face, not translating a vocabulary).
 
 ## The conversation builder — built, and what's left
 
@@ -336,7 +363,12 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
 2. **The emotion wheel** — 8 emotions on the perimeter (happy, laughing, coy,
    shouting, angry, sad, scared, bored), neutral at center, intensity = radius,
    click/drag. Maps to `expressionOverride`; `intensity` is captured on the row
-   but not yet consumed (see below).
+   but not yet consumed (see below). Each node is a **pose thumbnail** — the
+   active character rendered in that emotion (head-and-torso crop, gesture
+   pinned to neutral so the emotion's own look shows), cached per character;
+   the needle and selection rings update in place so dragging never rebuilds
+   nine rendered panels. With no character picked, the wheel falls back to the
+   labelled dots.
 3. **Live character preview** — the selected character reacting in the chosen
    look, via a synthetic one-character identity-camera panel through
    `renderPanelToSvg` (same sprite/halo resolution as a real panel).
