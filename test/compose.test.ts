@@ -536,3 +536,52 @@ describe('facing overrides', () => {
     assert.equal(bob.facing, bob.x < alice.x ? 'right' : 'left');
   });
 });
+
+describe('samePanel', () => {
+  // Two consecutive lines by one speaker: the one-balloon-per-character rule
+  // splits them, unless the second is glued.
+  const RESPEAK: ChatEvent[] = [
+    { type: 'join', author: 'alice', at: 0 },
+    { type: 'join', author: 'bob', at: 1 },
+    { type: 'message', author: 'alice', text: 'First point.', at: 2 },
+    { type: 'message', author: 'alice', text: 'Second point.', at: 3 },
+  ];
+
+  it('waives the one-balloon-per-character break', () => {
+    const split = run(RESPEAK);
+    assert.equal(split.length, 2, 'unglued, the second line opens a new panel');
+
+    const glued = run([
+      ...RESPEAK.slice(0, 3),
+      { ...RESPEAK[3]!, samePanel: true } as ChatEvent,
+    ]);
+    assert.equal(glued.length, 1, 'glued, both balloons share the panel');
+    assert.equal(glued[0]!.balloons.length, 2);
+  });
+
+  it('keeps the first pose when a glued beat would change the expression', () => {
+    // The glue also waives the folded establishing shot's one-line rule, so
+    // both lines land in panel 1 — and the first drawn pose wins.
+    const panels = run([
+      { type: 'join', author: 'alice', at: 0 },
+      { type: 'join', author: 'bob', at: 1 },
+      { type: 'message', author: 'alice', text: 'calmly now', at: 2, expressionOverride: 'happy' },
+      { type: 'message', author: 'alice', text: 'FURIOUS!!!', at: 3, expressionOverride: 'angry', samePanel: true },
+    ]);
+    assert.equal(panels.length, 1);
+    const alice = panels[0]!.characters.find((c) => c.author === 'alice')!;
+    assert.equal(alice.expression, 'happy', 'the pose she was first drawn with wins');
+  });
+
+  it('still breaks when the glued balloon cannot physically fit', () => {
+    const filler = (n: number) =>
+      Array.from({ length: n }, (_, i) => `word${i}`).join(' ');
+    const panels = run([
+      { type: 'join', author: 'alice', at: 0 },
+      { type: 'join', author: 'bob', at: 1 },
+      { type: 'message', author: 'alice', text: filler(120), at: 2 },
+      { type: 'message', author: 'bob', text: filler(120), at: 3, samePanel: true },
+    ]);
+    assert.ok(panels.length > 1, 'layout overflow must still split — unreadable is worse than broken');
+  });
+});

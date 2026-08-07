@@ -106,6 +106,11 @@ const WHEEL_C = WHEEL_VB / 2;
 const WHEEL_R = 86; // emotion-node ring
 const WHEEL_LABEL_R = 114;
 const WHEEL_DEADZONE = 26; // radius under which a click means "neutral"
+// Pose-thumbnail nodes: each emotion shows the active character actually
+// striking it, so the wheel reads as "which look am I picking" instead of a
+// vocabulary list — the pose can be matched to the script by eye.
+const THUMB_R = 21;
+const CENTER_R = 24;
 
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -271,48 +276,158 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
     renderMembers();
   }
 
+  /**
+   * `previewSvg` output re-tagged as a nested crop: the head-and-torso band of
+   * the preview panel, where a layered head swap and a whole-figure stance
+   * change are both visible at coin size. The gesture is pinned to neutral so
+   * the *emotion's own* stance shows (a gesture would win the body otherwise).
+   */
+  function poseThumb(characterId: string, expr: Expression, cx: number, cy: number, r: number): string {
+    const svg = deps.previewSvg(characterId, expr, 'neutral');
+    const tag = /^<svg\b[^>]*?width="(\d+(?:\.\d+)?)"[^>]*?height="(\d+(?:\.\d+)?)"[^>]*>/.exec(svg);
+    if (!tag) return '';
+    const w = Number(tag[1]!);
+    const h = Number(tag[2]!);
+    const side = h * 0.55;
+    const x0 = w / 2 - side / 2;
+    const y0 = h * 0.12;
+    return (
+      `<svg x="${(cx - r).toFixed(1)}" y="${(cy - r).toFixed(1)}" width="${r * 2}" height="${r * 2}"` +
+      ` viewBox="${x0.toFixed(1)} ${y0.toFixed(1)} ${side.toFixed(1)} ${side.toFixed(1)}"` +
+      ` preserveAspectRatio="xMidYMid slice">` +
+      svg.slice(tag[0].length)
+    );
+  }
+
+  // The thumbs are the expensive part of the wheel — nine rendered panels —
+  // and they depend only on the character. Cache them so selecting rows and
+  // dragging the needle never rebuilds them.
+  const thumbCache = new Map<string, string>();
+  function wheelThumbs(characterId: string): string {
+    const hit = thumbCache.get(characterId);
+    if (hit) return hit;
+    const parts: string[] = [];
+    EMOTIONS.forEach((e, i) => {
+      const p = wheelPoint(i, WHEEL_R);
+      parts.push(
+        `<clipPath id="wt-${i}"><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${THUMB_R}"/></clipPath>`,
+        `<g clip-path="url(#wt-${i})"><title>${e.label}</title>${poseThumb(characterId, e.key, p.x, p.y, THUMB_R)}</g>`,
+      );
+    });
+    parts.push(
+      `<clipPath id="wt-c"><circle cx="${WHEEL_C}" cy="${WHEEL_C}" r="${CENTER_R}"/></clipPath>`,
+      `<g clip-path="url(#wt-c)"><title>Neutral</title>${poseThumb(characterId, 'neutral', WHEEL_C, WHEEL_C, CENTER_R)}</g>`,
+    );
+    const out = parts.join('');
+    thumbCache.set(characterId, out);
+    return out;
+  }
+
+  /**
+   * Where an emotion's caption goes. The two horizontal nodes sit at the
+   * widest point of the viewBox, where a thumbnail-sized node leaves an
+   * outward label no room — tuck those two under their thumbs instead.
+   */
+  function labelPos(i: number): { x: number; y: number } {
+    if (i === 2 || i === 6) {
+      const p = wheelPoint(i, WHEEL_R);
+      return { x: p.x, y: p.y + THUMB_R + 11 };
+    }
+    return wheelPoint(i, WHEEL_LABEL_R);
+  }
+
+  // The wheel is two layers: a structure that changes only with the active
+  // character (rim, spokes, thumbs, rings, labels), and a selection state
+  // (needle, tip, is-on classes) cheap enough to update on every drag frame.
+  let wheelStructureKey: string | null = null;
+
   function renderWheel(): void {
+    const row = active();
+    const characterId = row?.characterId ?? '';
+    const disabled = !row;
+    const key = `${characterId}|${disabled}`;
+    if (key !== wheelStructureKey) {
+      wheelStructureKey = key;
+      const parts: string[] = [];
+      parts.push(
+        `<svg viewBox="0 0 ${WHEEL_VB} ${WHEEL_VB}" class="wheel-svg${disabled ? ' is-off' : ''}" role="img" aria-label="Emotion wheel">`,
+      );
+      parts.push(`<circle cx="${WHEEL_C}" cy="${WHEEL_C}" r="${WHEEL_R}" class="wheel-rim"/>`);
+      EMOTIONS.forEach((_, i) => {
+        const p = wheelPoint(i, WHEEL_R);
+        parts.push(`<line x1="${WHEEL_C}" y1="${WHEEL_C}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" class="wheel-spoke"/>`);
+      });
+      // Needle and tip, positioned by updateWheelSelection.
+      parts.push(`<line class="wheel-needle" x1="${WHEEL_C}" y1="${WHEEL_C}" x2="${WHEEL_C}" y2="${WHEEL_C}" visibility="hidden"/>`);
+      parts.push(`<circle class="wheel-tip" cx="${WHEEL_C}" cy="${WHEEL_C}" r="6" visibility="hidden"/>`);
+
+      if (characterId) {
+        parts.push(wheelThumbs(characterId));
+        EMOTIONS.forEach((_, i) => {
+          const p = wheelPoint(i, WHEEL_R);
+          parts.push(
+            `<circle data-e="${i}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${THUMB_R + 1}" class="wheel-ring"/>`,
+          );
+        });
+        parts.push(
+          `<circle data-e="c" cx="${WHEEL_C}" cy="${WHEEL_C}" r="${CENTER_R + 1}" class="wheel-ring"/>`,
+        );
+        parts.push(
+          `<text data-e="c" x="${WHEEL_C}" y="${WHEEL_C + CENTER_R + 11}" class="wheel-clabel" text-anchor="middle" dominant-baseline="middle">Neutral</text>`,
+        );
+      } else {
+        // No character yet — the labelled dots the wheel always had.
+        EMOTIONS.forEach((_, i) => {
+          const p = wheelPoint(i, WHEEL_R);
+          parts.push(`<circle data-e="${i}" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" class="wheel-node"/>`);
+        });
+        parts.push(`<circle data-e="c" cx="${WHEEL_C}" cy="${WHEEL_C}" r="18" class="wheel-center"/>`);
+        parts.push(
+          `<text data-e="c" x="${WHEEL_C}" y="${WHEEL_C}" class="wheel-clabel" text-anchor="middle" dominant-baseline="middle">Neutral</text>`,
+        );
+      }
+      EMOTIONS.forEach((e, i) => {
+        const lp = labelPos(i);
+        parts.push(
+          `<text data-e="${i}" x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" class="wheel-label" text-anchor="middle" dominant-baseline="middle">${e.label}</text>`,
+        );
+      });
+      parts.push(`</svg>`);
+      wheelEl.innerHTML = parts.join('');
+    }
+    updateWheelSelection();
+  }
+
+  /** Move the needle and the is-on highlights without rebuilding the wheel. */
+  function updateWheelSelection(): void {
+    const svg = wheelEl.querySelector('svg');
+    if (!svg) return;
     const row = active();
     const expr = row?.expression ?? 'neutral';
     const intensity = row?.intensity ?? 0;
-    const disabled = !row;
-
-    const parts: string[] = [];
-    parts.push(
-      `<svg viewBox="0 0 ${WHEEL_VB} ${WHEEL_VB}" class="wheel-svg${disabled ? ' is-off' : ''}" role="img" aria-label="Emotion wheel">`,
-    );
-    parts.push(
-      `<circle cx="${WHEEL_C}" cy="${WHEEL_C}" r="${WHEEL_R}" class="wheel-rim"/>`,
-    );
-    // Spokes and the selection needle.
-    EMOTIONS.forEach((_, i) => {
-      const p = wheelPoint(i, WHEEL_R);
-      parts.push(`<line x1="${WHEEL_C}" y1="${WHEEL_C}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" class="wheel-spoke"/>`);
-    });
     const sel = EMOTIONS.findIndex((e) => e.key === expr);
-    if (sel >= 0) {
-      const tip = wheelPoint(sel, Math.max(WHEEL_DEADZONE, WHEEL_R * intensity));
-      parts.push(`<line x1="${WHEEL_C}" y1="${WHEEL_C}" x2="${tip.x.toFixed(1)}" y2="${tip.y.toFixed(1)}" class="wheel-needle"/>`);
-      parts.push(`<circle cx="${tip.x.toFixed(1)}" cy="${tip.y.toFixed(1)}" r="6" class="wheel-tip"/>`);
+
+    const needle = svg.querySelector<SVGLineElement>('.wheel-needle');
+    const tipEl = svg.querySelector<SVGCircleElement>('.wheel-tip');
+    if (needle && tipEl) {
+      if (sel >= 0) {
+        const tip = wheelPoint(sel, Math.max(WHEEL_DEADZONE, WHEEL_R * intensity));
+        needle.setAttribute('x2', tip.x.toFixed(1));
+        needle.setAttribute('y2', tip.y.toFixed(1));
+        needle.setAttribute('visibility', 'visible');
+        tipEl.setAttribute('cx', tip.x.toFixed(1));
+        tipEl.setAttribute('cy', tip.y.toFixed(1));
+        tipEl.setAttribute('visibility', 'visible');
+      } else {
+        needle.setAttribute('visibility', 'hidden');
+        tipEl.setAttribute('visibility', 'hidden');
+      }
     }
-    // Emotion nodes + labels.
-    EMOTIONS.forEach((e, i) => {
-      const p = wheelPoint(i, WHEEL_R);
-      const lp = wheelPoint(i, WHEEL_LABEL_R);
-      const on = e.key === expr ? ' is-on' : '';
-      parts.push(`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" class="wheel-node${on}"/>`);
-      parts.push(
-        `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" class="wheel-label${on}" text-anchor="middle" dominant-baseline="middle">${e.label}</text>`,
-      );
+
+    const want = sel >= 0 ? String(sel) : 'c';
+    svg.querySelectorAll('[data-e]').forEach((el) => {
+      el.classList.toggle('is-on', el.getAttribute('data-e') === want);
     });
-    // Neutral, at the centre.
-    const neutralOn = expr === 'neutral' ? ' is-on' : '';
-    parts.push(`<circle cx="${WHEEL_C}" cy="${WHEEL_C}" r="18" class="wheel-center${neutralOn}"/>`);
-    parts.push(
-      `<text x="${WHEEL_C}" y="${WHEEL_C}" class="wheel-clabel${neutralOn}" text-anchor="middle" dominant-baseline="middle">Neutral</text>`,
-    );
-    parts.push(`</svg>`);
-    wheelEl.innerHTML = parts.join('');
   }
 
   function renderGestures(): void {
@@ -520,7 +635,9 @@ export function createBuilder(root: HTMLElement, deps: BuilderDeps): BuilderApi 
       row.expression = EMOTIONS[i]!.key;
       row.intensity = Math.min(1, r / WHEEL_R);
     }
-    renderWheel();
+    // Selection only — the wheel's structure (thumbs) hasn't changed, and a
+    // full rebuild on every drag frame would churn nine rendered panels.
+    updateWheelSelection();
     renderPreview();
     updateBadge(row);
   }

@@ -15,7 +15,12 @@ Owner: **Onion Madder** (Kellye Strickland). Not affiliated with Microsoft.
 > mirrors (see Deploying, below).
 >
 > **You are on `mcomic96-app`.** This branch is the mobile app and nothing else.
-> Library fixes belong on `main` and reach here by merge, never the other way.
+> Library fixes belong on `main` and reach here by merge, never the other way —
+> and that flow is **not automatic**: a fix landing in `src/` on `main` reaches
+> this branch only when someone merges `main` in, so start an app session by
+> checking whether `main` is ahead. As of 2026-08-04 the app is **submitted to
+> Google Play and in review** — package `com.onionmadder.mcomic`, signed with a
+> key at `~/Keystore-Backups/mcomic96/`.
 > The sibling product is **Comic Court** (a webcomic with its own headless cast
 > and inference table), which was extracted into its own repo at
 > `projects/comic-court` once the two started diverging — it depends on this
@@ -77,6 +82,12 @@ cd android && ./gradlew bundleRelease     # signed AAB for Play
   `<Brk>`; the log parser emits one for a blank line), the solo-panel roll,
   establishing-shot policy (`rules.establishingShots`: `fold` default / `per-join`
   / `off`), one-scene-per-conversation backdrop choice, and assembling each panel.
+  **`MessageEvent.samePanel`** (2026-08-06) is the author's override on the
+  soft break rules: a flagged message stays in the open panel — waiving
+  one-balloon-per-character, the mid-panel expression change (first pose
+  wins), the fold's one-line opener and the solo roll. Only the layout trial
+  still splits. A chat log never needed it; an *authored* comic does — it is
+  how Comic Court's `(same)` hint and 4-panel packer work.
 - `placement.ts` — §4.3 greedy character placement + the Facing/Neighbors
   scoring function (who stands where, facing whom).
 - `balloons.ts` — §5.2 routing-channel balloon layout (`PlaceBalloons`,
@@ -126,6 +137,18 @@ cd android && ./gradlew bundleRelease     # signed AAB for Play
 **Reference code — `examples/`** (not shipped in the package):
 - `render-svg.ts` — SVG renderer: §5.3 balloon splines (via `balloon-shape.ts`),
   §6.1 halos (feMorphology aura), backdrops, the camera transform.
+  **Text containment is a property, not a hope**: the outline construction in
+  `balloon-shape.ts` guarantees every glyph stays inside the balloon drawn
+  around it, and `test/balloon-shape.test.ts` pins it with seeded sweeps.
+  Three ways it used to fail, all fixed 2026-08-06 and worth not reintroducing:
+  midpoint controls at the *mean* of two line widths sliced the wider line's
+  corners (floored to clear the wider line now); cap/tail shoulder insets grew
+  with balloon width (capped in margin terms now); and anti-amoeba rule 3
+  could hold a *wider* line down to an earlier narrower width (flat runs sit
+  at the widest requirement in the run now). Shout starbursts follow the
+  balloon box's **rectangle** with a spike pinned at every corner — valleys on
+  the inscribed ellipse clipped the corner glyphs of every multi-line shout,
+  because a rectangle's corners lie outside its inscribed ellipse.
 - `parse-log.ts` — plain-text log → events, incl. the `name (hint): text` per-
   line directions. `HINT_WORDS` drives the demo's help text.
 - `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
@@ -191,12 +214,66 @@ embedded name really is "Greg" upstream; we display it as-is.
 - **Demo is a self-contained *set* of co-located files** — `index.html`
   (generated shell), `app.js` (ESM bundle with all sprites/backdrops inlined via
   esbuild `define`), `style.css` (hand-edited source), and the font under
-  `assets/`. **No third-party or network requests** — it loads only its own
-  files. Because `app.js` is an ES module, the page must be **served over
-  http(s)** (Neocities, onionmadder, the dev server) — it will not run from
+  `assets/`. **The application makes no third-party or network requests** — all
+  sprites, backdrops and the font are inlined or co-located. The one exception is
+  deliberate and lives entirely in `demo/head-extra.html`: onionmadder.com's
+  GoatCounter tag, which is an external script. Delete that file and the build is
+  request-free again. Because `app.js` is an ES module, the page must be **served
+  over http(s)** (Neocities, onionmadder, the dev server) — it will not run from
   `file://`. `style.css` is the source of truth for styling — edit it directly,
   not `build.ts`. The public-site URLs live in `SITE_URL`/`REPO_URL` in
-  `demo/build.ts`.
+  `demo/build.ts`, and the social card in `SOCIAL_IMAGE` (empty ⇒ a text-only
+  `summary` twitter card instead of `summary_large_image`).
+- **`demo/head-extra.html` is deployment-specific `<head>`, injected verbatim.**
+  It holds onionmadder.com's analytics tag and a schema.org identity graph —
+  content that belongs to a *site*, not to this project. It exists because that
+  block used to be hand-patched onto the live `index.html`, where every deploy of
+  the generated file silently deleted it. **A fork that deploys the demo should
+  replace or delete this file**; nothing else needs touching, and the build says
+  which way it went on every run.
+
+## The demo's layout — and three CSS traps under it
+
+**The comic is never below the fold.** It used to be: stacked in source order it
+began at 872px, so on a 910px-tall window a visitor saw 38px of it and had to
+scroll to discover the page worked at all. Two arrangements fix that, and
+`build.ts` wraps the page in `.col-left` (editor + cast) and `.col-right`
+(comic) so both are one CSS rule each:
+
+- **≥1030px — side by side**, comic right, `.col-right` sticky so editing a line
+  never scrolls the result away. Comic at 177px; 4 of 6 panels visible at 1060px
+  wide, all 6 at 1440.
+- **<1030px — comic first**, order flipped to header → comic → editor → footer.
+  Comic at 204px on a 375px phone. It is a demo before it is a tool: a visitor
+  arrives to see whether a chat log really becomes a comic, and the answer
+  should be on screen. **Every child needs an explicit `order`** — `order: -1` on
+  the comic alone would hoist it above the site header, since the rest default
+  to 0.
+
+**The 1030px breakpoint is derived, not chosen.** A builder row needs ~679px to
+sit on one line, plus card padding; 730 (editor) + 26 (gap) + 230 (comic) + 44
+(page padding) = 1030. An earlier version picked a round 980 first and forced the
+tracks to fit, which produced 198px-tall builder rows.
+
+**Trap 1 — `1fr` is `minmax(auto, 1fr)`, and `auto` means min-content.**
+`.workspace` and `.builder` both used a bare `1fr`. Neither track would shrink
+below its content, so the page overflowed horizontally by **434px between 821px
+and 979px wide** — for months, on the live site. Use `minmax(0, 1fr)` for any
+track that must be allowed to shrink.
+
+**Trap 2 — a mobile overflow can lock out its own fix.** A builder row's fixed
+children need 679px in one line. That overflowed a 375px phone, so the browser
+widened the *layout viewport* to 735px to shrink-to-fit — and at 735px the
+`max-width: 680px` mobile rules stopped matching. The media query that would have
+solved it could never fire. `.brow` therefore wraps **unconditionally**, which is
+what breaks the loop, and wrapping is switched back off above 1030px where a row
+has room for one line. Symptom to recognise: `window.innerWidth` disagreeing with
+`document.documentElement.clientWidth`.
+
+**Trap 3 — measure bytes against bytes.** Comparing a served file's
+`(await r.text()).length` to a local byte count makes every non-ASCII character
+look like a missing byte; `index.html` read 18 "short" and `style.css` 26 purely
+from em-dashes. Compare `Buffer.length` to `Buffer.length`, or expect the delta.
 
 ## Deploying the demo (two mirrors)
 
@@ -208,16 +285,60 @@ NearlyFreeSpeech) at <https://onionmadder.com/comic-chat-composer/>, and
 mirror, so no per-host build is needed. (`SITE_URL` in `demo/build.ts` sets that
 primary URL.)
 
+One consequence of sharing one `index.html`: **the mirror carries the GoatCounter
+tag too**, so `.xyz` traffic counts into the same account as `.com`. That is
+right if you want total traffic across both. Separating them would mean a second
+GoatCounter site and a per-host build, which this setup deliberately does not do
+— so the alternative is simply not uploading `index.html` to `.xyz`.
+
+**`examples/demo/app.js` is a committed build artifact, and it goes stale in
+silence.** Nothing rebuilds it — not a test, not `typecheck`, not CI. A library
+fix in `src/` looks entirely finished on `main` while the demo, and both live
+mirrors, keep serving the old behaviour. It ran four commits behind for five days
+in August 2026, publishing a panel-composition bug whose fix was already sitting
+in `src/`.
+
+So when the demo's behaviour is in question, **compare the bundle's last commit
+against the sources'** rather than assuming they agree:
+
+```bash
+git log -1 --format='%h %ad %s' --date=short -- examples/demo/app.js
+git log --oneline --since="$(git log -1 --format=%cI -- examples/demo/app.js)" \
+  -- src/ examples/generate.ts examples/render-svg.ts examples/demo/main.ts
+```
+
+Anything listed by the second command is a change the live site does not have.
+
 `npm run deploy:stage` builds and copies the whole set (`index.html`, `app.js`,
 `style.css`, `assets/ChakraPetch-Regular.ttf`) into **every** local staging
-folder listed in `.stage-dir` (gitignored, one folder per line). Then publish
-each — **all four files, preserving `assets/`**, confirming overwrites, then
+folder listed in `.stage-dir` (gitignored, one folder per line).
+
+**The generated `index.html` is now the whole page — uploading it is safe.**
+It was not always: the live `.com` copy used to be hand-patched on the server
+with analytics and a schema.org block that `build.ts` did not produce, so every
+deploy of the generated file silently deleted them. The page still worked
+afterwards, which is why it went unnoticed for as long as it did. That content
+now lives in `demo/head-extra.html` and is injected at build time, so the
+generated file is a superset of what was on the server and there is nothing left
+to preserve by hand.
+
+Then publish each — **preserving `assets/`**, confirming overwrites, then
 hard-refresh (Ctrl+Shift+R):
 
 - **.com** — WinSCP to `/home/public/comic-chat-composer/`. Files need 644 /
-  dirs 755 if a 403 appears.
+  dirs 755 if a 403 appears. **Scriptable** (no manual drag): `WinSCP.com
+  /script=<file>` with the saved session
+  `onionmadder_onionmadder@ssh.nyc1.nearlyfreespeech.net` authenticates from
+  the stored password. One `put -permissions=644 <file> ./` **per file** —
+  never `put a b c`: WinSCP treats the *last* argument as the remote target,
+  and a multi-file put once wrote `app.js`'s content into the live
+  `style.css`.
 - **.xyz** — the Neocities uploader or CLI. Neocities is HTTPS with ES-module
-  support, so the split set runs there unchanged.
+  support, so the split set runs there unchanged. Uploads here are manual —
+  no CLI or API key lives on the machine.
+
+After either upload, verify bytes against bytes: fetch the live `app.js` with
+a cache-busting query and `cmp` it to `examples/demo/app.js`.
 
 ## What's built (the arc so far)
 
@@ -251,7 +372,15 @@ long-press to drag it into a new order, rearrange and flip the characters inside
 a frame, duplicate/insert beats → a **mobile layout pass** (overlay tray, portrait
 lock, hardware Back, native system-bar insets, an edit bar that sheds its chip
 rows under the keyboard — every one confirmed on a real device) → **M7 shipped**:
-R8 release build, signed upload key, and the full Play asset set.
+R8 release build, signed upload key, and the full Play asset set → **submitted
+to Google Play** (2026-08-04, in review) → merged `main`'s 2026-08-06 work in:
+a **balloon-containment audit** (a 6,000-case geometric sweep found 57% of
+spline balloons and 48% of shouts clipping text; three outline fixes +
+rectangle-based starbursts, pinned by seeded containment tests), the
+**pose-thumbnail emotion wheel** (each wheel node renders the active character
+striking that emotion, so picking a look is matching a face, not translating a
+vocabulary), and the **`samePanel` event flag** (the author's word beats the
+soft panel-break rules — the primitive an authored comic needs).
 
 ## The conversation builder — built, and what's left
 
@@ -273,7 +402,12 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
 2. **The emotion wheel** — 8 emotions on the perimeter (happy, laughing, coy,
    shouting, angry, sad, scared, bored), neutral at center, intensity = radius,
    click/drag. Maps to `expressionOverride`; `intensity` is captured on the row
-   but not yet consumed (see below).
+   but not yet consumed (see below). Each node is a **pose thumbnail** — the
+   active character rendered in that emotion (head-and-torso crop, gesture
+   pinned to neutral so the emotion's own look shows), cached per character;
+   the needle and selection rings update in place so dragging never rebuilds
+   nine rendered panels. With no character picked, the wheel falls back to the
+   labelled dots.
 3. **Live character preview** — the selected character reacting in the chosen
    look, via a synthetic one-character identity-camera panel through
    `renderPanelToSvg` (same sprite/halo resolution as a real panel).
@@ -304,8 +438,13 @@ compose; `builder.toScript()` still emits `name (hint): text` for the Script tab
   from `expressionOverride` into inference/rendering. This is the one item that
   needs `src/` changes (`pose.ts`/inference + the manifest), and has little
   visible payoff until the asset set has per-intensity sprites — deferred.
-- Seeds now procedurally generate (`generate.ts`, 23 templates) — ~903 distinct
-  comics per 1000 seeds — so repeats are rare. Add templates/pools to widen more.
+- Seeds now procedurally generate (`generate.ts`, **40 templates**) — measured
+  2026-08-04: **903 distinct comics per 1000 seeds, 8,626 per 10,000**. Repeats
+  are rare but the space is finite; the collision rate implies an effective pool
+  of roughly 5,000 distinct comics, i.e. ~125 variants per template. Both more
+  templates and richer filler pools widen it, roughly linearly. (The count in
+  this line read 23 for a while after it was 40 — if the number matters, count
+  `TEMPLATES` rather than trusting it.)
 
 ## The mComic '96 app (`app/`) — the mobile product
 
@@ -530,7 +669,7 @@ policy, R8 release build, signed upload key — below).
 
 **The only milestone left is M6 PWA** (installable/offline), and it is arguably
 redundant while the APK is the product — two distribution stories to maintain for
-one app. **The app is otherwise ready to upload.**
+one app. **The app was uploaded 2026-08-04 and is in Play review.**
 
 Note screenshots must come off a real phone: headless Chrome cannot render this
 app faithfully, so a captured screenshot of it would be a picture of the bug, not

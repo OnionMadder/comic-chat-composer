@@ -7,8 +7,11 @@ import {
   fitControlPoints,
   smoothHalfWidths,
   splineToPath,
+  starburstPoints,
   type BalloonShapeOptions,
+  type Point,
 } from '../examples/balloon-shape.ts';
+import { createRandom } from '../src/rng.ts';
 
 function options(overrides: Partial<BalloonShapeOptions> = {}): BalloonShapeOptions {
   return {
@@ -241,6 +244,166 @@ describe('fitControlPoints', () => {
   it('passes short polygons through untouched', () => {
     const two = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
     assert.deepEqual(fitControlPoints(two, 5), two);
+  });
+});
+
+describe('text containment — the outline must hold the text drawn inside it', () => {
+  // These constants mirror render-svg.ts: default approximate metrics
+  // (lineHeight 15), the renderer's outline margin, and where glyph ink sits
+  // within a line box (font-size 0.78 × lineHeight, baseline at 0.78).
+  const lineHeight = 15;
+  const margin = Math.max(6, lineHeight * 0.55);
+  const fontSize = lineHeight * 0.78;
+  const inkTop = 0.78 * lineHeight - 0.75 * fontSize;
+  const inkBottom = 0.78 * lineHeight + 0.22 * fontSize;
+
+  /** Sample the closed spline (same math as splineToPath) into a polygon. */
+  const samplePolygon = (points: readonly Point[], tension: number): Point[] => {
+    const n = points.length;
+    const at = (i: number): Point => points[((i % n) + n) % n]!;
+    const t = tension / (tension + 5);
+    const lerp = (a: Point, b: Point, u: number): Point => ({
+      x: a.x + (b.x - a.x) * u,
+      y: a.y + (b.y - a.y) * u,
+    });
+    const out: Point[] = [];
+    for (let i = 0; i < n; i++) {
+      const p0 = at(i - 1);
+      const p1 = at(i);
+      const p2 = at(i + 1);
+      const p3 = at(i + 2);
+      let b0: Point = { x: (p0.x + 4 * p1.x + p2.x) / 6, y: (p0.y + 4 * p1.y + p2.y) / 6 };
+      let b1: Point = { x: (2 * p1.x + p2.x) / 3, y: (2 * p1.y + p2.y) / 3 };
+      let b2: Point = { x: (p1.x + 2 * p2.x) / 3, y: (p1.y + 2 * p2.y) / 3 };
+      let b3: Point = { x: (p1.x + 4 * p2.x + p3.x) / 6, y: (p1.y + 4 * p2.y + p3.y) / 6 };
+      if (t > 0) {
+        b0 = lerp(b0, p1, t);
+        b3 = lerp(b3, p2, t);
+        b1 = lerp(b1, lerp(p1, p2, 1 / 3), t);
+        b2 = lerp(b2, lerp(p1, p2, 2 / 3), t);
+      }
+      for (let s = 0; s < 16; s++) {
+        const u = s / 16;
+        const m = 1 - u;
+        out.push({
+          x: m * m * m * b0.x + 3 * m * m * u * b1.x + 3 * m * u * u * b2.x + u * u * u * b3.x,
+          y: m * m * m * b0.y + 3 * m * m * u * b1.y + 3 * m * u * u * b2.y + u * u * u * b3.y,
+        });
+      }
+    }
+    return out;
+  };
+
+  /** Widest x-interval the polygon covers at height y. */
+  const xExtentAt = (poly: readonly Point[], y: number): { l: number; r: number } | null => {
+    const xs: number[] = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i]!;
+      const b = poly[(i + 1) % poly.length]!;
+      if ((a.y <= y && b.y > y) || (b.y <= y && a.y > y)) {
+        xs.push(a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x));
+      }
+    }
+    if (xs.length < 2) return null;
+    xs.sort((p, q) => p - q);
+    return { l: xs[0]!, r: xs[xs.length - 1]! };
+  };
+
+  /** Largest distance any line's glyph ink pokes outside the polygon. */
+  const worstOverflow = (
+    poly: readonly Point[],
+    lineWidths: readonly number[],
+    centreX: number,
+    textTop: number,
+  ): number => {
+    let worst = -Infinity;
+    for (let i = 0; i < lineWidths.length; i++) {
+      const lw = lineWidths[i]!;
+      const lineTop = textTop + i * lineHeight;
+      for (const y of [lineTop + inkTop, lineTop + lineHeight * 0.5, lineTop + inkBottom]) {
+        const ext = xExtentAt(poly, y);
+        if (!ext) return Infinity;
+        worst = Math.max(worst, ext.l - (centreX - lw / 2), centreX + lw / 2 - ext.r);
+      }
+    }
+    return worst;
+  };
+
+  const splineOverflow = (lineWidths: number[], withTail: boolean): number => {
+    const centreX = 200;
+    const textTop = 30;
+    const bottomY = textTop + lineWidths.length * lineHeight + margin;
+    const targets = balloonControlPoints({
+      lineWidths,
+      centreX,
+      textTop,
+      lineHeight,
+      margin,
+      tail: withTail
+        ? { fromX: centreX + 10, fromY: bottomY, toX: centreX + 40, toY: bottomY + 60, curve: 'cw' }
+        : null,
+    });
+    return worstOverflow(samplePolygon(fitControlPoints(targets, 5), 5), lineWidths, centreX, textTop);
+  };
+
+  it('keeps a wide line clear of the outline across a much narrower neighbour', () => {
+    // Regression: the midpoint control between two lines sat at the mean of
+    // their widths, slicing the wide line's corner glyphs whenever the widths
+    // differed by more than two margins.
+    assert.ok(splineOverflow([281, 76], false) <= 0.5);
+    assert.ok(splineOverflow([83, 292, 87], false) <= 0.5);
+  });
+
+  it('keeps a line held down by rule 3 clear of the outline', () => {
+    // Regression: rule 3 could flatten a *wider* line down to an earlier,
+    // narrower width, leaving its corner glyphs grazing (or outside) the
+    // outline. Halves of 86 and 70 differ by less than the margin threshold.
+    assert.ok(splineOverflow([42, 70, 86, 49], false) <= 0.5);
+  });
+
+  it('keeps wide first and last lines clear of the cap and tail shoulders', () => {
+    // Regression: the shoulder inset grew with the line width, so wide enough
+    // first/last lines had their corners cut by the cap (or the run down to
+    // the tail mouth).
+    assert.ok(splineOverflow([300], false) <= 0.5);
+    assert.ok(splineOverflow([300, 280], true) <= 0.5);
+  });
+
+  it('holds across a seeded sweep of line-width patterns, with and without tails', () => {
+    const rand = createRandom(20260806);
+    for (let trial = 0; trial < 500; trial++) {
+      const n = 1 + Math.floor(rand() * 5);
+      const widest = 60 + rand() * 240;
+      const widths = Array.from({ length: n }, () => Math.max(10, widest * (0.25 + 0.75 * rand())));
+      widths[Math.floor(rand() * n)] = widest;
+      const overflow = splineOverflow(widths, trial % 2 === 0);
+      assert.ok(
+        overflow <= 0.5,
+        `text outside outline by ${overflow.toFixed(1)}px for widths [${widths.map((w) => w.toFixed(0)).join(', ')}]`,
+      );
+    }
+  });
+
+  it('keeps every line of a shout inside the starburst', () => {
+    // Regression: valleys on the box's inscribed ellipse clipped the corner
+    // glyphs of every multi-line shout — a rectangle's corners lie outside its
+    // inscribed ellipse. Valleys now follow the rectangle itself.
+    const rand = createRandom(96);
+    for (let trial = 0; trial < 300; trial++) {
+      const n = 1 + Math.floor(rand() * 4);
+      const widest = 60 + rand() * 240;
+      const widths = Array.from({ length: n }, () => Math.max(10, widest * (0.25 + 0.75 * rand())));
+      widths[Math.floor(rand() * n)] = widest;
+
+      const w = Math.max(...widths) + margin * 2;
+      const h = n * lineHeight + margin * 2;
+      const poly = starburstPoints(0, 0, w, h);
+      const overflow = worstOverflow(poly, widths, w / 2, (h - n * lineHeight) / 2);
+      assert.ok(
+        overflow <= 0.5,
+        `shout text outside starburst by ${overflow.toFixed(1)}px for widths [${widths.map((v) => v.toFixed(0)).join(', ')}]`,
+      );
+    }
   });
 });
 
