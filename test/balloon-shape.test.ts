@@ -232,6 +232,24 @@ describe('fitControlPoints', () => {
     assert.ok(Math.abs(fitted - wanted) < 1, 'fitted spline should reach the boundary');
   });
 
+  it('interpolates a knot sitting at the polygon\'s own extremum', () => {
+    // Regression: control points were bounded to the *targets'* bounding box
+    // plus 4px. A B-spline is approximating, so interpolating a knot means
+    // placing its control point outside it — and for a knot at or near the
+    // extremum that lands beyond the box, where the clamp stopped it. The cap
+    // shoulder of a wide balloon is exactly such a knot, so it fell short and
+    // the outline ran inside the text. The bound now admits the overshoot the
+    // interpolation itself requires.
+    const targets = balloonControlPoints(
+      options({ lineWidths: [347.16], centreX: 209.99, textTop: 30, margin: 8.25 }),
+    );
+    const actual = curveAt(fitControlPoints(targets, 5), 5);
+    for (let i = 0; i < targets.length; i++) {
+      const miss = Math.hypot(actual[i]!.x - targets[i]!.x, actual[i]!.y - targets[i]!.y);
+      assert.ok(miss < 0.5, `knot ${i} fell ${miss.toFixed(2)}px short of its target`);
+    }
+  });
+
   it('leaves repeated points pinned so the tail tip stays sharp', () => {
     const targets = balloonControlPoints(
       options({ tail: { fromX: 195, fromY: 65, toX: 150, toY: 160, curve: 'ccw' } }),
@@ -248,48 +266,53 @@ describe('fitControlPoints', () => {
 });
 
 describe('text containment — the outline must hold the text drawn inside it', () => {
-  // These constants mirror render-svg.ts: default approximate metrics
-  // (lineHeight 15), the renderer's outline margin, and where glyph ink sits
-  // within a line box (font-size 0.78 × lineHeight, baseline at 0.78).
-  const lineHeight = 15;
-  const margin = Math.max(6, lineHeight * 0.55);
-  const fontSize = lineHeight * 0.78;
-  const inkTop = 0.78 * lineHeight - 0.75 * fontSize;
-  const inkBottom = 0.78 * lineHeight + 0.22 * fontSize;
+  // These mirror render-svg.ts: the renderer's outline margin, and where glyph
+  // ink sits within a line box (font-size 0.78 × lineHeight, baseline at 0.78).
+  // The two line heights are the two shipping callers — the app's approximate
+  // metrics (15) and the demo's (22) — because the geometry is not scale-free:
+  // the margin grows with the line height but the cap and tail insets are
+  // capped in absolute terms, so a bug can live at one and not the other.
+  const APP_LINE_HEIGHT = 15;
+  const DEMO_LINE_HEIGHT = 22;
+  const marginFor = (lineHeight: number): number => Math.max(6, lineHeight * 0.55);
+  const inkBandOf = (lineHeight: number): { top: number; bottom: number } => {
+    const fontSize = lineHeight * 0.78;
+    return {
+      top: 0.78 * lineHeight - 0.75 * fontSize,
+      bottom: 0.78 * lineHeight + 0.22 * fontSize,
+    };
+  };
 
-  /** Sample the closed spline (same math as splineToPath) into a polygon. */
-  const samplePolygon = (points: readonly Point[], tension: number): Point[] => {
-    const n = points.length;
-    const at = (i: number): Point => points[((i % n) + n) % n]!;
-    const t = tension / (tension + 5);
-    const lerp = (a: Point, b: Point, u: number): Point => ({
-      x: a.x + (b.x - a.x) * u,
-      y: a.y + (b.y - a.y) * u,
-    });
+  /**
+   * Flatten the path `balloonOutlinePath` actually emits.
+   *
+   * Sampling a curve re-derived from the control points is a *different* test.
+   * `fitControlPoints` does not preserve its targets as on-curve points, so the
+   * shipped outline can run inside a control polygon that satisfies the margin
+   * perfectly — which is precisely where a containment bug hides. So parse the
+   * `d` string, rounding and all, and measure that.
+   */
+  const flattenPath = (d: string, perSegment = 24): Point[] => {
     const out: Point[] = [];
-    for (let i = 0; i < n; i++) {
-      const p0 = at(i - 1);
-      const p1 = at(i);
-      const p2 = at(i + 1);
-      const p3 = at(i + 2);
-      let b0: Point = { x: (p0.x + 4 * p1.x + p2.x) / 6, y: (p0.y + 4 * p1.y + p2.y) / 6 };
-      let b1: Point = { x: (2 * p1.x + p2.x) / 3, y: (2 * p1.y + p2.y) / 3 };
-      let b2: Point = { x: (p1.x + 2 * p2.x) / 3, y: (p1.y + 2 * p2.y) / 3 };
-      let b3: Point = { x: (p1.x + 4 * p2.x + p3.x) / 6, y: (p1.y + 4 * p2.y + p3.y) / 6 };
-      if (t > 0) {
-        b0 = lerp(b0, p1, t);
-        b3 = lerp(b3, p2, t);
-        b1 = lerp(b1, lerp(p1, p2, 1 / 3), t);
-        b2 = lerp(b2, lerp(p1, p2, 2 / 3), t);
-      }
-      for (let s = 0; s < 16; s++) {
-        const u = s / 16;
-        const m = 1 - u;
+    const move = /M\s+(-?[\d.]+)\s+(-?[\d.]+)/.exec(d);
+    if (!move) return out;
+    let cur: Point = { x: Number(move[1]), y: Number(move[2]) };
+    out.push(cur);
+    const curve = /C\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)/g;
+    for (const m of d.matchAll(curve)) {
+      const b0 = cur;
+      const b1 = { x: Number(m[1]), y: Number(m[2]) };
+      const b2 = { x: Number(m[3]), y: Number(m[4]) };
+      const b3 = { x: Number(m[5]), y: Number(m[6]) };
+      for (let s = 1; s <= perSegment; s++) {
+        const u = s / perSegment;
+        const k = 1 - u;
         out.push({
-          x: m * m * m * b0.x + 3 * m * m * u * b1.x + 3 * m * u * u * b2.x + u * u * u * b3.x,
-          y: m * m * m * b0.y + 3 * m * m * u * b1.y + 3 * m * u * u * b2.y + u * u * u * b3.y,
+          x: k * k * k * b0.x + 3 * k * k * u * b1.x + 3 * k * u * u * b2.x + u * u * u * b3.x,
+          y: k * k * k * b0.y + 3 * k * k * u * b1.y + 3 * k * u * u * b2.y + u * u * u * b3.y,
         });
       }
+      cur = b3;
     }
     return out;
   };
@@ -309,19 +332,28 @@ describe('text containment — the outline must hold the text drawn inside it', 
     return { l: xs[0]!, r: xs[xs.length - 1]! };
   };
 
-  /** Largest distance any line's glyph ink pokes outside the polygon. */
+  /**
+   * Largest distance any line's glyph ink pokes outside the polygon.
+   *
+   * The band is swept rather than sampled at three heights: the outline is a
+   * curve, so the closest approach need not land on a line's top, middle or
+   * bottom.
+   */
   const worstOverflow = (
     poly: readonly Point[],
     lineWidths: readonly number[],
     centreX: number,
     textTop: number,
+    lineHeight: number,
   ): number => {
+    const ink = inkBandOf(lineHeight);
     let worst = -Infinity;
     for (let i = 0; i < lineWidths.length; i++) {
       const lw = lineWidths[i]!;
-      const lineTop = textTop + i * lineHeight;
-      for (const y of [lineTop + inkTop, lineTop + lineHeight * 0.5, lineTop + inkBottom]) {
-        const ext = xExtentAt(poly, y);
+      const top = textTop + i * lineHeight + ink.top;
+      const bottom = textTop + i * lineHeight + ink.bottom;
+      for (let s = 0; s <= 16; s++) {
+        const ext = xExtentAt(poly, top + ((bottom - top) * s) / 16);
         if (!ext) return Infinity;
         worst = Math.max(worst, ext.l - (centreX - lw / 2), centreX + lw / 2 - ext.r);
       }
@@ -329,11 +361,16 @@ describe('text containment — the outline must hold the text drawn inside it', 
     return worst;
   };
 
-  const splineOverflow = (lineWidths: number[], withTail: boolean): number => {
-    const centreX = 200;
+  const splineOverflow = (
+    lineWidths: number[],
+    withTail: boolean,
+    lineHeight = APP_LINE_HEIGHT,
+    centreX = 200,
+  ): number => {
+    const margin = marginFor(lineHeight);
     const textTop = 30;
     const bottomY = textTop + lineWidths.length * lineHeight + margin;
-    const targets = balloonControlPoints({
+    const d = balloonOutlinePath({
       lineWidths,
       centreX,
       textTop,
@@ -343,7 +380,7 @@ describe('text containment — the outline must hold the text drawn inside it', 
         ? { fromX: centreX + 10, fromY: bottomY, toX: centreX + 40, toY: bottomY + 60, curve: 'cw' }
         : null,
     });
-    return worstOverflow(samplePolygon(fitControlPoints(targets, 5), 5), lineWidths, centreX, textTop);
+    return worstOverflow(flattenPath(d), lineWidths, centreX, textTop, lineHeight);
   };
 
   it('keeps a wide line clear of the outline across a much narrower neighbour', () => {
@@ -369,18 +406,53 @@ describe('text containment — the outline must hold the text drawn inside it', 
     assert.ok(splineOverflow([300, 280], true) <= 0.5);
   });
 
+  it('draws the cap shoulder outside the text it caps, on the curve', () => {
+    // Regression: the shoulder was correct on the control polygon and wrong on
+    // the emitted curve. `fitControlPoints` bounded its control points to the
+    // targets' own extent, and interpolating a knot needs its control point
+    // pushed *past* that knot — so on a wide single-line balloon the clamp bound
+    // exactly at the shoulder and the curve came back ~7px short, inside the
+    // text. The polygon-only sweeps could not see it.
+    const options = {
+      lineWidths: [347.16],
+      centreX: 209.99,
+      textTop: 30,
+      lineHeight: APP_LINE_HEIGHT,
+      margin: 8.25,
+      tail: null,
+    };
+    const shoulder = balloonControlPoints(options)[1]!;
+    const onCurve = flattenPath(balloonOutlinePath(options), 1);
+
+    // The emitted curve must actually pass through the shoulder it was fitted to.
+    const nearest = Math.min(...onCurve.map((p) => Math.hypot(p.x - shoulder.x, p.y - shoulder.y)));
+    assert.ok(nearest < 0.5, `curve misses its own shoulder by ${nearest.toFixed(2)}px`);
+
+    // And that shoulder has to clear the text: half of 347.16 is 173.58.
+    assert.ok(
+      shoulder.x > 209.99 + 173.58,
+      `shoulder x=${shoulder.x.toFixed(2)} is inside the text edge 383.57`,
+    );
+  });
+
   it('holds across a seeded sweep of line-width patterns, with and without tails', () => {
-    const rand = createRandom(20260806);
-    for (let trial = 0; trial < 500; trial++) {
-      const n = 1 + Math.floor(rand() * 5);
-      const widest = 60 + rand() * 240;
-      const widths = Array.from({ length: n }, () => Math.max(10, widest * (0.25 + 0.75 * rand())));
-      widths[Math.floor(rand() * n)] = widest;
-      const overflow = splineOverflow(widths, trial % 2 === 0);
-      assert.ok(
-        overflow <= 0.5,
-        `text outside outline by ${overflow.toFixed(1)}px for widths [${widths.map((w) => w.toFixed(0)).join(', ')}]`,
-      );
+    // Both shipping line heights, and out to the widest line a 400px panel can
+    // hold — the old sweep stopped at 300px and at lineHeight 15, which is why
+    // the cap-shoulder shortfall above lived here unnoticed.
+    for (const lineHeight of [APP_LINE_HEIGHT, DEMO_LINE_HEIGHT]) {
+      const rand = createRandom(20260806);
+      for (let trial = 0; trial < 500; trial++) {
+        const n = 1 + Math.floor(rand() * 5);
+        const widest = 60 + rand() * 320;
+        const widths = Array.from({ length: n }, () => Math.max(10, widest * (0.25 + 0.75 * rand())));
+        widths[Math.floor(rand() * n)] = widest;
+        // Vary the centre so the outline is never measured only on whole pixels.
+        const overflow = splineOverflow(widths, trial % 2 === 0, lineHeight, 200 + rand());
+        assert.ok(
+          overflow <= 0.5,
+          `text outside outline by ${overflow.toFixed(1)}px at lineHeight ${lineHeight} for widths [${widths.map((w) => w.toFixed(0)).join(', ')}]`,
+        );
+      }
     }
   });
 
@@ -388,21 +460,24 @@ describe('text containment — the outline must hold the text drawn inside it', 
     // Regression: valleys on the box's inscribed ellipse clipped the corner
     // glyphs of every multi-line shout — a rectangle's corners lie outside its
     // inscribed ellipse. Valleys now follow the rectangle itself.
-    const rand = createRandom(96);
-    for (let trial = 0; trial < 300; trial++) {
-      const n = 1 + Math.floor(rand() * 4);
-      const widest = 60 + rand() * 240;
-      const widths = Array.from({ length: n }, () => Math.max(10, widest * (0.25 + 0.75 * rand())));
-      widths[Math.floor(rand() * n)] = widest;
+    for (const lineHeight of [APP_LINE_HEIGHT, DEMO_LINE_HEIGHT]) {
+      const margin = marginFor(lineHeight);
+      const rand = createRandom(96);
+      for (let trial = 0; trial < 300; trial++) {
+        const n = 1 + Math.floor(rand() * 4);
+        const widest = 60 + rand() * 320;
+        const widths = Array.from({ length: n }, () => Math.max(10, widest * (0.25 + 0.75 * rand())));
+        widths[Math.floor(rand() * n)] = widest;
 
-      const w = Math.max(...widths) + margin * 2;
-      const h = n * lineHeight + margin * 2;
-      const poly = starburstPoints(0, 0, w, h);
-      const overflow = worstOverflow(poly, widths, w / 2, (h - n * lineHeight) / 2);
-      assert.ok(
-        overflow <= 0.5,
-        `shout text outside starburst by ${overflow.toFixed(1)}px for widths [${widths.map((v) => v.toFixed(0)).join(', ')}]`,
-      );
+        const w = Math.max(...widths) + margin * 2;
+        const h = n * lineHeight + margin * 2;
+        const poly = starburstPoints(0, 0, w, h);
+        const overflow = worstOverflow(poly, widths, w / 2, (h - n * lineHeight) / 2, lineHeight);
+        assert.ok(
+          overflow <= 0.5,
+          `shout text outside starburst by ${overflow.toFixed(1)}px at lineHeight ${lineHeight} for widths [${widths.map((v) => v.toFixed(0)).join(', ')}]`,
+        );
+      }
     }
   });
 });

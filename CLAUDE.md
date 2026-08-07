@@ -127,6 +127,29 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   balloon box's **rectangle** with a spike pinned at every corner — valleys on
   the inscribed ellipse clipped the corner glyphs of every multi-line shout,
   because a rectangle's corners lie outside its inscribed ellipse.
+  A fourth, fixed 2026-08-07: those three fixed the control *polygon*, and the
+  **fitted curve** did not follow it. `fitControlPoints` bounded its control
+  points to the targets' bounding box plus 4px, but interpolating a knot means
+  pushing its control point *past* that knot — so at a knot on the polygon's
+  own extremum, which is exactly what a cap shoulder is, the clamp bound and
+  the curve came back inside. On a wide single-line balloon the top shoulder
+  landed ~7px in from its target, inside the text it was drawn to clear. The
+  bound is now the extent of the **solution** — one Jacobi pass of the knot
+  equation — which admits that legitimate overshoot and still refuses a spike
+  (worst excursion past the target polygon went 6.6→7.2px, where a spike is
+  tens). Over 4,000 seeded cases: worst knot miss 16.1px → 0.002px, and
+  225/4000 clipping cases at the app's parameters → 0.
+  **Two things to know before measuring this again.** Score against the
+  *flattened emitted path* — not the control polygon, and not a curve
+  re-derived from the control points. And **the model decides the answer**:
+  against real glyph ink (ascent 0.75em, descent 0.22em) even the unfixed code
+  was narrowly contained, and the clipping only shows against the full line
+  box; the fix earns its place by restoring several px of designed margin the
+  fit was silently eating. What let this hide was never the polygon-vs-curve
+  distinction the tests were once accused of — they always sampled the curve —
+  but **coverage**: the sweep stopped at 300px lines, at lineHeight 15, on a
+  whole-pixel centre. It now runs both shipping line heights, out to the widest
+  line a 400px panel can hold, on a jittered centre.
 - `parse-log.ts` — plain-text log → events, incl. the `name (hint): text` per-
   line directions. `HINT_WORDS` drives the demo's help text.
 - `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
@@ -349,12 +372,17 @@ by seeded containment tests) → the **pose-thumbnail emotion wheel** (each
 wheel node renders the active character striking that emotion, so picking a
 look is matching a face, not translating a vocabulary) → the **`samePanel`
 event flag** (the author's word beats the soft panel-break rules — the
-primitive under Comic Court's `(same)` hint and its 4-panel format).
+primitive under Comic Court's `(same)` hint and its 4-panel format) → and the
+**containment guarantee carried from the control polygon onto the fitted
+curve** (the fitting's own bound was stopping it reaching the boundary it was
+fitted to — see `render-svg.ts` above).
 
-**mComic '96 has none of the 2026-08-06 work** — the balloon-containment
-fixes, the pose-thumbnail wheel and `samePanel` all landed on `main` after
-the `mcomic96-app` branch last merged it. First act of any mComic session:
-merge `main` (mind the `launch.json` collision — see memory) and rebuild.
+**Check what `mcomic96-app` is missing at the start of any mComic session.**
+It merged the 2026-08-06 work (containment fixes, pose-thumbnail wheel,
+`samePanel`) on 2026-08-07, but nothing keeps it current — a library fix on
+`main` reaches the app only when someone merges, and the 2026-08-07 fitting
+fix is already on the far side of that line. Merge `main` (mind the
+`launch.json` collision — see memory) and rebuild.
 
 ## The conversation builder — built, and what's left
 
