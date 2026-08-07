@@ -201,6 +201,9 @@ figcaption { display: flex; align-items: center; gap: 8px; margin-top: 9px; font
 .wheel-node.is-on { fill: var(--cyan); stroke: var(--cyan) }
 .wheel-label { fill: var(--dim); font: 700 10px var(--display); text-transform: uppercase; letter-spacing: .4px }
 .wheel-label.is-on { fill: var(--cyan) }
+/* Selection ring around a pose-thumbnail node. */
+.wheel-ring { fill: none; stroke: var(--border-sharp); stroke-width: 1.5 }
+.wheel-ring.is-on { stroke: var(--cyan); stroke-width: 2.5 }
 .wheel-center { fill: #000; stroke: var(--border-sharp); stroke-width: 1.5 }
 .wheel-center.is-on { fill: var(--violet); stroke: var(--violet) }
 .wheel-clabel { fill: var(--dim); font: 700 9px var(--display); text-transform: uppercase; letter-spacing: .4px; pointer-events: none }
