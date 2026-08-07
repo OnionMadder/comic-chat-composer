@@ -589,6 +589,31 @@ affiliated" + MIT-art-attribution line). Branch: **`mcomic96-app`**.
   exception — it *is* a recompose, via `repaintAll('preserve')`, which keeps the
   scroll position so a change doesn't yank you to the newest panel.
   (`repaintAll('newest')` is for a fresh comic, undo, or a seed roll.)
+- **`repaintAll` is incremental, and had to be** (2026-08-07). The old version
+  re-rendered *every* panel through `renderPanelToSvg` — which embeds a
+  ~100KB sprite/backdrop data URI per panel — and rewrote the whole comic's
+  `innerHTML`, to change the one panel an edit touched. At 28 panels that was
+  21ms of blocked main thread and it grew linearly with the comic; on a phone
+  (3–4× the CPU cost) that is a visible hitch on every Update. Now each panel
+  carries a cheap **signature** (`panelSig` = index + `JSON.stringify(panel)`;
+  a `Panel` is pure geometry with *no* sprite bytes, so stringifying it is far
+  cheaper than rendering it), and a repaint re-renders **only** the panels whose
+  signature changed and writes **only** those DOM nodes. Measured: editing any
+  panel of an 89-panel comic is ~5ms and touches exactly one `<figure>`,
+  regardless of comic length or edit position. Two things to hold onto:
+  - **The composer's perturbation RNG is one stream consumed across the whole
+    comic**, so an edit that changes how many random draws happen before later
+    panels (often an *early* edit) re-wobbles every downstream balloon — those
+    panels genuinely differ and do re-render. That case falls back to a single
+    bulk `innerHTML` write past a ~half-the-panels threshold (many per-node
+    `outerHTML` swaps are slower than one bulk write), so it costs the same as
+    the old always-rebuild — never worse. Reseeding per-panel would fix the
+    ripple but lives in `src/` and would churn the golden master; not done here.
+  - **`paintedHtml`/`paintedSig` are the record of what is in the DOM** and must
+    stay in lockstep with it: `appendPanels` pushes to both, the empty-state
+    path clears both, and `reconcilePanels` only ever writes what the diff says
+    changed. Panel tap/hold is delegated on `#comic`, so replacing a figure's
+    `outerHTML` doesn't drop listeners.
 
 ### Mobile layout — the screen budget
 

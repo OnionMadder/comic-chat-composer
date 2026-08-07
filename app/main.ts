@@ -467,10 +467,31 @@ function capToPanels(events: ChatEvent[], castIds: string[], scene: string, seed
 // ---- Painting the comic ---------------------------------------------------
 
 let currentPanels: Panel[] = [];
-// How many panels are already in the DOM. New lines only ever *append* beyond
-// this, so an already-drawn panel is never re-rendered — the comic is a
-// transcript, not a live-recomposed document.
-let renderedCount = 0;
+// The `panelHtml` string for each panel currently in the DOM, one per `.panel`
+// figure in order — the record of what is actually painted. `paintedHtml[i]`
+// is the exact markup of `comic.children[i]`, and `paintedSig[i]` is a cheap
+// signature of the panel it was rendered from (its index + geometry).
+//
+// Together they do two jobs. As a *count* (`paintedHtml.length`) this is how
+// many panels are drawn, so a new line only ever appends beyond it — an
+// already-drawn panel is never re-rendered (the comic is a transcript, not a
+// live-recomposed document). As *content + signature* they let a full repaint
+// (an edit) reuse both the rendered markup and the DOM node of every panel
+// whose geometry is unchanged, so only the panels that actually differ pay for
+// `renderPanelToSvg` (the expensive part — it embeds a sprite/backdrop data
+// URI per panel) or a DOM write. See `repaintAll`.
+let paintedHtml: string[] = [];
+let paintedSig: string[] = [];
+
+/**
+ * A cheap key that fully determines a panel's rendered markup: its index (which
+ * the markup embeds as `data-panel-idx` and the `clip-<i>` id) plus its
+ * geometry. A `Panel` is pure data — numbers, strings, small arrays, and *no*
+ * sprite bytes (those are looked up at render time) — so stringifying it is far
+ * cheaper than rendering it, which is the whole point. Same signature at the
+ * same index ⇒ byte-identical markup ⇒ safe to reuse.
+ */
+const panelSig = (p: Panel, idx: number): string => `${idx}|${JSON.stringify(p)}`;
 
 const EMPTY_HTML = `<div class="empty"><p>Tap a character, type a line, hit send.</p>
   <p class="dim">Your conversation draws itself into a comic, panel by panel.</p></div>`;
@@ -651,7 +672,14 @@ const scrollToNewest = (): void => {
 };
 
 /**
- * Full rebuild — fresh comic, undo, or an edit.
+ * Recompose and repaint — fresh comic, undo, or an edit.
+ *
+ * Every panel is recomposed (correctness is not negotiable: an edit can ripple
+ * through placement, samePanel gluing, reconciliation), but only the panels
+ * whose *markup* actually changed are written to the DOM. Editing one panel of
+ * a long comic used to re-render every one of them — 21ms of blocked main
+ * thread at 28 panels, and it grew with the comic; now it is the cost of the
+ * one panel that changed. See `reconcilePanels`.
  *
  * - `'newest'`: scroll to the newest panel (the default; correct for send, undo,
  *   fresh seed).
@@ -662,23 +690,93 @@ function repaintAll(scroll: 'newest' | 'preserve' = 'newest'): void {
   const comic = $('comic');
   const savedTop = comic.scrollTop;
   const panels = composePanels();
-  comic.innerHTML = panels.length ? panels.map((p, i) => panelHtml(p, i)).join('') : EMPTY_HTML;
-  renderedCount = panels.length;
+  if (!panels.length) {
+    comic.innerHTML = EMPTY_HTML;
+    paintedHtml = [];
+    paintedSig = [];
+    return;
+  }
+
+  // Render only the panels whose signature changed; reuse the exact markup of
+  // the rest. Reused panels never call `renderPanelToSvg` — the expensive step
+  // — and `reconcilePanels` then skips their DOM write too, because the reused
+  // string is `===` the painted one.
+  const prevHtml = paintedHtml;
+  const prevSig = paintedSig;
+  const nextHtml: string[] = new Array(panels.length);
+  const nextSig: string[] = new Array(panels.length);
+  for (let i = 0; i < panels.length; i++) {
+    const sig = panelSig(panels[i]!, i);
+    nextSig[i] = sig;
+    nextHtml[i] = sig === prevSig[i] ? prevHtml[i]! : panelHtml(panels[i]!, i);
+  }
+
+  reconcilePanels(comic, nextHtml);
+  paintedHtml = nextHtml;
+  paintedSig = nextSig;
+
   if (editingPanel >= 0) highlightEditingPanel();
-  if (!panels.length) return;
   if (scroll === 'preserve') comic.scrollTop = savedTop;
   else scrollToNewest();
+}
+
+/**
+ * Patch the comic's `.panel` figures to match `next`, touching the DOM only
+ * where the markup differs from what is painted.
+ *
+ * Positional diff: `next[i]` against `paintedHtml[i]`. The dominant edit — a
+ * panel's text, pose, facing, membership, or arrangement — changes one panel's
+ * markup and leaves its neighbours and the panel count untouched, so exactly
+ * one `<figure>` is replaced. Verbs that change the count (insert, duplicate,
+ * delete) shift `data-panel-idx` on the panels after the edit and so re-render
+ * that tail — bounded by the old full-rebuild cost, never worse.
+ *
+ * When most panels changed (a fresh seed, or an early edit that ripples through
+ * the composer's shared perturbation stream), a single `innerHTML` write beats
+ * a swarm of per-node `outerHTML` swaps, so fall back to that past a threshold.
+ *
+ * Replacing a figure's `outerHTML` is safe because the tap/hold listeners are
+ * delegated on `#comic`, not bound per panel, and the new node keeps the same
+ * position (and gets a correct `data-panel-idx`).
+ */
+function reconcilePanels(comic: HTMLElement, next: string[]): void {
+  const old = paintedHtml;
+  // Coming from empty (or the very first paint): nothing to diff, one write.
+  if (old.length === 0) {
+    comic.innerHTML = next.join('');
+    return;
+  }
+  const shared = Math.min(old.length, next.length);
+  const changed: number[] = [];
+  for (let i = 0; i < shared; i++) if (next[i] !== old[i]) changed.push(i);
+
+  // Past ~half the panels, one bulk write is cheaper than many node swaps.
+  if (changed.length + Math.abs(next.length - old.length) > next.length / 2) {
+    comic.innerHTML = next.join('');
+    return;
+  }
+
+  for (const i of changed) comic.children[i]!.outerHTML = next[i]!;
+  if (next.length > old.length) {
+    let extra = '';
+    for (let i = old.length; i < next.length; i++) extra += next[i];
+    comic.insertAdjacentHTML('beforeend', extra);
+  } else if (next.length < old.length) {
+    for (let i = old.length - 1; i >= next.length; i--) comic.children[i]!.remove();
+  }
 }
 
 /** Append only the panels a new line produced. Existing panels are untouched. */
 function appendPanels(): void {
   const comic = $('comic');
   const panels = composePanels();
-  if (renderedCount === 0) comic.innerHTML = ''; // clear the empty-state message
-  for (let i = renderedCount; i < panels.length; i++) {
-    comic.insertAdjacentHTML('beforeend', panelHtml(panels[i]!, i));
+  if (paintedHtml.length === 0) comic.innerHTML = ''; // clear the empty-state message
+  for (let i = paintedHtml.length; i < panels.length; i++) {
+    const html = panelHtml(panels[i]!, i);
+    comic.insertAdjacentHTML('beforeend', html);
+    paintedHtml.push(html);
+    paintedSig.push(panelSig(panels[i]!, i));
   }
-  renderedCount = panels.length;
   if (panels.length) scrollToNewest();
 }
 
