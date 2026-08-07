@@ -149,14 +149,29 @@ cd android && ./gradlew bundleRelease     # signed AAB for Play
   balloon box's **rectangle** with a spike pinned at every corner — valleys on
   the inscribed ellipse clipped the corner glyphs of every multi-line shout,
   because a rectangle's corners lie outside its inscribed ellipse.
-  **The guarantee holds on the control polygon, not yet on the fitted curve.**
-  `fitControlPoints` does not preserve polygon points as on-curve points; near
-  the caps it pulls the shoulder inward, back inside the text. Measured by
-  flattening the *emitted path* and testing the text rect: ~2% of cases at the
-  app's parameters (worst 1.0px) and ~5% at the demo's (worst 2.3px) — small,
-  but the same defect class the audit set out to end, and the existing tests
-  miss it because they check the polygon. Fix belongs on `main`; score any
-  attempt against the flattened path, not the polygon.
+  A fourth, fixed 2026-08-07: those three fixed the control *polygon*, and the
+  **fitted curve** did not follow it. `fitControlPoints` bounded its control
+  points to the targets' bounding box plus 4px, but interpolating a knot means
+  pushing its control point *past* that knot — so at a knot on the polygon's
+  own extremum, which is exactly what a cap shoulder is, the clamp bound and
+  the curve came back inside. On a wide single-line balloon the top shoulder
+  landed ~7px in from its target, inside the text it was drawn to clear. The
+  bound is now the extent of the **solution** — one Jacobi pass of the knot
+  equation — which admits that legitimate overshoot and still refuses a spike
+  (worst excursion past the target polygon went 6.6→7.2px, where a spike is
+  tens). Over 4,000 seeded cases: worst knot miss 16.1px → 0.002px, and
+  225/4000 clipping cases at the app's parameters → 0.
+  **Two things to know before measuring this again.** Score against the
+  *flattened emitted path* — not the control polygon, and not a curve
+  re-derived from the control points. And **the model decides the answer**:
+  against real glyph ink (ascent 0.75em, descent 0.22em) even the unfixed code
+  was narrowly contained, and the clipping only shows against the full line
+  box; the fix earns its place by restoring several px of designed margin the
+  fit was silently eating. What let this hide was never the polygon-vs-curve
+  distinction the tests were once accused of — they always sampled the curve —
+  but **coverage**: the sweep stopped at 300px lines, at lineHeight 15, on a
+  whole-pixel centre. It now runs both shipping line heights, out to the widest
+  line a 400px panel can hold, on a jittered centre.
 - `parse-log.ts` — plain-text log → events, incl. the `name (hint): text` per-
   line directions. `HINT_WORDS` drives the demo's help text.
 - `corpus.ts` — 47 hand-written conversations (incl. 3–4-person group chats).
@@ -392,7 +407,12 @@ soft panel-break rules — the primitive an authored comic needs) → and **spen
 all three in the app** (2026-08-07): the wheel's nodes became pose thumbnails
 and the wheel grew to fill its slot, `samePanel` made the app's groups binding
 so a character can finally take two balloons in one frame, and the walkthrough
-learned to name `+ line`, the verb it had been silently omitting.
+learned to name `+ line`, the verb it had been silently omitting → made the
+app's **`repaintAll` incremental** (an edit re-renders only the panels whose
+geometry changed, ~5ms flat instead of 21ms and climbing with comic length) →
+merged `main`'s **fitting fix** (the containment guarantee now reaches from the
+control polygon onto the fitted curve — the fit's own bound had been stopping
+it reaching the boundary it was fitted to; see `render-svg.ts` above).
 
 ## The conversation builder — built, and what's left
 

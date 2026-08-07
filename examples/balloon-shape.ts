@@ -359,12 +359,38 @@ export function fitControlPoints(
   );
 
   // Fitting is allowed to push control points outside the target polygon, but
-  // only so far. Bound the whole thing to the targets' extent plus a little
-  // slack, so a control point next to a sharp contour change can never spur out
-  // into a spike. Pinned points (the tail tip) are excluded — they may sit well
-  // below the body and define the extent themselves.
-  const freeXs = targets.filter((_, i) => !pinned[i]).map((p) => p.x);
-  const freeYs = targets.filter((_, i) => !pinned[i]).map((p) => p.y);
+  // only so far, so a control point next to a sharp contour change can never
+  // spur out into a spike. Pinned points (the tail tip) are excluded — they may
+  // sit well below the body and define the extent themselves.
+  //
+  // The bound has to be the extent of the *solution*, not of the targets. A
+  // B-spline is approximating, so interpolating a knot always means placing its
+  // control point outside the knot; a knot at the polygon's own extremum —
+  // which is exactly what a cap shoulder is — therefore needs a control point
+  // beyond that extremum. Bounding by the targets plus a flat few pixels made
+  // the clamp bind on precisely those points, and the curve fell short of the
+  // boundary it was being fitted to: on a wide single-line balloon the top
+  // shoulder came back ~7px inside its target, inside the text it was drawn to
+  // clear. Solving one Jacobi pass of the same knot equation gives a
+  // first-order estimate of where the control points have to live, which is a
+  // bound that admits the legitimate overshoot while still refusing a spike.
+  //
+  // knot_i = neighbourWeight·(p_{i-1} + p_{i+1}) + selfWeight·p_i, the two
+  // weights summing to 1, so inverting for p_i against the targets' own
+  // neighbours is one multiply per point.
+  const neighbourWeight = (1 - t) / 6;
+  const selfWeight = (2 + t) / 3;
+  const required = targets.map((p, i) => {
+    const prev = targets[idx(i - 1)]!;
+    const next = targets[idx(i + 1)]!;
+    return {
+      x: (p.x - neighbourWeight * (prev.x + next.x)) / selfWeight,
+      y: (p.y - neighbourWeight * (prev.y + next.y)) / selfWeight,
+    };
+  });
+  const bounding = [...targets, ...required].filter((_, i) => !pinned[i % n]);
+  const freeXs = bounding.map((p) => p.x);
+  const freeYs = bounding.map((p) => p.y);
   const slack = 4;
   const minX = Math.min(...freeXs) - slack;
   const maxX = Math.max(...freeXs) + slack;
