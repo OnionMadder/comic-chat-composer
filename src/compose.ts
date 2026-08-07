@@ -122,6 +122,8 @@ interface PendingUtterance {
   /** A facing the author fixed by hand, if they did. */
   facing?: Facing;
   continued: boolean;
+  /** Waive the soft break rules for this beat (see MessageEvent.samePanel). */
+  samePanel?: boolean;
 }
 
 interface PanelState {
@@ -505,8 +507,14 @@ export function compose(input: ComposeInput): Panel[] {
     s.utterances.push(u);
     s.addresseesOf.set(u.author, u.addressees);
     if (u.facing) s.facingOf.set(u.author, u.facing);
-    s.expressionOf.set(u.author, u.pose.expression);
-    s.gestureOf.set(u.author, u);
+    // A glued beat cannot re-pose a character already drawn — one body per
+    // character per panel — so the first pose wins and the new balloon simply
+    // joins it. Without the guard, waiving the expression-change break would
+    // let the later beat silently redraw the earlier one's acting.
+    if (!(u.samePanel && s.expressionOf.has(u.author))) {
+      s.expressionOf.set(u.author, u.pose.expression);
+      s.gestureOf.set(u.author, u);
+    }
   };
 
   /**
@@ -515,6 +523,13 @@ export function compose(input: ComposeInput): Panel[] {
    */
   const requiresBreakBefore = (u: PendingUtterance): boolean => {
     if (state.utterances.length === 0) return false;
+
+    // The author's word beats every soft rule: a beat marked samePanel stays
+    // with the open panel. Only the layout trial (below, in pushUtterance)
+    // can still split it — a balloon that cannot physically fit must go
+    // somewhere, and an unreadable panel is worse than a broken run.
+    if (u.samePanel) return false;
+
     if (state.solo) return true;
 
     // A folded establishing shot carries exactly one line — its opening beat —
@@ -593,6 +608,8 @@ export function compose(input: ComposeInput): Panel[] {
       addressees,
       facing: msg.facing,
       continued,
+      // Split fragments inherit the flag; the layout trial keeps them honest.
+      samePanel: msg.samePanel,
     };
   };
 

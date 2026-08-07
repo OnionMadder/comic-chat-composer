@@ -96,6 +96,16 @@ export interface MessageEvent {
    * back towards the room.
    */
   facing?: Facing;
+  /**
+   * Keep this message in the panel already open, waiving the soft
+   * panel-break rules (one balloon per character, no mid-panel expression
+   * change, the folded establishing shot's single line, the solo roll).
+   * The layout trial still applies — a balloon that genuinely cannot fit
+   * still opens a new panel, because an unreadable panel is worse than a
+   * broken run. An expression change is kept by *not* re-posing: the
+   * character keeps the pose they were first drawn with.
+   */
+  samePanel?: boolean;
   /** Monotonic ordering key. Not interpreted beyond ordering. */
   at: number;
 }
