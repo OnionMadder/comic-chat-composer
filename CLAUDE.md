@@ -746,7 +746,21 @@ policy, R8 release build, signed upload key — below).
 
 **The only milestone left is M6 PWA** (installable/offline), and it is arguably
 redundant while the APK is the product — two distribution stories to maintain for
-one app. **The app was uploaded 2026-08-04 and is in Play review.**
+one app. **The app was uploaded 2026-08-04 and was APPROVED and went live on Google Play
+on 2026-08-08 — the first release is out.**
+
+**▶ NEXT (owner's ask, 2026-08-08).** Now that release 1 is live on Play:
+1. **Update the build for the next release.** Bump the Android `versionCode`
+   (it must strictly increment for every Play upload) and `versionName`, then
+   rebuild the signed release through the `build:release` path (R8 build, signed
+   with the release keystore — see Release signing) and prepare the next Play
+   upload. Do this first so there is a fresh, uploadable build to iterate on.
+2. **Then a polish / value pass** — the next round of user-facing update work for
+   release 2. Scope to be decided at the top of that session; look to the
+   "(built)" features above and to anything real-device use surfaces now that the
+   app is installable from Play. Goal is update/polish/added value, not new
+   distribution surfaces (M6 PWA stays deferred as redundant while the APK is the
+   product).
 
 Note screenshots must come off a real phone: headless Chrome cannot render this
 app faithfully, so a captured screenshot of it would be a picture of the bug, not
