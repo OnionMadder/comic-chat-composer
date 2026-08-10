@@ -30,6 +30,22 @@ describe('inferPose', () => {
     assert.equal(inferPose('BRB').gesture, 'wave');
   });
 
+  it('reads written-out laughter', () => {
+    // The commonest written laugh of all, and one the shipped table never
+    // covered — it had acronyms and `HEHE`, but nothing for "haha".
+    assert.equal(inferPose('haha').expression, 'laughing');
+    assert.equal(inferPose('hahaha, no').expression, 'laughing');
+    assert.equal(inferPose('bwahahaha').expression, 'laughing');
+    assert.equal(inferPose('Ha ha ha, scaredy cat!').expression, 'laughing');
+    // A doubled stem is the test: one "ha" is as often dismissive as amused.
+    assert.equal(inferPose('ha').expression, 'neutral');
+    assert.equal(inferPose('ha, right').expression, 'neutral');
+    // ...and it outranks the all-caps rule the same way `LOL THAT RULES` does.
+    assert.equal(inferPose('HAHAHA STOP IT').expression, 'laughing');
+    // Nothing in the shipped table matched it — that gap is what these add.
+    assert.equal(inferPose('hahaha', { rules: SHIPPED_POSE_RULES }).expression, 'neutral');
+  });
+
   it('does not read a bare caps acronym as shouting', () => {
     // "LOL" used to trip the all-caps check, overriding the laughing
     // expression it had just matched — and starbursting the balloon.

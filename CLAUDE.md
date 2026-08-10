@@ -81,7 +81,9 @@ npm run deploy:stage  # npm run demo, then copy the set to the local staging dir
   `SHIPPED_POSE_RULES` is Microsoft's table transcribed verbatim (laughter 11 >
   emoticons 10 > shouting 9 > "are you" 8 > "i'm" 7 > greetings 5–2 — which
   answers the priority question the paper leaves open); `EXTRA_POSE_RULES` adds
-  emoji, later acronyms, more openers, and rules for angry/scared/bored, which
+  emoji, later acronyms, more openers, written-out laughter (`haha` — the
+  shipped table has `LOL`/`ROTFL`/`HEHE` and nothing for the commonest written
+  laugh), and rules for angry/scared/bored, which
   **no released version could trigger from text at all**. Callers can pass
   their own table via `inferPose(text, { rules })`, or through the composer
   with `ComposeInput.poseRules`. `Pose.dominant` records which slot the
