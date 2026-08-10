@@ -223,6 +223,14 @@ const overrides = new Map<number, BeatOverrides>();
  */
 const stickers = new Map<number, string[]>();
 
+/**
+ * Page divisions: set of first-beat `at` values that start a new page.
+ * Empty set = one big page. Keyed by beat `at` (durable through reorders and
+ * edits) rather than by panel index (which changes when you insert or delete).
+ * A page-start on the first panel is meaningless and ignored.
+ */
+const pageStarts = new Set<number>();
+
 // Panel index (== content-event index) currently being edited, or -1 = append.
 // Panels map 1:1 to content events (message/action/reaction) because the event
 // list is interleaved with breaks, so `contentEventIndex(N)` finds the event
@@ -519,11 +527,16 @@ let paintedSig: string[] = [];
  * cheaper than rendering it, which is the whole point. Same signature at the
  * same index ⇒ byte-identical markup ⇒ safe to reuse.
  */
-/** Include the panel's sticker list in the signature — otherwise adding a
- * sticker mid-edit wouldn't re-render the panel, and reconcile would skip
- * writing the new markup to the DOM. */
-const panelSig = (p: Panel, idx: number, panelStickers: readonly string[]): string =>
-  `${idx}|${JSON.stringify(p)}|${panelStickers.join('|')}`;
+/** Include the panel's sticker list AND page-start state in the signature —
+ * either changing must re-render the panel so reconcile writes new markup. */
+const panelSig = (
+  p: Panel,
+  idx: number,
+  panelStickers: readonly string[],
+  pageStart: boolean,
+  page: number,
+): string =>
+  `${idx}|${JSON.stringify(p)}|${panelStickers.join('|')}|${pageStart ? page : ''}`;
 
 /**
  * Wrap a rendered panel SVG with sticker overlays. Empty list is a no-op.
@@ -744,10 +757,48 @@ function stickersFor(idx: number): readonly string[] {
   return stickers.get(key) ?? [];
 }
 
+/** True if panel `idx` opens a new page. Never true for panel 0. */
+function isPageStart(idx: number): boolean {
+  if (idx <= 0) return false;
+  const key = panelGroups()[idx]?.[0]?.at;
+  return key !== undefined && pageStarts.has(key);
+}
+
+/** 1-indexed page number for a panel. Panel 0 → page 1 always. */
+function pageOfPanel(idx: number): number {
+  const groups = panelGroups();
+  let page = 1;
+  for (let i = 1; i <= idx && i < groups.length; i++) {
+    const at = groups[i]?.[0]?.at;
+    if (at !== undefined && pageStarts.has(at)) page++;
+  }
+  return page;
+}
+
+function pageCount(): number {
+  return currentPanels.length === 0 ? 0 : pageOfPanel(currentPanels.length - 1);
+}
+
+/** Toggle whether the panel *after* `panelIdx` starts a new page. */
+function togglePageBreakAfter(panelIdx: number): void {
+  const nextGroup = panelGroups()[panelIdx + 1];
+  if (!nextGroup) return; // nothing after this panel; no boundary to toggle
+  const at = nextGroup[0]?.at;
+  if (at === undefined) return;
+  if (pageStarts.has(at)) pageStarts.delete(at);
+  else pageStarts.add(at);
+  markEdited();
+  repaintAll('preserve');
+  renderPageControls();
+}
+
 const panelHtml = (p: Panel, idx: number): string => {
   const svg = renderPanelToSvg({ ...p, camera: FLAT_CAMERA }, renderOptions());
   const withStickers = overlayStickers(svg, stickersFor(idx));
-  return `<figure class="panel" data-panel-idx="${idx}">${withStickers}</figure>`;
+  const pageStart = isPageStart(idx);
+  const cls = pageStart ? 'panel is-page-start' : 'panel';
+  const pageAttr = pageStart ? ` data-page="${pageOfPanel(idx)}"` : '';
+  return `<figure class="${cls}" data-panel-idx="${idx}"${pageAttr}>${withStickers}</figure>`;
 };
 
 const scrollToNewest = (): void => {
@@ -790,7 +841,7 @@ function repaintAll(scroll: 'newest' | 'preserve' = 'newest'): void {
   const nextHtml: string[] = new Array(panels.length);
   const nextSig: string[] = new Array(panels.length);
   for (let i = 0; i < panels.length; i++) {
-    const sig = panelSig(panels[i]!, i, stickersFor(i));
+    const sig = panelSig(panels[i]!, i, stickersFor(i), isPageStart(i), pageOfPanel(i));
     nextSig[i] = sig;
     nextHtml[i] = sig === prevSig[i] ? prevHtml[i]! : panelHtml(panels[i]!, i);
   }
@@ -859,7 +910,7 @@ function appendPanels(): void {
     const html = panelHtml(panels[i]!, i);
     comic.insertAdjacentHTML('beforeend', html);
     paintedHtml.push(html);
-    paintedSig.push(panelSig(panels[i]!, i, stickersFor(i)));
+    paintedSig.push(panelSig(panels[i]!, i, stickersFor(i), isPageStart(i), pageOfPanel(i)));
   }
   if (panels.length) scrollToNewest();
 }
@@ -1483,6 +1534,7 @@ function enterEditMode(panelIdx: number, lineIdx = 0): void {
   renderLineChips();
   renderPanelCast();
   renderStickerRow();
+  renderPageControls();
   highlightEditingPanel();
   input.focus();
 }
@@ -1500,6 +1552,7 @@ function exitEditMode(): void {
   renderLineChips();
   renderPanelCast();
   renderStickerRow();
+  renderPageControls();
   resetComposer();
   renderTray();
 }
@@ -1734,6 +1787,7 @@ function loadSeed(seed: number): void {
   state.speaker = s.cast[0] ?? '';
   overrides.clear();
   stickers.clear();
+  pageStarts.clear();
   // Actor names are per-comic — a fresh starter with a new cast starts blank.
   for (const key of Object.keys(actors)) delete actors[key];
   if (editingPanel >= 0) exitEditMode();
@@ -2064,6 +2118,38 @@ function renderStickerRow(): void {
   row.classList.add('is-shown');
 }
 
+/**
+ * Render the "page" row for the panel being edited. Shows what page this
+ * panel is on, plus a toggle: "Start new page after" iff there's a panel
+ * *after* this one to divide from. On the last panel there's no boundary
+ * to toggle, so the row shows just the page number.
+ */
+function renderPageControls(): void {
+  const host = $('page-controls');
+  const row = $('page-row');
+  if (editingPanel < 0) {
+    host.innerHTML = '';
+    row.classList.remove('is-shown');
+    return;
+  }
+  const totalPages = pageCount();
+  const thisPage = pageOfPanel(editingPanel);
+  const hasNext = editingPanel < currentPanels.length - 1;
+  const pageLabel =
+    totalPages <= 1
+      ? `<span class="page-badge">Page 1</span>`
+      : `<span class="page-badge">Page ${thisPage} of ${totalPages}</span>`;
+  const breakIsOn = hasNext && isPageStart(editingPanel + 1);
+  const toggle = hasNext
+    ? `<button class="page-toggle${breakIsOn ? ' is-on' : ''}" id="page-break-toggle" ` +
+      `aria-pressed="${breakIsOn}" ` +
+      `title="${breakIsOn ? 'Merge with previous page' : 'End the page here'}">` +
+      `${breakIsOn ? '&#10003; End page here' : '&#10142; End page here'}</button>`
+    : '';
+  host.innerHTML = pageLabel + toggle;
+  row.classList.add('is-shown');
+}
+
 function openStickerPicker(): void {
   const key = editingStickerKey();
   if (key === null) return;
@@ -2253,10 +2339,12 @@ function openSharedState(shared: ShareState): void {
   overrides.clear();
   for (const [at, ov] of shared.overrides) overrides.set(at, { ...ov });
 
-  // Shared comics don't carry actor names or stickers (they aren't in the
-  // share format today) — start blank so the recipient can add their own.
+  // Shared comics don't carry actor names, stickers, or page divisions (none
+  // of them are in the share format today) — start blank so the recipient
+  // can add their own.
   for (const key of Object.keys(actors)) delete actors[key];
   stickers.clear();
+  pageStarts.clear();
 
   ($('exp-title') as HTMLInputElement).value = shared.t ?? '';
   ($('exp-subtitle') as HTMLInputElement).value = shared.st ?? '';
@@ -2472,6 +2560,7 @@ function snapshot(): SavedComic {
     stickers: stickers.size
       ? Object.fromEntries([...stickers.entries()].map(([at, list]) => [String(at), [...list]]))
       : undefined,
+    pageStarts: pageStarts.size ? [...pageStarts] : undefined,
     export: {
       title: ($('exp-title') as HTMLInputElement).value,
       subtitle: ($('exp-subtitle') as HTMLInputElement).value,
@@ -2537,6 +2626,9 @@ function hydrate(saved: SavedComic): void {
       if (Number.isFinite(at) && Array.isArray(list) && list.length) stickers.set(at, [...list]);
     }
   }
+
+  pageStarts.clear();
+  if (saved.pageStarts) for (const at of saved.pageStarts) pageStarts.add(at);
 
   // The restored draft may have a different cast than the last one — a
   // character on a side might no longer exist here, or the cast may have
@@ -3014,6 +3106,12 @@ $('sticker-chips').addEventListener('click', (e) => {
   if (btn.id === 'sticker-add') return openStickerPicker();
   const rem = btn.dataset.removeSticker;
   if (rem !== undefined) removeStickerAt(Number(rem));
+});
+
+$('page-controls').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button#page-break-toggle');
+  if (!btn) return;
+  togglePageBreakAfter(editingPanel);
 });
 
 $('sfx-close').addEventListener('click', closeStickerPicker);

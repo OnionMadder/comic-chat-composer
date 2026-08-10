@@ -144,6 +144,10 @@ const html = `<!doctype html>
         <span class="lbl">stickers</span>
         <div id="sticker-chips" class="panel-cast" role="group" aria-label="Sound-effect stickers on this panel"></div>
       </label>
+      <label class="panelrow" id="page-row">
+        <span class="lbl">page</span>
+        <div id="page-controls" class="page-controls"></div>
+      </label>
     </div>
     <div class="inputrow">
       <button id="more" class="iconbtn round mood" aria-label="Mood wheel, gesture, and delivery" title="Mood, gesture &amp; delivery" aria-expanded="false" aria-controls="tray">${morePlaceholder}</button>

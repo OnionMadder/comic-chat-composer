@@ -70,6 +70,13 @@ export interface SavedComic {
    * ordered list of sticker labels for that panel.
    */
   stickers?: Record<string, string[]>;
+  /**
+   * Page divisions — beat `at` values that begin a new page. Same key kind
+   * as `stickers` / `overrides` so the boundary follows the panel it marks
+   * around when the story is rearranged. Empty / absent = a single-page
+   * comic (the default).
+   */
+  pageStarts?: number[];
   export?: StoredExport;
   /** Whether the user has edited since the last dice roll (guards the roll). */
   touched: boolean;
@@ -202,6 +209,13 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
     }
   }
 
+  const pageStarts: number[] = [];
+  if (Array.isArray(data['pageStarts'])) {
+    for (const v of data['pageStarts'] as unknown[]) {
+      if (typeof v === 'number' && Number.isFinite(v)) pageStarts.push(v);
+    }
+  }
+
   const exp = isObject(data['export']) ? data['export'] : undefined;
   const savedExport: StoredExport | undefined = exp
     ? {
@@ -228,6 +242,7 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
     overrides,
     actors: Object.keys(actors).length ? actors : undefined,
     stickers: Object.keys(stickers).length ? stickers : undefined,
+    pageStarts: pageStarts.length ? pageStarts : undefined,
     export: savedExport,
     touched: data['touched'] === true,
     savedAt: typeof data['savedAt'] === 'number' ? data['savedAt'] : 0,

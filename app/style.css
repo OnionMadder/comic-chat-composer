@@ -567,6 +567,47 @@ body.kb-up #lines-row .pcast { padding: 4px 8px; font-size: 12px; min-height: 26
   font-weight: 900;
 }
 .pcast.sfx-chip:active { transform: scale(0.94); }
+/* Multi-page comics: a panel marked `is-page-start` gets a labelled divider
+   above it, drawn with a pseudo-element so no extra DOM is needed. Only
+   panels after the first can be page starts (panel 0 is always page 1 by
+   definition), so the divider only shows for pages 2+. */
+.panel { position: relative; }
+.panel.is-page-start { margin-top: 46px; }
+.panel.is-page-start::before {
+  content: "Page " attr(data-page);
+  position: absolute; top: -34px; left: 0; right: 0;
+  text-align: center;
+  color: var(--cyan);
+  font-family: var(--comic); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 8px 0 6px;
+  border-top: 2px dashed color-mix(in srgb, var(--cyan) 55%, transparent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--cyan) 60%, transparent);
+}
+
+/* Page row in the edit bar — page number badge + toggle. */
+.page-controls {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.page-badge {
+  font-family: var(--comic); font-size: 13px; font-weight: 700;
+  color: var(--muted); padding: 4px 0;
+}
+.page-toggle {
+  font-family: var(--comic); font-size: 13px; font-weight: 700;
+  color: var(--cyan); background: transparent;
+  border: 1.5px dashed var(--cyan); border-radius: 12px;
+  padding: 6px 12px;
+}
+.page-toggle.is-on {
+  color: var(--ink); background: var(--cyan); border-style: solid;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cyan) 50%, transparent);
+}
+.page-toggle:active { transform: scale(0.97); }
+#page-row { display: none; }
+#page-row.is-shown { display: flex; }
+body.kb-up #page-row { display: none; }
+
 /* Sticker picker sheet — a grid of preset chips + a custom input. */
 .sfx-presets {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
