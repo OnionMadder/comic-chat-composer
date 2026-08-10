@@ -214,6 +214,15 @@ interface BeatOverrides {
 }
 const overrides = new Map<number, BeatOverrides>();
 
+/**
+ * Overlay stickers per panel — POW! / BOOM! / SIGH... drawn on top of the
+ * composed panel SVG. Keyed by the panel's first-beat `at` (same key overrides
+ * use), so a sticker follows its panel across edits and reorderings. Not
+ * exposed to the composer at all — pure app-side decoration applied in
+ * `renderPanelWithStickers`.
+ */
+const stickers = new Map<number, string[]>();
+
 // Panel index (== content-event index) currently being edited, or -1 = append.
 // Panels map 1:1 to content events (message/action/reaction) because the event
 // list is interleaved with breaks, so `contentEventIndex(N)` finds the event
@@ -510,7 +519,53 @@ let paintedSig: string[] = [];
  * cheaper than rendering it, which is the whole point. Same signature at the
  * same index ⇒ byte-identical markup ⇒ safe to reuse.
  */
-const panelSig = (p: Panel, idx: number): string => `${idx}|${JSON.stringify(p)}`;
+/** Include the panel's sticker list in the signature — otherwise adding a
+ * sticker mid-edit wouldn't re-render the panel, and reconcile would skip
+ * writing the new markup to the DOM. */
+const panelSig = (p: Panel, idx: number, panelStickers: readonly string[]): string =>
+  `${idx}|${JSON.stringify(p)}|${panelStickers.join('|')}`;
+
+/**
+ * Wrap a rendered panel SVG with sticker overlays. Empty list is a no-op.
+ *
+ * Positioning follows a rotation of slots — top-right, bottom-left, top-left,
+ * bottom-right, then centre — with a tilt that alternates direction, so a
+ * panel with two stickers doesn't have them stacked at the same angle. Draws
+ * inside the SVG's own coordinate system (PANEL_W × PANEL_H), so it scales
+ * with the panel and clips correctly at the frame edge.
+ */
+function overlayStickers(svg: string, panelStickers: readonly string[]): string {
+  if (panelStickers.length === 0) return svg;
+  const w = PANEL_W, h = PANEL_H;
+  const slots: Array<[number, number, number]> = [
+    [w - 72, 62, -8],
+    [70, h - 60, 6],
+    [72, 74, 8],
+    [w - 70, h - 60, -6],
+    [w / 2, h / 2 - 20, -3],
+  ];
+  const parts = panelStickers.slice(0, slots.length).map((label, i) => {
+    const [x, y, deg] = slots[i]!;
+    const text = label.trim().toUpperCase();
+    // Stroke width sized to a big display font; two layers (dark stroke,
+    // yellow fill) gives the classic Batman-caption feel that reads on any
+    // backdrop, dark or light.
+    return (
+      `<g transform="translate(${x} ${y}) rotate(${deg})" class="sfx-sticker">` +
+      `<text x="0" y="0" text-anchor="middle" font-family="'Comic Neue',cursive" ` +
+      `font-size="42" font-weight="900" stroke="#08080b" stroke-width="6" ` +
+      `stroke-linejoin="round" fill="none">${escXml(text)}</text>` +
+      `<text x="0" y="0" text-anchor="middle" font-family="'Comic Neue',cursive" ` +
+      `font-size="42" font-weight="900" fill="#ffc61a">${escXml(text)}</text>` +
+      `</g>`
+    );
+  });
+  // Insert before the closing </svg>.
+  return svg.replace(/<\/svg>\s*$/, parts.join('') + '</svg>');
+}
+
+const escXml = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const EMPTY_HTML = `<div class="empty"><p>Tap a character, type a line, hit send.</p>
   <p class="dim">Your conversation draws itself into a comic, panel by panel.</p></div>`;
@@ -682,8 +737,18 @@ function applyBeatOverrides(panels: Panel[]): Panel[] {
   });
 }
 
-const panelHtml = (p: Panel, idx: number): string =>
-  `<figure class="panel" data-panel-idx="${idx}">${renderPanelToSvg({ ...p, camera: FLAT_CAMERA }, renderOptions())}</figure>`;
+/** The list of sticker labels on panel `idx`, in order. Empty if none. */
+function stickersFor(idx: number): readonly string[] {
+  const key = panelGroups()[idx]?.[0]?.at;
+  if (key === undefined) return [];
+  return stickers.get(key) ?? [];
+}
+
+const panelHtml = (p: Panel, idx: number): string => {
+  const svg = renderPanelToSvg({ ...p, camera: FLAT_CAMERA }, renderOptions());
+  const withStickers = overlayStickers(svg, stickersFor(idx));
+  return `<figure class="panel" data-panel-idx="${idx}">${withStickers}</figure>`;
+};
 
 const scrollToNewest = (): void => {
   const comic = $('comic');
@@ -725,7 +790,7 @@ function repaintAll(scroll: 'newest' | 'preserve' = 'newest'): void {
   const nextHtml: string[] = new Array(panels.length);
   const nextSig: string[] = new Array(panels.length);
   for (let i = 0; i < panels.length; i++) {
-    const sig = panelSig(panels[i]!, i);
+    const sig = panelSig(panels[i]!, i, stickersFor(i));
     nextSig[i] = sig;
     nextHtml[i] = sig === prevSig[i] ? prevHtml[i]! : panelHtml(panels[i]!, i);
   }
@@ -794,7 +859,7 @@ function appendPanels(): void {
     const html = panelHtml(panels[i]!, i);
     comic.insertAdjacentHTML('beforeend', html);
     paintedHtml.push(html);
-    paintedSig.push(panelSig(panels[i]!, i));
+    paintedSig.push(panelSig(panels[i]!, i, stickersFor(i)));
   }
   if (panels.length) scrollToNewest();
 }
@@ -1417,6 +1482,7 @@ function enterEditMode(panelIdx: number, lineIdx = 0): void {
   renderTray();
   renderLineChips();
   renderPanelCast();
+  renderStickerRow();
   highlightEditingPanel();
   input.focus();
 }
@@ -1433,6 +1499,7 @@ function exitEditMode(): void {
   // next open.
   renderLineChips();
   renderPanelCast();
+  renderStickerRow();
   resetComposer();
   renderTray();
 }
@@ -1666,6 +1733,7 @@ function loadSeed(seed: number): void {
   state.scene = s.scene;
   state.speaker = s.cast[0] ?? '';
   overrides.clear();
+  stickers.clear();
   // Actor names are per-comic — a fresh starter with a new cast starts blank.
   for (const key of Object.keys(actors)) delete actors[key];
   if (editingPanel >= 0) exitEditMode();
@@ -1936,6 +2004,87 @@ const actors: Record<string, string> = {};
  * character label is now Poppy, and the actor slot only shows up when the
  * user has attributed the role to someone.
  */
+/** The `at` key that stickers should attach to for the panel being edited. */
+function editingStickerKey(): number | null {
+  return panelGroups()[editingPanel]?.[0]?.at ?? null;
+}
+
+/** Add a sticker label to the panel being edited. */
+function addSticker(label: string): void {
+  const key = editingStickerKey();
+  if (key === null) return;
+  const clean = label.trim().slice(0, 20);
+  if (!clean) return;
+  const list = stickers.get(key) ?? [];
+  // Cap at 5 — matches the slot count in overlayStickers; anything past that
+  // wouldn't render anywhere anyway.
+  if (list.length >= 5) return;
+  stickers.set(key, [...list, clean]);
+  markEdited();
+  renderPanelCast();
+  renderStickerRow();
+  repaintAll('preserve');
+}
+
+function removeStickerAt(index: number): void {
+  const key = editingStickerKey();
+  if (key === null) return;
+  const list = stickers.get(key);
+  if (!list) return;
+  const next = list.filter((_, i) => i !== index);
+  if (next.length) stickers.set(key, next);
+  else stickers.delete(key);
+  markEdited();
+  renderStickerRow();
+  repaintAll('preserve');
+}
+
+const STICKER_PRESETS = [
+  'POW!', 'BOOM!', 'ZAP!', 'WHAM!', 'BONK!', 'CRASH!', 'SMASH!',
+  'GASP!', 'SIGH…', 'GRR', 'ARGH!', 'YIKES', 'HUH?', 'OOF',
+  'HA HA!', 'HMM…', 'PSST', '…', '!!!', '???',
+];
+
+function renderStickerRow(): void {
+  const host = $('sticker-chips');
+  const row = $('sticker-row');
+  if (editingPanel < 0) { host.innerHTML = ''; row.classList.remove('is-shown'); return; }
+  const list = stickers.get(editingStickerKey() ?? -1) ?? [];
+  const chips = list
+    .map(
+      (label, i) =>
+        `<button class="pcast sfx-chip" data-remove-sticker="${i}" aria-label="Remove ${esc(label)}">` +
+        `${esc(label)} &times;</button>`,
+    )
+    .join('');
+  const addBtn = list.length < 5
+    ? `<button class="pcast add" id="sticker-add" aria-label="Add a sound effect">&#43; sfx</button>`
+    : `<button class="pcast add" disabled title="A panel holds at most 5 stickers">full</button>`;
+  host.innerHTML = chips + addBtn;
+  row.classList.add('is-shown');
+}
+
+function openStickerPicker(): void {
+  const key = editingStickerKey();
+  if (key === null) return;
+  const presets = STICKER_PRESETS.map(
+    (s) => `<button class="sfx-pick" data-sticker="${esc(s)}">${esc(s)}</button>`,
+  ).join('');
+  $('sfx-body').innerHTML =
+    `<div class="sfx-presets">${presets}</div>` +
+    `<label class="sfx-custom-row">` +
+    `<span class="lbl">Custom</span>` +
+    `<div class="sfx-custom">` +
+    `<input id="sfx-custom-input" type="text" maxlength="20" autocomplete="off" placeholder="ZOINKS!" aria-label="Custom sticker text">` +
+    `<button id="sfx-custom-add" class="sfx-custom-add">Add</button>` +
+    `</div></label>`;
+  $('sfx-sheet').classList.add('open');
+}
+
+function closeStickerPicker(): void {
+  $('sfx-sheet').classList.remove('open');
+}
+
 function currentCasting(): Record<string, { character?: string; actor?: string }> {
   const map: Record<string, { character?: string; actor?: string }> = {};
   for (const id of state.cast) {
@@ -2104,9 +2253,10 @@ function openSharedState(shared: ShareState): void {
   overrides.clear();
   for (const [at, ov] of shared.overrides) overrides.set(at, { ...ov });
 
-  // Shared comics don't carry actor names (they aren't in the share format
-  // today) — start blank so the recipient can name their own actors.
+  // Shared comics don't carry actor names or stickers (they aren't in the
+  // share format today) — start blank so the recipient can add their own.
   for (const key of Object.keys(actors)) delete actors[key];
+  stickers.clear();
 
   ($('exp-title') as HTMLInputElement).value = shared.t ?? '';
   ($('exp-subtitle') as HTMLInputElement).value = shared.st ?? '';
@@ -2319,6 +2469,9 @@ function snapshot(): SavedComic {
     speaker: state.speaker,
     overrides: [...overrides.entries()],
     actors: Object.keys(actors).length ? { ...actors } : undefined,
+    stickers: stickers.size
+      ? Object.fromEntries([...stickers.entries()].map(([at, list]) => [String(at), [...list]]))
+      : undefined,
     export: {
       title: ($('exp-title') as HTMLInputElement).value,
       subtitle: ($('exp-subtitle') as HTMLInputElement).value,
@@ -2374,6 +2527,16 @@ function hydrate(saved: SavedComic): void {
   // whose actor names you see. Wipe and refill from the saved draft.
   for (const key of Object.keys(actors)) delete actors[key];
   if (saved.actors) Object.assign(actors, saved.actors);
+
+  // Stickers likewise: per-panel, per-comic. Serialised as stringified `at`
+  // keys (JSON has no numeric keys) so parse them back to numbers here.
+  stickers.clear();
+  if (saved.stickers) {
+    for (const [key, list] of Object.entries(saved.stickers)) {
+      const at = Number(key);
+      if (Number.isFinite(at) && Array.isArray(list) && list.length) stickers.set(at, [...list]);
+    }
+  }
 
   // The restored draft may have a different cast than the last one — a
   // character on a side might no longer exist here, or the cast may have
@@ -2845,6 +3008,33 @@ $('line-chips').addEventListener('click', (e) => {
   if (Number.isFinite(n) && n !== editingLine) enterEditMode(editingPanel, n);
 });
 
+$('sticker-chips').addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+  if (!btn || btn.disabled) return;
+  if (btn.id === 'sticker-add') return openStickerPicker();
+  const rem = btn.dataset.removeSticker;
+  if (rem !== undefined) removeStickerAt(Number(rem));
+});
+
+$('sfx-close').addEventListener('click', closeStickerPicker);
+$('sfx-sheet').addEventListener('click', (e) => { if (e.target === $('sfx-sheet')) closeStickerPicker(); });
+$('sfx-body').addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const preset = target.closest('button.sfx-pick') as HTMLElement | null;
+  if (preset?.dataset.sticker) {
+    addSticker(preset.dataset.sticker);
+    closeStickerPicker();
+    return;
+  }
+  if (target.id === 'sfx-custom-add') {
+    const input = $('sfx-custom-input') as HTMLInputElement;
+    if (input?.value.trim()) {
+      addSticker(input.value);
+      closeStickerPicker();
+    }
+  }
+});
+
 $('help').addEventListener('click', openIntro);
 $('intro-go').addEventListener('click', closeIntro);
 $('intro').addEventListener('click', (e) => { if (e.target === $('intro')) closeIntro(); });
@@ -2997,6 +3187,7 @@ syncKeyboardState();
  */
 const BACK_LAYERS: { open: () => boolean; close: () => void }[] = [
   { open: () => $('confirm').classList.contains('open'), close: closeConfirm },
+  { open: () => $('sfx-sheet').classList.contains('open'), close: closeStickerPicker },
   { open: () => $('export-sheet').classList.contains('open'), close: closeExport },
   { open: () => $('library-sheet').classList.contains('open'), close: closeLibrary },
   { open: () => $('sheet').classList.contains('open'), close: closeSheet },

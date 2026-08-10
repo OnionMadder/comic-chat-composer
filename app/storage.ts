@@ -62,6 +62,14 @@ export interface SavedComic {
    * ("in *this* comic, Poppy is played by Kellye").
    */
   actors?: Record<string, string>;
+  /**
+   * Overlay stickers per panel — the classic POW! / BOOM! / SIGH... you drop
+   * on top of a panel to give it comic-book energy. Keyed by the stringified
+   * `at` of the panel's *first* beat (matching how overrides are keyed), so
+   * stickers travel with the panel across edits. String[] value is the
+   * ordered list of sticker labels for that panel.
+   */
+  stickers?: Record<string, string[]>;
   export?: StoredExport;
   /** Whether the user has edited since the last dice roll (guards the roll). */
   touched: boolean;
@@ -182,6 +190,18 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
     }
   }
 
+  const stickers: Record<string, string[]> = {};
+  if (isObject(data['stickers'])) {
+    for (const [key, list] of Object.entries(data['stickers'])) {
+      if (!/^\d+$/.test(key)) continue;
+      if (!Array.isArray(list)) continue;
+      const clean = (list as unknown[])
+        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+        .map((s) => s.slice(0, 20));
+      if (clean.length) stickers[key] = clean;
+    }
+  }
+
   const exp = isObject(data['export']) ? data['export'] : undefined;
   const savedExport: StoredExport | undefined = exp
     ? {
@@ -207,6 +227,7 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
     speaker,
     overrides,
     actors: Object.keys(actors).length ? actors : undefined,
+    stickers: Object.keys(stickers).length ? stickers : undefined,
     export: savedExport,
     touched: data['touched'] === true,
     savedAt: typeof data['savedAt'] === 'number' ? data['savedAt'] : 0,

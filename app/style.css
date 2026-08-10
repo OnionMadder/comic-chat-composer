@@ -559,6 +559,41 @@ body.kb-up #lines-row .pcast { padding: 4px 8px; font-size: 12px; min-height: 26
   padding: 4px 2px 0; letter-spacing: 0.02em;
 }
 
+/* Sound-effect stickers — overlays on a panel drawn as big display text with
+   a dark stroke and yellow fill. The chip in the edit bar echoes the yellow
+   so what you added is unmistakable at a glance. */
+.pcast.sfx-chip {
+  color: #08080b; background: #ffc61a; border-color: #ffc61a;
+  font-weight: 900;
+}
+.pcast.sfx-chip:active { transform: scale(0.94); }
+/* Sticker picker sheet — a grid of preset chips + a custom input. */
+.sfx-presets {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 12px;
+}
+.sfx-pick {
+  font-family: var(--comic); font-size: 15px; font-weight: 900;
+  color: #08080b; background: #ffc61a;
+  border: 2px solid #08080b; border-radius: 10px;
+  padding: 10px 6px;
+  box-shadow: 0 2px 0 #08080b;
+}
+.sfx-pick:active { transform: translateY(1px); box-shadow: 0 1px 0 #08080b; }
+.sfx-custom-row { display: flex; flex-direction: column; gap: 6px; }
+.sfx-custom { display: flex; gap: 8px; }
+.sfx-custom input {
+  flex: 1; font-family: var(--comic); font-size: 15px; font-weight: 700;
+  color: var(--text); background: var(--panel2);
+  border: 1px solid var(--edge); border-radius: 10px; padding: 8px 12px;
+}
+.sfx-custom input:focus { outline: none; border-color: var(--cyan); }
+.sfx-custom-add {
+  font-family: var(--comic); font-size: 14px; font-weight: 700;
+  color: var(--ink); background: var(--cyan);
+  border: none; border-radius: 10px; padding: 8px 16px;
+}
+
 /* Handle row at the top of the library sheet — device-scoped display name,
    shown to recipients on shared links ("Shared by Sam"). No signup, no
    uniqueness check; the field itself is the whole identity system. */

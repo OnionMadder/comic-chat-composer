@@ -140,6 +140,10 @@ const html = `<!doctype html>
         <span class="lbl">in this panel</span>
         <div id="panel-cast" class="panel-cast" role="group" aria-label="Characters in this panel"></div>
       </label>
+      <label class="panelrow" id="sticker-row">
+        <span class="lbl">stickers</span>
+        <div id="sticker-chips" class="panel-cast" role="group" aria-label="Sound-effect stickers on this panel"></div>
+      </label>
     </div>
     <div class="inputrow">
       <button id="more" class="iconbtn round mood" aria-label="Mood wheel, gesture, and delivery" title="Mood, gesture &amp; delivery" aria-expanded="false" aria-controls="tray">${morePlaceholder}</button>
@@ -166,6 +170,13 @@ const html = `<!doctype html>
       </label>
     </div>
   </footer>
+</div>
+
+<div id="sfx-sheet" class="sheet" role="dialog" aria-label="Add a sound effect">
+  <div class="sheet-panel">
+    <div class="sheet-head"><span>Add a sound effect</span><button id="sfx-close" class="iconbtn" aria-label="Close">&times;</button></div>
+    <div id="sfx-body" class="sheet-body"></div>
+  </div>
 </div>
 
 <div id="sheet" class="sheet" role="dialog" aria-label="Add a character">
