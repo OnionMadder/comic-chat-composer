@@ -137,6 +137,15 @@ export const SHIPPED_POSE_RULES: readonly PoseRule[] = [
  * phrase forms at 8, first-person at 7, greetings at 5 and below.
  */
 export const EXTRA_POSE_RULES: readonly PoseRule[] = [
+  // Written-out laughter — the most common form of all, and the one cue the
+  // shipped table has no rule for at any strength. `find` so the doubled stem
+  // carries every length and prefix ("hahaha", "ahaha", "bwahahaha") from one
+  // rule; the spaced form is a substring the search cannot see, so it needs its
+  // own `word` rule. A doubled stem is the whole test: a lone "ha" is as often
+  // dismissive as amused, so it stays neutral.
+  { match: 'find', text: 'HAHA', expression: 'laughing', strength: 11 },
+  { match: 'word', text: 'ha ha', expression: 'laughing', strength: 11 },
+
   // Emoticons the original missed. `:'(` and `>:(` contain `:(`, and win the
   // tie on specificity.
   { match: 'find', text: ":'(", expression: 'sad', strength: 10 },
