@@ -55,6 +55,13 @@ export interface SavedComic {
    * would quietly turn every key into `"12"` and break each lookup.
    */
   overrides: Array<[number, StoredOverrides]>;
+  /**
+   * Actor names per character id, for the "starring" credits panel. Optional
+   * per character — a character with no entry credits under its display name
+   * alone. Persisted per-draft because the pairing is document-scoped
+   * ("in *this* comic, Poppy is played by Kellye").
+   */
+  actors?: Record<string, string>;
   export?: StoredExport;
   /** Whether the user has edited since the last dice roll (guards the roll). */
   touched: boolean;
@@ -65,6 +72,13 @@ const DRAFT_PREFIX = 'mcomic96:draft:';
 const CURRENT_KEY = 'mcomic96:current';
 /** Set once the first-launch walkthrough has been dismissed. */
 const INTRO_KEY = 'mcomic96:intro-seen';
+/**
+ * The user's display handle — what recipients see on a shared link ("Shared
+ * by Sam"). Stored as a plain string. Optional and mutable; nothing else in
+ * the app depends on it, so shares just go unattributed when it's blank.
+ * Not a real identity — no server, no uniqueness — device-scoped by design.
+ */
+const HANDLE_KEY = 'mcomic96:handle';
 /** The pre-library single-session key, migrated on first launch then removed. */
 const LEGACY_KEY = 'mcomic96:session:v1';
 
@@ -159,6 +173,15 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
     ? data['speaker']
     : cast[0]!;
 
+  const actors: Record<string, string> = {};
+  if (isObject(data['actors'])) {
+    for (const [cid, name] of Object.entries(data['actors'])) {
+      if (castSet.has(cid) && typeof name === 'string' && name.trim()) {
+        actors[cid] = name;
+      }
+    }
+  }
+
   const exp = isObject(data['export']) ? data['export'] : undefined;
   const savedExport: StoredExport | undefined = exp
     ? {
@@ -183,6 +206,7 @@ export function parseSaved(raw: string, knownCharacters: ReadonlySet<string>): S
     seed: typeof data['seed'] === 'number' ? data['seed'] : 1,
     speaker,
     overrides,
+    actors: Object.keys(actors).length ? actors : undefined,
     export: savedExport,
     touched: data['touched'] === true,
     savedAt: typeof data['savedAt'] === 'number' ? data['savedAt'] : 0,
@@ -273,6 +297,17 @@ export function hasSeenIntro(): boolean {
 
 export function markIntroSeen(): void {
   put(INTRO_KEY, '1');
+}
+
+/** Your display handle. Empty string means "not set" — shares go unattributed. */
+export function getHandle(): string {
+  return get(HANDLE_KEY)?.trim() ?? '';
+}
+
+export function setHandle(value: string): void {
+  const trimmed = value.trim();
+  if (trimmed) put(HANDLE_KEY, trimmed);
+  else drop(HANDLE_KEY);
 }
 
 export function getCurrentId(): string | null {

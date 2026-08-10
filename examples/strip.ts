@@ -34,6 +34,19 @@ export interface StripLayout {
    * much each of them had actually said. This reproduces it as a final tile.
    */
   credits?: boolean;
+  /**
+   * Per-character overrides for the credits caption. Keyed by `characterId`.
+   *
+   * - `character` renames the character on the credit — the default is the
+   *   manifest's `name`, which for a faithful cast is the upstream Comic Chat
+   *   name; a downstream app that renames the cast (see mComic '96) should
+   *   pass its display names here.
+   * - `actor` provides an "as {character}" attribution line under the top
+   *   name. Without one, only the character stands on its credit — that's
+   *   cleaner than the original's "nickname as character-name" default when
+   *   the two would be the same word.
+   */
+  casting?: Record<string, { character?: string; actor?: string }>;
 }
 
 const COMIC_FONT = "'Comic Sans MS','Comic Neue',cursive";
@@ -58,6 +71,7 @@ function renderCreditsTile(
   options: RenderOptions,
   x: number,
   y: number,
+  casting: Record<string, { character?: string; actor?: string }> = {},
 ): string {
   const pw = options.panelWidth;
   const ph = options.panelHeight;
@@ -118,13 +132,29 @@ function renderCreditsTile(
 
   const captions = cast.flatMap((author, i) => {
     const cx = x + (slots[i]! * scale);
-    const name = options.characters[characterOf.get(author)!]?.name ?? characterOf.get(author)!;
+    const characterId = characterOf.get(author)!;
+    const cast = casting[characterId] ?? {};
+    // Fall back to the manifest name if no override — that's the shipped
+    // Comic Chat name for the faithful cast, and the app should pass its
+    // renamed display name here to override it.
+    const characterName = cast.character ?? options.characters[characterId]?.name ?? characterId;
+    const actor = cast.actor?.trim();
     const baseline = y + ph - captionBand + 22;
+    if (actor) {
+      // "Actor" on top, "as Character" underneath — the movie-credit shape.
+      return [
+        `<text x="${cx.toFixed(1)}" y="${baseline}" text-anchor="middle" font-family="${COMIC_FONT}"` +
+          ` font-size="15" font-weight="bold" fill="#111">${escapeXml(actor)}</text>`,
+        `<text x="${cx.toFixed(1)}" y="${baseline + 17}" text-anchor="middle" font-family="${COMIC_FONT}"` +
+          ` font-size="12" fill="#444">as ${escapeXml(characterName)}</text>`,
+      ];
+    }
+    // No actor given — just the character on its own, centred in the caption
+    // band. Beats a redundant "Poppy as Poppy" for an app where the character
+    // and the participant are the same identity.
     return [
-      `<text x="${cx.toFixed(1)}" y="${baseline}" text-anchor="middle" font-family="${COMIC_FONT}"` +
-        ` font-size="15" font-weight="bold" fill="#111">${escapeXml(author)}</text>`,
-      `<text x="${cx.toFixed(1)}" y="${baseline + 17}" text-anchor="middle" font-family="${COMIC_FONT}"` +
-        ` font-size="12" fill="#444">as ${escapeXml(name)}</text>`,
+      `<text x="${cx.toFixed(1)}" y="${baseline + 8}" text-anchor="middle" font-family="${COMIC_FONT}"` +
+        ` font-size="16" font-weight="bold" fill="#111">${escapeXml(characterName)}</text>`,
     ];
   });
 
@@ -190,7 +220,7 @@ export function renderStripSvg(
 
   if (wantCredits) {
     const i = panels.length;
-    tiles.push(renderCreditsTile(panels, options, cellX(i), cellY(i)));
+    tiles.push(renderCreditsTile(panels, options, cellX(i), cellY(i), layout.casting));
   }
 
   const header: string[] = [];

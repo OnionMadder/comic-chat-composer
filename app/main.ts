@@ -12,6 +12,13 @@
  */
 
 import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+/** Custom native bridge — see app/android/.../SavePhotoPlugin.java. */
+interface SavePhotoPlugin {
+  save(options: { base64: string; filename?: string; album?: string }): Promise<{ uri: string }>;
+}
+const SavePhoto = registerPlugin<SavePhotoPlugin>('SavePhoto');
 import { compose } from '../src/compose.ts';
 import { isExpressive, type CharacterManifest } from '../src/manifest.ts';
 import type {
@@ -33,11 +40,12 @@ import { renderStripSvg } from '../examples/strip.ts';
 import { createApproximateMetrics } from '../src/text.ts';
 import { castName } from './cast-names.ts';
 import { speakerColor } from './branding.ts';
-import { createWheel, type WheelApi } from './wheel.ts';
+import { createWheel, cropToCoin, type WheelApi } from './wheel.ts';
 import {
   autoName,
   deleteDraft,
   getCurrentId,
+  getHandle,
   hasSeenIntro,
   listDrafts,
   loadDraft,
@@ -46,8 +54,19 @@ import {
   newDraftId,
   saveDraft,
   setCurrentId,
+  setHandle,
   type SavedComic,
 } from './storage.ts';
+import { decodeShare, shareUrl, tokenFromHash, type ShareState } from './share.ts';
+import {
+  autoSplit,
+  loadCoop,
+  reconcileSides,
+  saveCoop,
+  sideOf,
+  type CoopConfig,
+  type Side,
+} from './coop.ts';
 
 declare const __MANIFESTS__: Record<string, CharacterManifest>;
 declare const __SPRITES__: Record<string, Record<string, string>>;
@@ -795,19 +814,30 @@ function renderCast(): void {
   const chips = state.cast
     .map((id) => {
       const active = id === state.speaker ? ' is-active' : '';
+      // In co-op the off-side stays visible (you can see who your partner
+      // voices), but disabled — tapping does nothing, and the chip greys
+      // out. The side badge (border colour on one edge) tells you which
+      // team without needing to read a legend.
+      let sideCls = '';
+      let sideDisabled = '';
+      if (coop.enabled) {
+        const s = sideOf(coop, id);
+        sideCls = s ? ` is-side-${s.toLowerCase()}` : '';
+        // Turn constraint only bites while composing new beats. Editing is
+        // rewriting history, so every chip stays tappable — otherwise you
+        // couldn't fix a Side A line while it's Side B's turn.
+        if (s !== coopSide && editingPanel < 0) sideDisabled = ' disabled';
+      }
       return (
-        `<button class="chip${active}" data-id="${id}" style="--c:${colorOf(id)}" ` +
-        `aria-pressed="${id === state.speaker}">${esc(castName(id, manifests[id]?.name))}</button>`
+        `<button class="chip${active}${sideCls}" data-id="${id}" style="--c:${colorOf(id)}" ` +
+        `aria-pressed="${id === state.speaker}"${sideDisabled}>${esc(castName(id, manifests[id]?.name))}</button>`
       );
     })
     .join('');
   $('cast').innerHTML = chips + `<button class="chip add" id="add-char" aria-label="Add a character">+</button>`;
   const who = state.speaker ? castName(state.speaker, manifests[state.speaker]?.name) : '—';
   $('speaking').textContent = state.cast.length ? `${who} is speaking` : 'Add characters to begin';
-  // The edit bar's speaker menu is the same cast list in another shape, so it
-  // refreshes here rather than only when edit mode opens — otherwise adding a
-  // character mid-edit leaves them missing from the menu until you reopen it.
-  renderEditSpeaker();
+  renderMoreButton();
 }
 
 const KINDS: readonly LineKind[] = ['say', 'think', 'whisper', 'shout', 'action'];
@@ -882,47 +912,98 @@ function toggleAddressee(id: string): void {
 }
 
 /**
- * In-scene character chip strip: one chip per character currently in the
- * edited panel, in left-to-right order. Each chip has ‹ / › nudge buttons
- * to swap position with a neighbor, and the name itself flips facing.
- * Only visible during edit mode; changes write to the overrides sidecar
- * and repaint immediately.
- */
-/**
- * "In this panel" — every cast member as an in/out toggle for the beat being
- * edited.
+ * "In this panel" — one row that does two jobs that used to be two rows.
  *
- * A single-beat panel contains exactly its speaker plus the people that beat
- * addresses, so putting someone in frame and directing the line at them are the
- * same act. This is that one act, in the edit bar where you can see it, rather
- * than buried at the bottom of the collapsed tray as "also in panel".
+ * Every cast member appears as a chip:
+ *   - **speaker**: the beat's author, shown locked (● Name) as context
+ *   - **in frame**: solid chip with the arrange controls inline when 2+ people
+ *     are in the frame — `‹ Name ▶ ×` — so reorder / flip / remove all live
+ *     on the character they act on, not in a separate row
+ *   - **out of frame**: dashed `+ Name` chip, tap to bring them in
+ *
+ * The single-panel version replaces two rows ("in this panel" + "arrange")
+ * that were about the same 2–3 people. Same functions, half the vertical
+ * space, no separate mental model of "arrange mode".
  */
 function renderPanelCast(): void {
   const host = $('panel-cast');
   if (editingPanel < 0) { host.innerHTML = ''; return; }
-  const chips = state.cast
-    .map((id) => {
-      const name = esc(castName(id, manifests[id]?.name));
-      if (id === state.speaker) {
-        // The speaker is always in their own panel — shown for context, locked,
-        // and changed through the speaker menu instead.
-        return (
-          `<span class="pcast is-speaker" style="--c:${colorOf(id)}" ` +
-          `title="${name} is speaking in this panel">&#9679; ${name}</span>`
-        );
-      }
-      const on = pending.addressees.includes(id);
-      return (
-        `<button class="pcast${on ? ' is-on' : ''}" data-member="${id}" ` +
-        `style="--c:${colorOf(id)}" aria-pressed="${on}" ` +
-        `aria-label="${on ? 'Remove' : 'Add'} ${name} ${on ? 'from' : 'to'} this panel">` +
-        `${on ? '&#10003;' : '&#43;'} ${name}</button>`
+
+  // Who's in frame, and in what order. Prefer the composed panel's
+  // characters (that's the ground truth for x-order and facing); fall back
+  // to speaker + pending addressees for the moment right after a toggle
+  // when a repaint may not have landed yet.
+  const panel = currentPanels[editingPanel];
+  const inFrameByX = panel
+    ? panel.characters.slice().sort((a, b) => a.x - b.x).map((c) => c.characterId)
+    : [];
+  const facingByCid = new Map(panel?.characters.map((c) => [c.characterId, c.facing]) ?? []);
+
+  const inFrame = new Set<string>(inFrameByX);
+  if (state.speaker) inFrame.add(state.speaker);
+  for (const id of pending.addressees) inFrame.add(id);
+
+  // Final ordered list of in-frame ids: composed order first, then anyone
+  // toggled in that hasn't hit the layout yet, tacked on the end.
+  const ordered = [...inFrameByX];
+  for (const id of inFrame) if (!ordered.includes(id)) ordered.push(id);
+
+  // Only offer reorder controls when there's actually someone to reorder
+  // *against*. Speaker doesn't count — you don't nudge yourself.
+  const nonSpeakerCount = ordered.filter((id) => id !== state.speaker).length;
+  const arrangeable = nonSpeakerCount >= 1 && ordered.length >= 2;
+
+  const chips: string[] = [];
+
+  ordered.forEach((cid, i) => {
+    const name = esc(castName(cid, manifests[cid]?.name));
+    const color = colorOf(cid);
+    if (cid === state.speaker) {
+      // Locked speaker — shown as context, not toggleable. Change via cast strip.
+      chips.push(
+        `<span class="pcast is-speaker" style="--c:${color}" ` +
+        `title="${name} is speaking in this panel">&#9679; ${name}</span>`,
       );
-    })
-    .join('');
-  host.innerHTML =
-    chips +
-    `<button class="pcast add" id="panel-cast-add" aria-label="Add a new character to this panel">&#43;&hellip;</button>`;
+      return;
+    }
+    if (arrangeable) {
+      // Compound chip: reorder + flip + remove, all on the person they act on.
+      const facing = facingByCid.get(cid);
+      const facingArrow = facing === 'left' ? '&#9664;' : '&#9654;';
+      const canL = i > 0;
+      const canR = i < ordered.length - 1;
+      chips.push(
+        `<div class="pcast is-frame" data-cid="${cid}" style="--c:${color}">` +
+        `<button class="pcast-nudge" data-nudge="left" data-cid="${cid}" ${canL ? '' : 'disabled'} aria-label="Move ${name} left">&#8249;</button>` +
+        `<button class="pcast-name" data-flip="${cid}" aria-label="Flip ${name}">${name} <span class="pcast-face">${facingArrow}</span></button>` +
+        `<button class="pcast-nudge" data-nudge="right" data-cid="${cid}" ${canR ? '' : 'disabled'} aria-label="Move ${name} right">&#8250;</button>` +
+        `<button class="pcast-remove" data-remove="${cid}" aria-label="Remove ${name} from panel">&times;</button>` +
+        `</div>`,
+      );
+      return;
+    }
+    // Lone non-speaker: tap-to-remove, no arrange controls (nothing to arrange against).
+    chips.push(
+      `<button class="pcast is-on" data-remove="${cid}" style="--c:${color}" ` +
+      `aria-pressed="true" aria-label="Remove ${name} from panel">&#10003; ${name}</button>`,
+    );
+  });
+
+  // Everyone else in the cast → "+ Name" chip.
+  for (const cid of state.cast) {
+    if (inFrame.has(cid)) continue;
+    const name = esc(castName(cid, manifests[cid]?.name));
+    chips.push(
+      `<button class="pcast" data-add="${cid}" style="--c:${colorOf(cid)}" ` +
+      `aria-pressed="false" aria-label="Add ${name} to this panel">&#43; ${name}</button>`,
+    );
+  }
+
+  chips.push(
+    `<button class="pcast add" id="panel-cast-add" aria-label="Add a new character to this panel">&#43;&hellip;</button>`,
+  );
+
+  host.innerHTML = chips.join('');
 }
 
 /**
@@ -1039,35 +1120,6 @@ function togglePanelMember(id: string): void {
   markEdited();
   repaintAll('preserve');
   renderPanelCast();
-  renderInScene();
-}
-
-function renderInScene(): void {
-  const host = $('in-scene');
-  const row = $('arrange-row');
-  const hide = (): void => { host.innerHTML = ''; row.classList.remove('is-shown'); };
-  if (editingPanel < 0) return hide();
-  const panel = currentPanels[editingPanel];
-  // Arranging is meaningless below two characters — the row stays out of the
-  // way until there is actually something to order.
-  if (!panel || panel.characters.length < 2) return hide();
-  row.classList.add('is-shown');
-  const chars = panel.characters.slice().sort((a, b) => a.x - b.x);
-  host.innerHTML = chars
-    .map((c, i) => {
-      const facingArrow = c.facing === 'left' ? '&#9664;' : '&#9654;';
-      const canL = i > 0;
-      const canR = i < chars.length - 1;
-      const name = esc(castName(c.characterId, manifests[c.characterId]?.name));
-      return (
-        `<div class="isc" data-cid="${c.characterId}" style="--c:${colorOf(c.author)}">` +
-        `<button class="isc-nudge" data-nudge="left" ${canL ? '' : 'disabled'} aria-label="Move ${name} left">&#8249;</button>` +
-        `<button class="isc-name" data-flip="1" aria-label="Flip ${name}">${name} <span class="isc-face">${facingArrow}</span></button>` +
-        `<button class="isc-nudge" data-nudge="right" ${canR ? '' : 'disabled'} aria-label="Move ${name} right">&#8250;</button>` +
-        `</div>`
-      );
-    })
-    .join('');
 }
 
 /** The current beat's `at` value, or null if not editing. */
@@ -1093,7 +1145,7 @@ function flipCharacterFacing(charId: string): void {
   ov.facing = { ...(ov.facing ?? {}), [charId]: char.facing === 'left' ? 'right' : 'left' };
   markEdited();
   repaintAll('preserve');
-  renderInScene();
+  renderPanelCast();
 }
 
 function nudgeCharacter(charId: string, dir: 'left' | 'right'): void {
@@ -1110,26 +1162,7 @@ function nudgeCharacter(charId: string, dir: 'left' | 'right'): void {
   ov.order = orderIds;
   markEdited();
   repaintAll('preserve');
-  renderInScene();
-}
-
-/**
- * Populate the edit-bar's speaker <select> with every cast member, with the
- * current speaker preselected. Changing it swaps the beat's author on Update.
- */
-function renderEditSpeaker(): void {
-  const sel = $('edit-speaker') as HTMLSelectElement;
-  // Every cast member is a legal voice, even someone already speaking in this
-  // panel: glued beats waive the composer's one-balloon-per-character rule
-  // (`samePanel`), so a repeat speaker gets a second balloon instead of
-  // splitting the panel.
-  sel.innerHTML = state.cast
-    .map((id) => {
-      const label = castName(id, manifests[id]?.name);
-      const selected = id === state.speaker ? ' selected' : '';
-      return `<option value="${id}"${selected}>${esc(label)}</option>`;
-    })
-    .join('');
+  renderPanelCast();
 }
 
 // ---- Live speaker preview -------------------------------------------------
@@ -1145,6 +1178,50 @@ function previewSvg(characterId: string, expression: Expression, gesture: Gestur
     backdrop: '',
   };
   return renderPanelToSvg(panel, renderOptions());
+}
+
+/**
+ * A cached head-and-shoulders coin of `characterId`, at whatever `size` the
+ * caller wants. Uses the wheel's same `cropToCoin` window so the coin on the
+ * "more" button reads as *the same face* the wheel node would show. Cached
+ * per character — the preview render is not free, and the coin is drawn on
+ * every speaker change.
+ */
+const coinCache = new Map<string, string>();
+function speakerCoinSvg(characterId: string): string {
+  const hit = coinCache.get(characterId);
+  if (hit !== undefined) return hit;
+  const raw = previewSvg(characterId, 'neutral', 'neutral');
+  // cropToCoin expects the (cx, cy, r) of a wheel node — for a standalone
+  // coin we use a small viewBox and let CSS scale the SVG into the button.
+  // The values 12/12/12 make a viewBox of 24×24 (border-radius clips to circle).
+  const cropped = cropToCoin(raw, 12, 12, 12);
+  // Wrap in an outer SVG with the 24×24 viewBox so `.iconbtn.mood svg` styling
+  // sizes it correctly.
+  const out = cropped
+    ? `<svg viewBox="0 0 24 24" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">${cropped}</svg>`
+    : '';
+  coinCache.set(characterId, out);
+  return out;
+}
+
+/**
+ * Paint the "more" button as a coin of the current speaker + a `+` badge, so
+ * the control announces *whose* mood you're about to set. When there's no
+ * speaker (empty cast), fall back to the plain `+` glyph so the button still
+ * reads as "add / open more".
+ */
+function renderMoreButton(): void {
+  const btn = $('more') as HTMLButtonElement;
+  if (!state.speaker) {
+    btn.innerHTML = `<span class="more-plus" aria-hidden="true">+</span>`;
+    btn.style.removeProperty('--c');
+    return;
+  }
+  btn.style.setProperty('--c', colorOf(state.speaker));
+  btn.innerHTML =
+    `<span class="more-coin" aria-hidden="true">${speakerCoinSvg(state.speaker)}</span>` +
+    `<span class="more-badge" aria-hidden="true">+</span>`;
 }
 
 const isTrayOpen = (): boolean => $('tray').classList.contains('open');
@@ -1230,6 +1307,30 @@ function send(): void {
   const ev = pendingEvent(state.events.length);
   if (!ev) return;
 
+  if (coop.enabled) {
+    // The first beat of a turn opens a new panel for the current side; every
+    // beat after that joins it (no separator break — `withSamePanel` glues
+    // them). Pass closes the panel by resetting `coopTurnStarted`.
+    if (!coopTurnStarted) {
+      const last = state.events[state.events.length - 1];
+      if (last && last.type !== 'break') state.events.push({ type: 'break', at: state.events.length });
+      coopTurnStarted = true;
+    }
+    ev.at = state.events.length;
+    state.events.push(ev);
+    resetComposer();
+    advanceSpeakerWithinSide();
+    markEdited();
+    renderCast();
+    renderTray();
+    // A joined beat changes an existing panel's contents, so `appendPanels`
+    // (which only ever renders past the tail) would miss the change. Full
+    // repaint — cheap now that it's incremental (only changed panels re-render).
+    repaintAll('newest');
+    input.focus();
+    return;
+  }
+
   // Close the previous panel so this line starts its own — an already-drawn
   // panel never recomposes when the next line arrives.
   const last = state.events[state.events.length - 1];
@@ -1314,10 +1415,8 @@ function enterEditMode(panelIdx: number, lineIdx = 0): void {
   $('send').setAttribute('aria-label', 'Update');
   renderCast();
   renderTray();
-  renderEditSpeaker();
   renderLineChips();
   renderPanelCast();
-  renderInScene();
   highlightEditingPanel();
   input.focus();
 }
@@ -1334,7 +1433,6 @@ function exitEditMode(): void {
   // next open.
   renderLineChips();
   renderPanelCast();
-  renderInScene();
   resetComposer();
   renderTray();
 }
@@ -1431,10 +1529,25 @@ function insertPanel(where: 'before' | 'after'): void {
 // ---- Cast picker sheet ----------------------------------------------------
 
 function openCharPicker(): void {
-  const grid = POOL.map(
-    (id) => `<button class="pick" data-pick="${id}" ${state.cast.includes(id) ? 'disabled' : ''}>
-      <span class="pick-name">${esc(castName(id, manifests[id]?.name))}</span></button>`,
-  ).join('');
+  // Cast members first (removable), then the rest of the pool (addable). This
+  // makes the sheet a "who's in the scene" surface as well as "who to add".
+  const inCast = state.cast.filter((id) => POOL.includes(id));
+  const rest = POOL.filter((id) => !state.cast.includes(id));
+  const chip = (id: string, mode: 'add' | 'remove'): string => {
+    const name = esc(castName(id, manifests[id]?.name));
+    const dataAttr = mode === 'add' ? `data-pick="${id}"` : `data-remove="${id}"`;
+    const label = mode === 'add' ? name : `${name} &times;`;
+    return `<button class="pick pick-${mode}" ${dataAttr}><span class="pick-name">${label}</span></button>`;
+  };
+  const grid =
+    (inCast.length
+      ? `<div class="pick-section-label">In the scene &mdash; tap to remove</div>` +
+        inCast.map((id) => chip(id, 'remove')).join('')
+      : '') +
+    (rest.length
+      ? `<div class="pick-section-label">Add someone</div>` +
+        rest.map((id) => chip(id, 'add')).join('')
+      : '');
   $('sheet-body').innerHTML = grid;
   $('sheet').classList.add('open');
 }
@@ -1460,6 +1573,89 @@ function addCharacter(id: string): void {
   // they appear once they speak, in a new panel.
 }
 
+/**
+ * Take a character off the stage: strip every event they authored, strip
+ * their name from every addressee list, drop them from the cast, reassign
+ * the speaker if it was them, and wipe their placement/actor bookkeeping.
+ * Destructive on comics where they've spoken, so confirmed via a sheet.
+ */
+function removeCharacter(id: string): void {
+  if (!state.cast.includes(id)) return;
+
+  // How many beats they're in — as the author of a message/action/reaction,
+  // OR just as an addressee. Only the first is destructive; the second is a
+  // graceful de-mention.
+  let authoredBeats = 0;
+  for (const ev of state.events) {
+    if ((ev.type === 'message' || ev.type === 'action' || ev.type === 'reaction') && ev.author === id) {
+      authoredBeats++;
+    }
+  }
+
+  const doRemove = (): void => {
+    // Rewrite groups: drop the character's own beats; strip them from the
+    // addressees of everyone else's beats. `rebuildEvents` drops any empty
+    // groups so a panel that held only their line vanishes with them.
+    const groups = panelGroups().map((group) =>
+      group
+        .filter((ev) => !((ev.type === 'message' || ev.type === 'action' || ev.type === 'reaction') && ev.author === id))
+        .map((ev) => {
+          if (ev.type !== 'message' && ev.type !== 'action' && ev.type !== 'reaction') return ev;
+          const addressees = (ev as MessageEvent | ReactionEvent).addressees?.filter((a) => a !== id);
+          return addressees && addressees.length !== ((ev as MessageEvent | ReactionEvent).addressees?.length ?? 0)
+            ? { ...ev, addressees: addressees.length ? addressees : undefined }
+            : ev;
+        }),
+    );
+    rebuildEvents(groups);
+
+    state.cast = state.cast.filter((c) => c !== id);
+    if (state.speaker === id) state.speaker = state.cast[0] ?? '';
+
+    // Actor names and per-beat overrides referencing them are dead weight now.
+    delete actors[id];
+    // (overrides key off event.at, not character id; entries whose panels
+    // vanished are orphaned but harmless — they just don't apply to anything.)
+
+    // Reconcile coop sides against the new cast so a removed character
+    // doesn't sit on a side that no longer contains them.
+    if (coop.enabled) {
+      coop = reconcileSides(coop, state.cast);
+      saveCoop(coop);
+      if (coop.sideA.length === 0 || coop.sideB.length === 0) {
+        // A side went empty — coop can't run with one side. Turn it off
+        // rather than pretend to keep it going.
+        coop = { ...coop, enabled: false };
+        saveCoop(coop);
+      }
+      coopSide = 'A';
+      coopTurnStarted = false;
+    }
+
+    closeSheet();
+    if (editingPanel >= 0) exitEditMode();
+    markEdited();
+    renderCast();
+    renderTray();
+    updateCoopVisibility();
+    renderCoopBar();
+    repaintAll('preserve');
+  };
+
+  const name = castName(id, manifests[id]?.name);
+  if (authoredBeats === 0) {
+    // Nothing to lose — remove without a nag.
+    doRemove();
+    return;
+  }
+  askConfirm({
+    title: `Remove ${name}?`,
+    body: `${name} has ${authoredBeats} line${authoredBeats === 1 ? '' : 's'} in this comic. Removing them deletes those lines. This can’t be undone.`,
+    go: 'Remove',
+    onGo: doRemove,
+  });
+}
+
 // ---- Surprise -------------------------------------------------------------
 
 function loadSeed(seed: number): void {
@@ -1470,12 +1666,26 @@ function loadSeed(seed: number): void {
   state.scene = s.scene;
   state.speaker = s.cast[0] ?? '';
   overrides.clear();
+  // Actor names are per-comic — a fresh starter with a new cast starts blank.
+  for (const key of Object.keys(actors)) delete actors[key];
   if (editingPanel >= 0) exitEditMode();
   // A freshly-rolled starter is disposable again — the dice stops asking.
   touched = false;
   scheduleSave();
+  // A new cast means the current side assignments no longer describe the
+  // stage — reconcile so the coop bar and speaker gating reflect who's here.
+  if (coop.enabled) {
+    coop = reconcileSides(coop, state.cast);
+    saveCoop(coop);
+    coopSide = 'A';
+    coopTurnStarted = false;
+    const first = coopCurrentSideChars()[0];
+    if (first) state.speaker = first;
+  }
   renderCast();
   renderTray();
+  updateCoopVisibility();
+  renderCoopBar();
   repaintAll();
 }
 
@@ -1521,6 +1731,8 @@ function renderColumnChips(): void {
 function openExport(): void {
   if (editingPanel >= 0) exitEditMode();
   renderColumnChips();
+  renderActorInputs();
+  updateActorSectionVisibility();
   // An empty comic used to make this a dead tap — the button did nothing at all,
   // which reads as a broken app rather than as "there's nothing here yet". Open
   // the sheet either way and say so.
@@ -1528,6 +1740,33 @@ function openExport(): void {
   $('exp-status').textContent = empty ? 'Nothing to export yet — write a line first.' : '';
   ($('exp-go') as HTMLButtonElement).disabled = empty;
   $('export-sheet').classList.add('open');
+}
+
+/**
+ * One text field per cast member for the "starring" credits — only shown when
+ * the credits toggle is on. Leave blank for characters that shouldn't have an
+ * actor attributed. Changes commit on input and are persisted per-draft.
+ */
+function renderActorInputs(): void {
+  const list = $('exp-cast-list');
+  list.innerHTML = state.cast
+    .map((id) => {
+      const character = esc(castName(id, manifests[id]?.name));
+      const value = esc(actors[id] ?? '');
+      return (
+        `<label class="exp-cast-row" style="--c:${colorOf(id)}">` +
+        `<span class="exp-cast-name">${character}</span>` +
+        `<input class="exp-cast-input" type="text" data-cid="${id}" value="${value}"` +
+        ` placeholder="actor's name" maxlength="40" autocomplete="off" aria-label="Actor for ${character}">` +
+        `</label>`
+      );
+    })
+    .join('');
+}
+
+function updateActorSectionVisibility(): void {
+  const on = ($('exp-credits') as HTMLInputElement).checked;
+  $('exp-cast').hidden = !on;
 }
 
 function closeExport(): void {
@@ -1551,8 +1790,14 @@ function openIntro(): void {
 }
 
 function closeIntro(): void {
+  const wasFirstLaunch = !hasSeenIntro();
   $('intro').classList.remove('open');
   markIntroSeen();
+  // On the very first launch, open the tray once so the mood wheel is
+  // revealed in place. Otherwise "+ opens the wheel" is just a line of
+  // walkthrough copy, and the wheel stays invisible until someone thinks to
+  // press an unlabeled plus icon — which the user demonstrated they wouldn't.
+  if (wasFirstLaunch && !isTrayOpen()) setTrayOpen(true);
 }
 
 /**
@@ -1619,12 +1864,40 @@ function slug(title: string): string {
   return s || 'mcomic';
 }
 
+/** Blob → raw base64 (no data URI prefix) — payload the native plugin wants. */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
 /**
- * Hand the PNG to the OS. Web Share puts it straight into the share sheet
- * (the useful path on a phone); the anchor download is the desktop/browser
- * fallback.
+ * Hand the PNG to the OS.
+ *
+ * Order matters: on Android we go through the native SavePhoto plugin so the
+ * file lands in Pictures/mComic96/ via MediaStore and actually appears in
+ * Gallery / Google Photos. Users reported that Web Share alone silently ate
+ * files — the share sheet is a picker, not a save, and picking the wrong
+ * target loses the file. The Web Share and anchor-download branches remain as
+ * fallbacks for desktop browsers, iOS, and older Android.
  */
 async function deliver(png: Blob, filename: string): Promise<string> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64 = await blobToBase64(png);
+      await SavePhoto.save({ base64, filename, album: 'mComic96' });
+      return 'Saved to Gallery ✓';
+    } catch {
+      // Native path failed (pre-Android-10, permission denied, storage
+      // pressure). Fall through to the web-tier flow so the user still has
+      // *some* way to keep the file.
+    }
+  }
   const file = new File([png], filename, { type: 'image/png' });
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
   if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
@@ -1649,6 +1922,30 @@ async function deliver(png: Blob, filename: string): Promise<string> {
   return `Saved ${filename}`;
 }
 
+/**
+ * User-typed actor names, keyed by character id. Only characters the user
+ * bothered to name appear here — an unset one credits under the character's
+ * mComic display name alone (see strip.ts).
+ */
+const actors: Record<string, string> = {};
+
+/**
+ * Build the casting map strip.ts wants: every cast member gets their mComic
+ * display name as `character`, and their actor name (if any) as `actor`.
+ * That's what stops the credits reading "starring Susan as Susan" — the
+ * character label is now Poppy, and the actor slot only shows up when the
+ * user has attributed the role to someone.
+ */
+function currentCasting(): Record<string, { character?: string; actor?: string }> {
+  const map: Record<string, { character?: string; actor?: string }> = {};
+  for (const id of state.cast) {
+    const character = castName(id, manifests[id]?.name);
+    const actor = actors[id]?.trim();
+    map[id] = actor ? { character, actor } : { character };
+  }
+  return map;
+}
+
 async function runExport(): Promise<void> {
   const btn = $('exp-go') as HTMLButtonElement;
   const status = $('exp-status');
@@ -1671,6 +1968,7 @@ async function runExport(): Promise<void> {
         // Match the demo: the credit line only rides along on a titled export.
         credit: title || subtitle ? EXPORT_CREDIT : undefined,
         credits,
+        casting: credits ? currentCasting() : undefined,
       },
     );
     const png = await rasterize(embedFont(svg), 2);
@@ -1682,6 +1980,307 @@ async function runExport(): Promise<void> {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ---- Share links ----------------------------------------------------------
+
+/** The current comic packed for the wire. Title/subtitle ride along. */
+function currentShareState(): ShareState {
+  const by = getHandle();
+  return {
+    v: 1,
+    events: state.events,
+    cast: state.cast,
+    scene: state.scene,
+    seed: state.seed,
+    speaker: state.speaker,
+    overrides: [...overrides.entries()],
+    t: ($('exp-title') as HTMLInputElement).value.trim() || undefined,
+    st: ($('exp-subtitle') as HTMLInputElement).value.trim() || undefined,
+    by: by || undefined,
+  };
+}
+
+/**
+ * Copy a share URL for the current comic to the clipboard.
+ *
+ * Web Share is tempting — it would drop the link straight into Android's
+ * share sheet — but a bare URL through `navigator.share({ text })` gets
+ * inconsistent treatment across chat apps (some inline the text, some don't),
+ * while a clipboard copy always works. Same button-flash pattern the web
+ * demo uses so success is unambiguous.
+ */
+async function copyShareLink(): Promise<void> {
+  const btn = $('exp-share') as HTMLButtonElement;
+  const status = $('exp-status');
+  const flash = (msg: string): void => {
+    status.textContent = msg;
+    // Don't overwrite a subsequent Download's status.
+    const own = msg;
+    setTimeout(() => { if (status.textContent === own) status.textContent = ''; }, 2000);
+  };
+  if (!currentPanels.length) { flash('Nothing to share yet.'); return; }
+  const link = shareUrl(currentShareState());
+  try {
+    await navigator.clipboard.writeText(link);
+    flash('Link copied ✓');
+  } catch {
+    // WebViews without the async clipboard API — fall back to a hidden textarea.
+    const ta = document.createElement('textarea');
+    ta.value = link;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); flash('Link copied ✓'); }
+    catch { flash('Could not copy — try again'); }
+    ta.remove();
+  }
+  // Keep the button lit briefly so the tap registers even when the status text is off-screen.
+  btn.classList.add('is-flash');
+  setTimeout(() => btn.classList.remove('is-flash'), 500);
+}
+
+/**
+ * Open the system share sheet with the current comic's URL — the path for
+ * "put this in a group chat / social post". Android renders the picker with
+ * every messaging app installed, so the link lands *inside* the target app
+ * instead of on the clipboard. Copy link stays around as the fallback for
+ * platforms where Web Share isn't available.
+ *
+ * We share the URL, not the file — a comic link is small, opens in the
+ * recipient's app (or the web mirror), and doesn't spend the megabytes a
+ * PNG would. The download button remains for "give me the image".
+ */
+async function shareViaSystem(): Promise<void> {
+  const status = $('exp-status');
+  const flash = (msg: string): void => {
+    status.textContent = msg;
+    const own = msg;
+    setTimeout(() => { if (status.textContent === own) status.textContent = ''; }, 2000);
+  };
+  if (!currentPanels.length) { flash('Nothing to share yet.'); return; }
+  const state = currentShareState();
+  const url = shareUrl(state);
+  const title = state.t || 'A comic from mComic \'96';
+  const by = state.by ? `${state.by} sent you a comic` : 'Someone sent you a comic';
+  if (typeof navigator.share !== 'function') {
+    // No Web Share (older browsers, desktop) — fall back to clipboard.
+    await copyShareLink();
+    return;
+  }
+  try {
+    await navigator.share({ title, text: by, url });
+    flash('Shared.');
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return;
+    // Any other error: fall back to clipboard so the user still has the link.
+    await copyShareLink();
+  }
+}
+
+/**
+ * Hydrate the app from a decoded share as a brand-new draft, so a link never
+ * silently replaces the comic the user was working on. If the current draft
+ * is a fresh untouched starter, it stays in the library — deleting it would
+ * be too clever; the user can prune from the library sheet.
+ */
+function openSharedState(shared: ShareState): void {
+  flushSave();
+  if (editingPanel >= 0) exitEditMode();
+
+  currentId = newDraftId();
+  currentName = '';
+  nameIsCustom = false;
+  setCurrentId(currentId);
+
+  state.cast = [...shared.cast];
+  state.events = [...shared.events];
+  state.scene = shared.scene;
+  state.seed = shared.seed;
+  state.speaker = shared.speaker;
+  touched = true; // an imported comic is not a rerollable starter
+
+  overrides.clear();
+  for (const [at, ov] of shared.overrides) overrides.set(at, { ...ov });
+
+  // Shared comics don't carry actor names (they aren't in the share format
+  // today) — start blank so the recipient can name their own actors.
+  for (const key of Object.keys(actors)) delete actors[key];
+
+  ($('exp-title') as HTMLInputElement).value = shared.t ?? '';
+  ($('exp-subtitle') as HTMLInputElement).value = shared.st ?? '';
+
+  if (coop.enabled) {
+    coop = reconcileSides(coop, state.cast);
+    saveCoop(coop);
+    coopSide = 'A';
+    coopTurnStarted = false;
+  }
+  renderCast();
+  renderTray();
+  updateCoopVisibility();
+  renderCoopBar();
+  repaintAll();
+  flushSave();
+
+  // Attribution — a brief toast so the recipient knows who sent it. Skipped
+  // when the sender didn't set a handle (share is anonymous).
+  if (shared.by) showToast(`Shared by ${shared.by}`);
+}
+
+/** Ephemeral status message pinned above the composer for ~3s. */
+function showToast(message: string): void {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add('show');
+  window.setTimeout(() => toast!.classList.remove('show'), 3200);
+}
+
+/**
+ * If the URL fragment carries a share token, decode and open it. Returns
+ * whether it did — so the boot path can skip the normal restore. Consumes
+ * the hash on success (a refresh must not reimport, since the imported
+ * copy is now itself a persisted draft).
+ */
+function consumeShareFromHash(): boolean {
+  const token = tokenFromHash(location.hash);
+  if (!token) return false;
+  const shared = decodeShare(token, KNOWN_CHARACTERS);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (!shared) return false;
+  openSharedState(shared);
+  return true;
+}
+
+// ---- Co-op mode -----------------------------------------------------------
+
+// The mechanic test for multiplayer: split the cast into two sides, each
+// panel is committed to one side at a time (only that side's characters can
+// speak in it), a Pass button hands the next panel to the other side. See
+// `app/coop.ts` for the state model. Purely local — one user role-plays both
+// sides to feel whether panel-by-panel + one-side-per-turn reads as creation
+// or as slow chat with rules.
+
+let coop: CoopConfig = loadCoop();
+/** Whose turn — reset to A each launch; in-memory only. */
+let coopSide: Side = 'A';
+/**
+ * Has the current turn added at least one beat yet? Controls whether the
+ * next send opens a new panel (start of turn — insert a break separator) or
+ * joins the current one (subsequent beats — no break, `withSamePanel` glues
+ * them). Reset on Pass and on every launch.
+ */
+let coopTurnStarted = false;
+
+/** Character ids for the side that's currently up. */
+function coopCurrentSideChars(): string[] {
+  return coopSide === 'A' ? coop.sideA : coop.sideB;
+}
+
+/** Rotate the speaker among the current side's characters — the reply feel. */
+function advanceSpeakerWithinSide(): void {
+  const side = coopCurrentSideChars();
+  if (side.length < 2) return;
+  const i = side.indexOf(state.speaker);
+  state.speaker = side[(i + 1) % side.length]!;
+}
+
+/** Show/hide the coop bar and reflect the enabled state on the toggle. */
+function updateCoopVisibility(): void {
+  const bar = $('coop-bar');
+  const toggle = $('coop-toggle') as HTMLButtonElement;
+  const label = toggle.querySelector('.coop-toggle-label') as HTMLElement | null;
+  toggle.setAttribute('aria-pressed', String(coop.enabled));
+  if (label) label.textContent = coop.enabled ? 'Co-op mode on' : 'Try co-op mode';
+  bar.hidden = !coop.enabled;
+  document.body.classList.toggle('coop-side-b', coop.enabled && coopSide === 'B');
+}
+
+/** Refresh the turn indicator's side label + coloured dots for that side's cast. */
+function renderCoopBar(): void {
+  if (!coop.enabled) return;
+  $('coop-side-name').textContent = coopSide === 'A' ? 'Side A' : 'Side B';
+  const chars = coopCurrentSideChars();
+  $('coop-side-cast').innerHTML = chars
+    .map(
+      (id) =>
+        `<span class="coop-dot" style="--c:${colorOf(id)}" title="${esc(castName(id, manifests[id]?.name))}"></span>`,
+    )
+    .join('');
+  document.body.classList.toggle('coop-side-b', coopSide === 'B');
+}
+
+/**
+ * Enable co-op on the current draft. If sides have never been set (or the
+ * cast has changed underneath them), split the current cast in half — first
+ * half A, second half B — so the user can just start playing. They can
+ * re-split via the swap button.
+ */
+function enableCoop(): void {
+  if (state.cast.length < 2) {
+    // A single-character comic has nobody to be "the other side" — the test
+    // needs at least one voice per team. Say so and back off.
+    alert('Add at least 2 characters before enabling co-op mode.');
+    return;
+  }
+  if (coop.sideA.length === 0 && coop.sideB.length === 0) {
+    coop = { enabled: true, ...autoSplit(state.cast) };
+  } else {
+    coop = reconcileSides({ ...coop, enabled: true }, state.cast);
+  }
+  saveCoop(coop);
+  coopSide = 'A';
+  coopTurnStarted = false;
+  const first = coopCurrentSideChars()[0];
+  if (first) state.speaker = first;
+  updateCoopVisibility();
+  renderCoopBar();
+  renderCast();
+  renderTray();
+}
+
+function disableCoop(): void {
+  coop = { ...coop, enabled: false };
+  saveCoop(coop);
+  coopTurnStarted = false;
+  updateCoopVisibility();
+  renderCast();
+}
+
+/** Re-split sides from the current cast, keeping co-op enabled. */
+function reshuffleSides(): void {
+  if (!coop.enabled) return;
+  coop = { enabled: true, ...autoSplit(state.cast) };
+  saveCoop(coop);
+  coopSide = 'A';
+  coopTurnStarted = false;
+  const first = coopCurrentSideChars()[0];
+  if (first) state.speaker = first;
+  renderCoopBar();
+  renderCast();
+  renderTray();
+}
+
+/** Pass the turn to the other side; next send opens a new panel for them. */
+function coopPass(): void {
+  if (!coop.enabled) return;
+  coopSide = coopSide === 'A' ? 'B' : 'A';
+  coopTurnStarted = false;
+  const first = coopCurrentSideChars()[0];
+  if (first) state.speaker = first;
+  updateCoopVisibility();
+  renderCoopBar();
+  renderCast();
+  renderTray();
 }
 
 // ---- Persistence ----------------------------------------------------------
@@ -1719,6 +2318,7 @@ function snapshot(): SavedComic {
     seed: state.seed,
     speaker: state.speaker,
     overrides: [...overrides.entries()],
+    actors: Object.keys(actors).length ? { ...actors } : undefined,
     export: {
       title: ($('exp-title') as HTMLInputElement).value,
       subtitle: ($('exp-subtitle') as HTMLInputElement).value,
@@ -1770,6 +2370,22 @@ function hydrate(saved: SavedComic): void {
   overrides.clear();
   for (const [at, ov] of saved.overrides) overrides.set(at, { ...ov });
 
+  // Actor names are per-character, per-comic — swapping drafts must swap
+  // whose actor names you see. Wipe and refill from the saved draft.
+  for (const key of Object.keys(actors)) delete actors[key];
+  if (saved.actors) Object.assign(actors, saved.actors);
+
+  // The restored draft may have a different cast than the last one — a
+  // character on a side might no longer exist here, or the cast may have
+  // grown. Reconcile so the sides always match what's on stage before we
+  // start painting the coop bar or the cast chips.
+  if (coop.enabled) {
+    coop = reconcileSides(coop, state.cast);
+    saveCoop(coop);
+    coopSide = 'A';
+    coopTurnStarted = false;
+  }
+
   if (saved.export) {
     ($('exp-title') as HTMLInputElement).value = saved.export.title ?? '';
     ($('exp-subtitle') as HTMLInputElement).value = saved.export.subtitle ?? '';
@@ -1782,6 +2398,8 @@ function hydrate(saved: SavedComic): void {
 
   renderCast();
   renderTray();
+  updateCoopVisibility();
+  renderCoopBar();
   repaintAll();
 }
 
@@ -1934,6 +2552,9 @@ function renderLibrary(): void {
 function openLibrary(): void {
   flushSave();
   renderLibrary();
+  // Sync the handle input with whatever's persisted — reflect any changes
+  // made in another tab / session before we let the user edit it.
+  ($('handle-input') as HTMLInputElement).value = getHandle();
   $('library-sheet').classList.add('open');
 }
 
@@ -2201,12 +2822,19 @@ $('edit-delete').addEventListener('click', deleteLine);
 $('edit-dup').addEventListener('click', duplicatePanel);
 $('edit-ins-before').addEventListener('click', () => insertPanel('before'));
 $('edit-ins-after').addEventListener('click', () => insertPanel('after'));
+// Unified panel-cast handler: every action a chip can trigger dispatches on
+// its data-attribute — add / remove / nudge / flip — so the merged row that
+// replaced "in this panel" + "arrange" needs only one listener.
 $('panel-cast').addEventListener('click', (e) => {
-  const btn = (e.target as HTMLElement).closest('button') as HTMLElement | null;
-  if (!btn) return;
+  const btn = (e.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+  if (!btn || btn.disabled) return;
   if (btn.id === 'panel-cast-add') return openCharPicker();
-  const id = btn.dataset.member;
-  if (id) togglePanelMember(id);
+  if (btn.dataset.add) return togglePanelMember(btn.dataset.add);
+  if (btn.dataset.remove) return togglePanelMember(btn.dataset.remove);
+  if (btn.dataset.flip) return flipCharacterFacing(btn.dataset.flip);
+  if (btn.dataset.nudge && btn.dataset.cid) {
+    return nudgeCharacter(btn.dataset.cid, btn.dataset.nudge === 'left' ? 'left' : 'right');
+  }
 });
 
 $('line-chips').addEventListener('click', (e) => {
@@ -2215,34 +2843,6 @@ $('line-chips').addEventListener('click', (e) => {
   if (btn.id === 'line-add') return addLineToPanel();
   const n = Number(btn.dataset.line);
   if (Number.isFinite(n) && n !== editingLine) enterEditMode(editingPanel, n);
-});
-
-$('in-scene').addEventListener('click', (e) => {
-  const target = e.target as HTMLElement;
-  const chip = target.closest('.isc') as HTMLElement | null;
-  if (!chip) return;
-  const cid = chip.dataset.cid;
-  if (!cid) return;
-  const nudge = target.closest('.isc-nudge') as HTMLElement | null;
-  if (nudge) {
-    if (nudge.hasAttribute('disabled')) return;
-    nudgeCharacter(cid, nudge.dataset.nudge === 'left' ? 'left' : 'right');
-    return;
-  }
-  if (target.closest('.isc-name')) flipCharacterFacing(cid);
-});
-$('edit-speaker').addEventListener('change', (e) => {
-  const id = (e.target as HTMLSelectElement).value;
-  if (!id) return;
-  state.speaker = id;
-  // A message can't address its own speaker — drop the new speaker from the
-  // addressee list if they were on it before the swap.
-  pending.addressees = pending.addressees.filter((a) => a !== id);
-  // A speaker swap can add/remove a chip from the addressee strip, so re-
-  // render both surfaces.
-  renderCast();
-  renderTray();
-  updatePreview();
 });
 
 $('help').addEventListener('click', openIntro);
@@ -2261,12 +2861,38 @@ $('exp-columns').addEventListener('click', (e) => {
   scheduleSave();
 });
 $('exp-go').addEventListener('click', () => { void runExport(); });
+$('exp-share').addEventListener('click', () => { void copyShareLink(); });
+$('exp-share-send').addEventListener('click', () => { void shareViaSystem(); });
+
+$('coop-toggle').addEventListener('click', () => {
+  if (coop.enabled) disableCoop();
+  else enableCoop();
+});
+$('coop-pass').addEventListener('click', coopPass);
+$('coop-swap').addEventListener('click', reshuffleSides);
 // Export settings are part of the comic, not of one export run — remember them.
 // Not `markEdited`: naming your comic shouldn't make the dice start asking.
 for (const id of ['exp-title', 'exp-subtitle']) {
   $(id).addEventListener('input', scheduleSave);
 }
-$('exp-credits').addEventListener('change', scheduleSave);
+$('exp-credits').addEventListener('change', () => {
+  updateActorSectionVisibility();
+  scheduleSave();
+});
+
+// Actor names — commit on input, so what you see in the credits panel matches
+// what you last typed. Not `markEdited`: naming actors doesn't make the dice
+// start asking, just as naming the comic doesn't.
+$('exp-cast-list').addEventListener('input', (e) => {
+  const input = e.target as HTMLInputElement;
+  if (input.tagName !== 'INPUT') return;
+  const cid = input.dataset.cid;
+  if (!cid) return;
+  const value = input.value.trim();
+  if (value) actors[cid] = value;
+  else delete actors[cid];
+  scheduleSave();
+});
 
 $('confirm-cancel').addEventListener('click', closeConfirm);
 $('confirm-go').addEventListener('click', () => {
@@ -2281,6 +2907,9 @@ $('confirm').addEventListener('click', (e) => {
 $('library').addEventListener('click', openLibrary);
 $('library-close').addEventListener('click', closeLibrary);
 $('library-new').addEventListener('click', newDraft);
+$('handle-input').addEventListener('input', (e) => {
+  setHandle((e.target as HTMLInputElement).value);
+});
 $('library-sheet').addEventListener('click', (e) => {
   if (e.target === $('library-sheet')) closeLibrary();
 });
@@ -2317,8 +2946,10 @@ $('library-list').addEventListener('click', (e) => {
 $('sheet-close').addEventListener('click', closeSheet);
 $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
 $('sheet-body').addEventListener('click', (e) => {
-  const btn = (e.target as HTMLElement).closest('button');
-  if (btn?.dataset.pick) addCharacter(btn.dataset.pick);
+  const btn = (e.target as HTMLElement).closest('button') as HTMLButtonElement | null;
+  if (!btn) return;
+  if (btn.dataset.pick) return addCharacter(btn.dataset.pick);
+  if (btn.dataset.remove) return removeCharacter(btn.dataset.remove);
 });
 
 // ---- The soft keyboard ----------------------------------------------------
@@ -2390,19 +3021,27 @@ CapacitorApp.addListener('backButton', () => {
   // Web/dev: the plugin is a no-op outside the native shell and never fires.
 });
 
-// First paint: pick up wherever the last session left off — the draft that was
-// open, or failing that the most recently saved one. If there's nothing to
-// restore (a genuine first run, cleared storage, or saves too damaged to trust)
-// a fixed welcome comic, so a first launch is the same every time.
+// First paint: an incoming share link wins if present (a launch-by-link is
+// asking for that comic, not the last one), otherwise pick up where the last
+// session left off — the open draft, or the most recently saved one. If there's
+// nothing to restore (genuine first run, cleared storage, or saves too damaged
+// to trust) a fixed welcome comic, so a first launch is the same every time.
 migrateLegacySession(KNOWN_CHARACTERS);
-const openId = getCurrentId();
-const restored =
-  (openId ? loadDraft(openId, KNOWN_CHARACTERS) : null) ?? listDrafts(KNOWN_CHARACTERS)[0] ?? null;
-if (restored) hydrate(restored);
-else {
-  setCurrentId(currentId);
-  loadSeed(7);
+if (!consumeShareFromHash()) {
+  const openId = getCurrentId();
+  const restored =
+    (openId ? loadDraft(openId, KNOWN_CHARACTERS) : null) ?? listDrafts(KNOWN_CHARACTERS)[0] ?? null;
+  if (restored) hydrate(restored);
+  else {
+    setCurrentId(currentId);
+    loadSeed(7);
+  }
 }
+
+// A share link pasted into the WebView mid-session (rare, but the natural test
+// path under `devserve.py`) imports as a new draft too — the running comic is
+// already autosaved and stays intact in the library.
+window.addEventListener('hashchange', () => { consumeShareFromHash(); });
 
 // The walkthrough goes last, so it opens over a comic rather than a blank screen
 // — the panels behind it are what the instructions are talking about.

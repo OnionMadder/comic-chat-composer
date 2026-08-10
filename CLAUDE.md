@@ -412,7 +412,11 @@ app's **`repaintAll` incremental** (an edit re-renders only the panels whose
 geometry changed, ~5ms flat instead of 21ms and climbing with comic length) →
 merged `main`'s **fitting fix** (the containment guarantee now reaches from the
 control polygon onto the fitted curve — the fit's own bound had been stopping
-it reaching the boundary it was fitted to; see `render-svg.ts` above).
+it reaching the boundary it was fitted to; see `render-svg.ts` above) → **app
+went live on Google Play** 2026-08-08 → **share links** in the app (2026-08-08,
+release 2's first feature; encoder/decoder in `app/share.ts`, Copy link button
+in the export sheet, boot- and hashchange-triggered inbound import as a new
+draft — the last "own the document" piece; see "Share links (built)" below).
 
 ## The conversation builder — built, and what's left
 
@@ -671,6 +675,13 @@ pane was never the same as working.
   on a desktop browser, where the dev loop runs. The baseline is the tallest
   viewport *seen*, not the one at load, because the app can start with the
   keyboard already up and anchoring to that would wedge `kb-up` off all session.
+  **The lines row is the one exception** — it stays visible (compact, 26px
+  chips instead of 40) because it's the only way to switch between beats in a
+  multi-line panel, and the most likely reason to tap a panel with the keyboard
+  already up is to fix line 2 after writing line 1. Fine when panels held one
+  beat; broken silently the moment `+ line` and co-op mode made multi-beat
+  panels a common shape — you would tap panel, land on line 1, and see no
+  affordance to reach line 2 (the row that held it was hidden by kb-up).
 - **System bars: the insets are applied natively, not in CSS** (see MainActivity).
   `env(safe-area-inset-top)` reports the **display cutout** on Android, not the
   status bar, so it is 0 on most phones and the app bar drew through the clock
@@ -994,13 +1005,40 @@ comic — never a blank screen.
   `.sheet`, not `window.confirm`, which looks alien in an APK and is suppressed
   outright in some WebViews.
 
-**▶ NEXT.** Compose, edit, export, persistence, and the draft library are done.
-The last "own the document" piece is **share links** — the web demo's
-`#c=<base64url JSON>` helpers in `examples/demo/main.ts` are liftable, but note
-its `s` field is a *script* string that won't round-trip `reaction` events or
-the app's `BeatOverrides`, so the app should pack its own `events` instead.
-Then **M5 onboarding**, which the app has been overdue for since the authoring
-verbs went in.
+### Share links (built)
+
+Copy link in the export sheet packs the current comic (`events`, cast, scene,
+seed, speaker, overrides, title/subtitle) into a `#c=<base64url JSON>` URL
+pointing at `SHARE_SITE` and drops it on the clipboard. Encoder + tolerant
+decoder live in `app/share.ts`; the app's snapshot goes on the wire as its
+actual `ChatEvent[]`, not a script string — the demo's `s` field can't
+round-trip `reaction` events or `BeatOverrides`, and losing those on share
+would silently degrade an authored comic.
+
+Inbound: `consumeShareFromHash()` decodes on boot (before the normal restore
+path — a launch-by-link is asking for *that* comic, not the last one) and
+again on `hashchange`. An imported share always creates a **new draft** —
+never an overwrite of what the user was working on — and the hash is cleared
+on success so a refresh doesn't reimport. Verified end-to-end at 375×812
+including hydration, draft-count delta, hash consumption, and silent
+fall-through on a malformed token.
+
+Two follow-ups the URL points at but doesn't fully close today:
+- **Web demo interop.** The link opens `onionmadder.com/comic-chat-composer/`
+  in a browser, but the demo's decoder still reads only `s` — so a link
+  opened on a device *without* the app currently lands on the demo's default
+  comic. Teach the demo to also read `events` (same decoder shape as
+  `share.ts`) and it becomes universal.
+- **Android App Links.** Tapping the URL currently opens a browser, not the
+  app. Adding an `intent-filter` for `onionmadder.com/comic-chat-composer/`
+  (with Play Console domain verification) routes it into the app instead.
+
+**▶ NEXT.** Compose, edit, export, persistence, the draft library, and share
+links are done. Release 2 is next up: bump `versionCode` (must strictly
+increment for every Play upload) + `versionName`, rebuild through
+`build:release` (R8, signed with the release keystore), prepare the Play
+upload — then a polish / value pass whose scope is decided at the top of that
+session.
 ## Custom character art — the intake pipeline
 
 Everything under `assets/comic-chat/` came out of Microsoft's binaries, which

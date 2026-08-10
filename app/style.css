@@ -74,6 +74,41 @@ body {
 .iconbtn:disabled { opacity: 0.4; }
 .iconbtn.round { border-radius: 50%; }
 
+/* The "more" button shows the current speaker as a coloured coin (their
+   head-and-shoulders, matching the wheel's pose thumbnails) with a small +
+   badge in the corner. So the button visually announces *whose* mood you're
+   about to set — instead of an unlabeled plus icon that new users don't press. */
+.iconbtn.mood {
+  padding: 0; overflow: visible;
+  border-color: var(--c, var(--cyan)); border-width: 2px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--c, var(--cyan)) 45%, transparent);
+  position: relative;
+}
+.iconbtn.mood .more-coin {
+  display: block; width: 100%; height: 100%;
+  border-radius: 50%; overflow: hidden;
+  background: var(--panel2);
+}
+.iconbtn.mood .more-coin svg { display: block; width: 100%; height: 100%; }
+.iconbtn.mood .more-badge {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--c, var(--cyan)); color: var(--ink);
+  font-family: var(--comic); font-size: 12px; font-weight: 700; line-height: 16px;
+  text-align: center;
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--c, var(--cyan)) 60%, transparent);
+}
+.iconbtn.mood .more-plus {
+  /* Fallback rendering when there's no speaker (empty cast). */
+  color: var(--cyan); font-size: 20px; line-height: 1;
+}
+.iconbtn.mood[aria-expanded="true"] {
+  /* Tray open — subtle emphasis so the button reads as "active toggle". */
+  box-shadow: 0 0 14px color-mix(in srgb, var(--c, var(--cyan)) 70%, transparent),
+              inset 0 0 0 2px color-mix(in srgb, var(--c, var(--cyan)) 40%, transparent);
+}
+
 /* ---- Comic scroll ---- */
 .comic {
   flex: 1;
@@ -164,7 +199,83 @@ body {
 }
 .chip.add { color: var(--cyan); border-color: var(--edge); border-style: dashed; padding: 10px 14px; min-width: 40px; }
 
+/* Co-op mode: the off-side cast is visible but muted — you can see who your
+   partner voices, you just can't speak as them until it's their turn. */
+.chip.is-side-a { border-left-width: 4px; }
+.chip.is-side-b { border-right-width: 4px; }
+.chip[disabled] {
+  opacity: 0.42;
+  filter: grayscale(0.6);
+  cursor: default;
+}
+.chip[disabled].is-active { box-shadow: none; }
+
 .speaking { font-size: 12px; color: var(--muted); padding-left: 2px; }
+
+/* The turn indicator that sits above the cast row when co-op is on. Kept slim
+   so it doesn't cost the comic real height — its point is to make whose turn
+   it is unmissable without becoming another 40px band. */
+.coop-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; margin-bottom: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel2) 80%, transparent);
+  border: 1px solid var(--edge);
+  font-size: 12px; color: var(--muted);
+}
+.coop-bar[hidden] { display: none; }
+.coop-turn { flex: none; color: var(--text); font-weight: 700; }
+.coop-side-name { color: var(--cyan); }
+body.coop-side-b .coop-side-name { color: var(--pink); }
+.coop-side-cast {
+  display: inline-flex; gap: 4px; align-items: center;
+  flex: 1; min-width: 0;
+}
+.coop-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--c, var(--muted)); flex: none;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent);
+}
+.coop-swap {
+  font-size: 15px; padding: 4px 8px; min-width: 30px; min-height: 28px;
+  color: var(--muted);
+}
+.coop-pass {
+  flex: none;
+  font-family: var(--comic); font-size: 14px; font-weight: 700;
+  color: var(--ink); background: var(--cyan);
+  border: none; border-radius: 10px; padding: 6px 12px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 45%, transparent);
+}
+body.coop-side-b .coop-pass {
+  background: var(--pink);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pink) 45%, transparent);
+}
+.coop-pass:active { transform: scale(0.97); }
+
+/* The enable toggle lives in the library sheet — same sheet you open to start
+   a new comic, since starting a co-op session is a related act. It stayed out
+   of the compose tray because the tray's a per-line control (delivery, wheel,
+   gesture, addressees) and a session-level mode toggle in there both crowded
+   the wheel and read as the wrong scope. Once enabled, the coop-bar above the
+   cast strip is what the user sees while they're in it. */
+.coop-row {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 0 6px;
+}
+.coop-toggle {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--comic); font-size: 14px; font-weight: 700;
+  color: var(--cyan); background: transparent;
+  border: 1.5px dashed var(--cyan); border-radius: 14px;
+  padding: 8px 14px;
+}
+.coop-toggle[aria-pressed="true"] {
+  color: var(--ink); background: var(--cyan); border-style: solid;
+}
+.coop-toggle:active { transform: scale(0.98); }
+.coop-hint { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 .inputrow { display: flex; align-items: center; gap: 8px; }
 .text {
@@ -210,41 +321,11 @@ body {
 .edit-bar .iconbtn.del { color: var(--pink); border-color: var(--pink); }
 .edit-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
-/* In-scene chip strip: one chip per character IN the panel being edited.
-   Nudge left / right to swap positions with a neighbor; the name flips
-   facing (with the little ◀ / ▶ badge showing the current direction). */
-.in-scene {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  width: 100%; min-width: 0;
-}
-.in-scene:empty { display: none; }
-.isc {
-  display: flex; align-items: stretch; overflow: hidden;
-  border: 1.5px solid var(--c, var(--edge)); border-radius: 14px;
-  background: var(--panel2);
-}
-.isc button {
-  font-family: var(--comic);
-  border: none; background: transparent; color: var(--text);
-  padding: 4px 8px;
-}
-.isc-nudge {
-  font-size: 16px; line-height: 1; color: var(--c);
-  border-right: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
-}
-.isc-nudge:last-child {
-  border-right: none;
-  border-left: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
-}
-.isc-nudge:disabled { opacity: 0.25; }
-.isc-name { font-size: 13px; padding: 4px 10px; }
-.isc-face { color: var(--c); font-size: 11px; margin-left: 2px; }
-.isc button:active { transform: scale(0.94); }
-
-/* ---- "in this panel" / "arrange" rows in the edit bar ----
+/* ---- "in this panel" row in the edit bar ----
    Who is in frame used to live at the bottom of the collapsed tray, which made
    adding a second character a three-tap hunt. It belongs here, in front of you,
-   next to the controls that arrange the people it puts there. */
+   with the arrange controls (‹ › and flip) inline on each in-frame chip
+   instead of in a separate row. */
 .panelrow {
   /* Take a whole line of the wrapping edit bar. `min-width: 0` is the load-
      bearing part: a flex item defaults to `min-width: auto`, which refuses to
@@ -255,10 +336,10 @@ body {
   display: flex; flex-direction: column; gap: 5px;
   font-size: 10px; color: var(--muted);
 }
-/* The arrange row only earns its space once there are two people to order, and
-   the lines row once the panel holds (or could hold) more than one line. */
-#arrange-row, #lines-row { display: none; }
-#arrange-row.is-shown, #lines-row.is-shown { display: flex; }
+/* The lines row only earns its space when the panel holds (or could hold)
+   more than one line. */
+#lines-row { display: none; }
+#lines-row.is-shown { display: flex; }
 
 /* While the soft keyboard is up, the edit bar drops its three chip rows.
    Measured: the bar is 286px, which puts the composer at 439px — and with a
@@ -268,9 +349,16 @@ body {
    their space back until the keyboard closes. `body.kb-up` is set from JS (see
    syncKeyboardState in main.ts); the selectors have to out-specify the
    `.is-shown` rules directly above. */
-body.kb-up .panelrow,
-body.kb-up #arrange-row.is-shown,
-body.kb-up #lines-row.is-shown { display: none; }
+body.kb-up .panelrow { display: none; }
+
+/* Exception: the lines row *has* to stay visible with the keyboard up —
+   it's the only way to switch between beats in a multi-line panel, and the
+   most likely reason someone taps a panel with the keyboard already open is
+   to fix line 2 after writing line 1. Compact so it costs the comic 26px
+   instead of 40+, but present. */
+body.kb-up #lines-row.is-shown { display: flex; padding: 2px 0; gap: 4px; }
+body.kb-up #lines-row .lbl { display: none; }
+body.kb-up #lines-row .pcast { padding: 4px 8px; font-size: 12px; min-height: 26px; }
 
 .panel-cast {
   display: flex; gap: 6px; padding-bottom: 2px;
@@ -303,6 +391,31 @@ body.kb-up #lines-row.is-shown { display: none; }
 .pcast:disabled { opacity: 0.35; }
 .pcast:disabled:active { transform: none; }
 
+/* Compound in-frame chip: one bordered container with the reorder / flip /
+   remove buttons segmented inside. Replaces the standalone "arrange" row —
+   each character's controls live on the character. */
+.pcast.is-frame {
+  display: inline-flex; align-items: stretch; overflow: hidden;
+  padding: 0; min-height: 36px;
+  border: 1.5px solid var(--c, var(--edge)); border-radius: 16px;
+  background: color-mix(in srgb, var(--c) 14%, var(--panel2));
+  color: var(--text);
+}
+.pcast.is-frame > button {
+  font-family: var(--comic); font-size: 13px;
+  border: none; background: transparent; color: inherit;
+  padding: 6px 10px;
+}
+.pcast.is-frame > button + button {
+  border-left: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
+}
+.pcast.is-frame > button:active { transform: scale(0.94); }
+.pcast.is-frame > button:disabled { opacity: 0.25; }
+.pcast-nudge { font-size: 16px; line-height: 1; color: var(--c); }
+.pcast-name { font-weight: 700; }
+.pcast-face { color: var(--c); font-size: 11px; margin-left: 4px; }
+.pcast-remove { color: var(--muted); font-size: 16px; line-height: 1; }
+
 /* Line chips: which beat of a multi-line panel you're editing. Solid outline
    rather than the filled "is-on" of a membership chip — this is a selection,
    not a toggle, and the two rows sit next to each other. */
@@ -314,17 +427,6 @@ body.kb-up #lines-row.is-shown { display: none; }
 }
 
 .addressees-row.is-hidden { display: none; }
-
-.edit-speaker-wrap {
-  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
-  font-size: 10px; color: var(--muted);
-}
-.edit-speaker {
-  font-family: var(--comic); font-size: 13px;
-  color: var(--text); background: var(--panel2);
-  border: 1px solid var(--cyan); border-radius: 8px;
-  padding: 4px 6px; max-width: 140px;
-}
 
 /* The tray floats OVER the comic instead of pushing it up.
    As a block in the composer's flex column it made the composer 497px of a
@@ -445,6 +547,63 @@ body.kb-up #lines-row.is-shown { display: none; }
 }
 .pick:disabled { opacity: 0.35; }
 .pick:active { transform: scale(0.96); }
+/* "In the scene" chips: use pink so the two functions of this sheet read as
+   distinct — cyan additions vs pink removals — before you even read a label. */
+.pick.pick-remove {
+  color: var(--pink); border-color: var(--pink);
+  background: color-mix(in srgb, var(--pink) 12%, var(--panel2));
+}
+.pick-section-label {
+  grid-column: 1 / -1;
+  font-size: 11px; color: var(--muted);
+  padding: 4px 2px 0; letter-spacing: 0.02em;
+}
+
+/* Handle row at the top of the library sheet — device-scoped display name,
+   shown to recipients on shared links ("Shared by Sam"). No signup, no
+   uniqueness check; the field itself is the whole identity system. */
+.handle-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px; row-gap: 4px;
+  align-items: center;
+  padding: 10px 12px; margin-bottom: 10px;
+  background: var(--panel2); border-radius: 12px;
+  border-left: 4px solid var(--cyan);
+}
+.handle-lbl {
+  font-family: var(--comic); font-size: 13px; font-weight: 700;
+  color: var(--cyan);
+}
+.handle-input {
+  font-family: var(--comic); font-size: 15px;
+  color: var(--text); background: transparent;
+  border: none; border-bottom: 1px dashed var(--edge);
+  padding: 3px 2px; min-width: 0;
+}
+.handle-input:focus { outline: none; border-bottom-color: var(--cyan); }
+.handle-input::placeholder { color: var(--muted); }
+.handle-hint {
+  grid-column: 1 / -1;
+  font-size: 11px; color: var(--muted); line-height: 1.4;
+}
+
+/* Toast — a brief attribution message on inbound share import ("Shared by Sam").
+   Pinned near the top so it doesn't fight the composer or the tray. */
+.toast {
+  position: fixed;
+  top: 12px; left: 50%; transform: translate(-50%, -20px);
+  padding: 8px 16px; border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--cyan);
+  color: var(--text); font-family: var(--comic); font-size: 14px; font-weight: 700;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 12px color-mix(in srgb, var(--cyan) 40%, transparent);
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 20;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---- Draft library ---- */
 .newcomic {
@@ -507,6 +666,15 @@ body.kb-up #lines-row.is-shown { display: none; }
   color: var(--cyan); font-size: 17px; line-height: 1;
 }
 .intro-key svg { width: 18px; height: 18px; }
+/* Inline "+" chip in intro copy — matches the actual composer button so the
+   walkthrough's "tap +" reads unambiguously. */
+.intro-list .kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  background: var(--panel2); border: 1px solid var(--cyan); border-radius: 8px;
+  color: var(--cyan); font-family: var(--comic); font-size: 14px; font-weight: 700;
+  vertical-align: -4px; margin: 0 2px;
+}
 
 /* ---- Confirm dialog (destructive actions) ----
    A sheet rather than window.confirm: the native dialog looks alien inside an
@@ -541,6 +709,35 @@ body.kb-up #lines-row.is-shown { display: none; }
   font-size: 14px; color: var(--text);
 }
 .exp-toggle input { width: 20px; height: 20px; accent-color: var(--cyan); flex: none; }
+
+/* Per-character actor names — only shown when the credits toggle is on.
+   One row per cast member: the character's mComic name on the left, an
+   input for the actor's name on the right. Left border is the character's
+   neon slot colour, matching the cast strip below. */
+.exp-cast[hidden] { display: none; }
+.exp-cast { display: flex; flex-direction: column; gap: 8px; }
+.exp-cast-hint { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.4; }
+.exp-cast-list { display: flex; flex-direction: column; gap: 6px; }
+.exp-cast-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel2); border-radius: 12px;
+  border-left: 4px solid var(--c, var(--edge));
+  padding: 6px 10px;
+}
+.exp-cast-name {
+  flex: none; min-width: 78px;
+  font-family: var(--comic); font-size: 13px; font-weight: 700;
+  color: var(--c, var(--text));
+}
+.exp-cast-input {
+  flex: 1; min-width: 0;
+  font-family: var(--comic); font-size: 13px;
+  color: var(--text); background: transparent;
+  border: none; border-bottom: 1px dashed var(--edge);
+  padding: 4px 2px;
+}
+.exp-cast-input:focus { outline: none; border-bottom-color: var(--cyan); }
+.exp-cast-input::placeholder { color: var(--muted); }
 .exp-status { font-size: 12px; color: var(--cyan); min-height: 1.2em; }
 .exp-go {
   font-family: var(--comic); font-size: 17px; font-weight: 700;
@@ -550,6 +747,16 @@ body.kb-up #lines-row.is-shown { display: none; }
 }
 .exp-go:active { transform: scale(0.98); }
 .exp-go:disabled { opacity: 0.5; box-shadow: none; }
+.exp-actions { display: flex; flex-direction: column; gap: 8px; }
+.exp-share-row { display: flex; gap: 8px; }
+.exp-share-row .exp-share { flex: 1; }
+.exp-share {
+  font-family: var(--comic); font-size: 15px; font-weight: 700;
+  color: var(--cyan); background: transparent;
+  border: 2px solid var(--cyan); border-radius: 14px; padding: 10px;
+}
+.exp-share:active { transform: scale(0.98); }
+.exp-share:disabled { opacity: 0.5; }
 
 /* The app bar is the tightest row in the app: wordmark + five 38px buttons +
    padding needs every pixel of a 375px screen, and a release build clears it by

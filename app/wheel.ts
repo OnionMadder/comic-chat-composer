@@ -86,7 +86,7 @@ export interface WheelOptions {
  * down, which is head-and-shoulders on a layered character and the expressive
  * top third of a whole-figure one.
  */
-function cropToCoin(svg: string, cx: number, cy: number, r: number): string {
+export function cropToCoin(svg: string, cx: number, cy: number, r: number): string {
   const tag = /^<svg\b[^>]*?width="(\d+(?:\.\d+)?)"[^>]*?height="(\d+(?:\.\d+)?)"[^>]*>/.exec(svg);
   if (!tag) return '';
   const w = Number(tag[1]!);

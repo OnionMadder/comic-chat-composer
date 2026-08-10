@@ -40,6 +40,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Register custom plugins BEFORE super.onCreate — Capacitor's bridge
+        // wires them up during its own start, so a late registerPlugin() call
+        // is silently ignored and the TS side then rejects with "not implemented".
+        registerPlugin(SavePhotoPlugin.class);
         super.onCreate(savedInstanceState);
 
         root = findViewById(android.R.id.content);

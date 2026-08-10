@@ -78,6 +78,11 @@ await esbuild.build({
 
 const balloonIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-4 4v-4H4z"/></svg>`;
 
+// Placeholder for the "more" button — replaced at runtime by the current
+// speaker's head-and-shoulders coin so the button visually says *whose*
+// mood you're about to set. See `renderMoreButton` in main.ts.
+const morePlaceholder = `<span class="more-plus" aria-hidden="true">+</span>`;
+
 // A visible build stamp so we can confirm a device actually has the latest
 // bundle — genuinely useful while sideloading, and noise in a shipped app.
 // `--release` drops it (see the `build:release` script); a plain build keeps it.
@@ -110,14 +115,16 @@ const html = `<!doctype html>
   <main id="comic" class="comic" aria-label="Your comic"></main>
 
   <footer class="composer">
+    <div id="coop-bar" class="coop-bar" role="status" aria-live="polite" hidden>
+      <span class="coop-turn"><span id="coop-side-name" class="coop-side-name">Side A</span>&rsquo;s turn</span>
+      <span id="coop-side-cast" class="coop-side-cast" aria-hidden="true"></span>
+      <button id="coop-swap" class="iconbtn coop-swap" aria-label="Re-split sides" title="Re-split sides">&#8646;</button>
+      <button id="coop-pass" class="coop-pass" aria-label="Pass the turn to the other side">Pass&nbsp;&rsaquo;</button>
+    </div>
     <div id="cast" class="cast"></div>
     <div class="speaking" id="speaking"></div>
     <div id="edit-bar" class="edit-bar" role="region" aria-label="Editing panel">
       <span id="edit-label" class="edit-label">Editing</span>
-      <label class="edit-speaker-wrap" aria-label="Panel speaker">
-        <span class="lbl">speaker</span>
-        <select id="edit-speaker" class="edit-speaker"></select>
-      </label>
       <div class="edit-actions">
         <button id="edit-ins-before" class="iconbtn" aria-label="Insert a blank panel before this one" title="Insert before">&#43;&#8593;</button>
         <button id="edit-ins-after" class="iconbtn" aria-label="Insert a blank panel after this one" title="Insert after">&#43;&#8595;</button>
@@ -133,13 +140,9 @@ const html = `<!doctype html>
         <span class="lbl">in this panel</span>
         <div id="panel-cast" class="panel-cast" role="group" aria-label="Characters in this panel"></div>
       </label>
-      <label class="panelrow" id="arrange-row">
-        <span class="lbl">arrange</span>
-        <div id="in-scene" class="in-scene" role="toolbar" aria-label="Arrange characters"></div>
-      </label>
     </div>
     <div class="inputrow">
-      <button id="more" class="iconbtn round" aria-label="More options" aria-expanded="false" aria-controls="tray">+</button>
+      <button id="more" class="iconbtn round mood" aria-label="Mood wheel, gesture, and delivery" title="Mood, gesture &amp; delivery" aria-expanded="false" aria-controls="tray">${morePlaceholder}</button>
       <input id="text" class="text" type="text" autocomplete="off" autocapitalize="sentences"
              placeholder="Type a line&hellip;" aria-label="Line text">
       <button id="send" class="send" aria-label="Send">${balloonIcon}</button>
@@ -178,7 +181,20 @@ const html = `<!doctype html>
       <span>Your comics</span>
       <button id="library-close" class="iconbtn" aria-label="Close">&times;</button>
     </div>
+    <label class="handle-row">
+      <span class="handle-lbl">Your handle</span>
+      <input id="handle-input" class="handle-input" type="text" maxlength="40" autocomplete="off"
+             placeholder="anonymous" aria-label="Your handle for shared links">
+      <span class="handle-hint">Shown when you share a comic &mdash; leave blank to share anonymously.</span>
+    </label>
     <button id="library-new" class="newcomic">+ New comic</button>
+    <div class="coop-row">
+      <button id="coop-toggle" class="coop-toggle" aria-pressed="false">
+        <span aria-hidden="true">&#128101;</span>
+        <span class="coop-toggle-label">Try co-op mode</span>
+      </button>
+      <p class="coop-hint">Split the cast into two sides and take turns adding panels — a quick way to feel the multiplayer rhythm before we build it for real.</p>
+    </div>
     <div id="library-list" class="library-list"></div>
   </div>
 </div>
@@ -194,7 +210,7 @@ const html = `<!doctype html>
       <li><span class="intro-key" aria-hidden="true">&#8597;</span>
         <span><b>Press and hold a panel to move it.</b> Drag it up or down to re-order the story.</span></li>
       <li><span class="intro-key" aria-hidden="true">&#9673;</span>
-        <span><b>Drag the wheel to a face.</b> Every face on it is your character wearing that mood &mdash; drag to the one you want, further out for more of it.</span></li>
+        <span><b>Tap <span class="kbd">+</span> for the mood wheel.</b> It opens the wheel, gestures, and delivery. Drag the wheel to a face &mdash; every one is your character wearing that mood, further out for more of it.</span></li>
       <li><span class="intro-key" aria-hidden="true">&#127922;</span>
         <span><b>Stuck?</b> The dice writes you a fresh comic. &#128218; keeps your drafts, &#8681; saves a picture to share.</span></li>
     </ul>
@@ -237,8 +253,18 @@ const html = `<!doctype html>
         <input id="exp-credits" type="checkbox">
         <span>Add a &ldquo;starring&rdquo; cast panel</span>
       </label>
+      <div id="exp-cast" class="exp-cast" hidden>
+        <p class="exp-cast-hint">Actor names for the credits &mdash; leave blank to just show the character.</p>
+        <div id="exp-cast-list" class="exp-cast-list"></div>
+      </div>
       <div id="exp-status" class="exp-status" role="status"></div>
-      <button id="exp-go" class="exp-go">Download</button>
+      <div class="exp-actions">
+        <button id="exp-go" class="exp-go">Download</button>
+        <div class="exp-share-row">
+          <button id="exp-share-send" class="exp-share">Share &hellip;</button>
+          <button id="exp-share" class="exp-share">Copy link</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
